@@ -1,0 +1,192 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { ChevronRight, Home as HomeIcon } from 'lucide-react';
+import { ChatBubble } from '@/components/layout/ChatBubble';
+import { Footer } from '@/components/layout/Footer';
+import { Header } from '@/components/layout/Header';
+import { AddressForm } from '@/components/checkout/AddressForm';
+import { CheckoutOrderSummary } from '@/components/checkout/CheckoutOrderSummary';
+import { DeliveryMethodSelector } from '@/components/checkout/DeliveryMethodSelector';
+import { NotificationPrefs } from '@/components/checkout/NotificationPrefs';
+import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
+import { useCheckoutStore, type ShippingAddress } from '@/stores/checkoutStore';
+import {
+  selectCartTotalAmount,
+  selectCartTotalQuantity,
+  useCartStore,
+} from '@/stores/cartStore';
+
+const steps: CheckoutStep[] = [
+  { num: 1, label: 'Cart', status: 'done' },
+  { num: 2, label: 'Shipping', status: 'active' },
+  { num: 3, label: 'Payment', status: 'pending' },
+];
+
+export default function ShippingPage() {
+  const router = useRouter();
+  const items = useCartStore((s) => s.items);
+  const totalQuantity = useCartStore(selectCartTotalQuantity);
+  const totalAmount = useCartStore(selectCartTotalAmount);
+
+  const storeShipping = useCheckoutStore((s) => s.shipping);
+  const deliveryMethod = useCheckoutStore((s) => s.deliveryMethod);
+  const notify = useCheckoutStore((s) => s.notify);
+  const setShipping = useCheckoutStore((s) => s.setShipping);
+  const setDeliveryMethod = useCheckoutStore((s) => s.setDeliveryMethod);
+  const setNotify = useCheckoutStore((s) => s.setNotify);
+
+  const [draft, setDraft] = useState<ShippingAddress | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draft) return;
+    setShipping(draft);
+    router.push('/checkout/payment');
+  };
+
+  const isEmpty = hydrated && items.length === 0;
+
+  return (
+    <>
+      <Header />
+      <main className="bg-page pb-12">
+        <nav aria-label="Breadcrumb" className="border-b border-border bg-page">
+          <ol className="mx-auto flex max-w-site items-center gap-1.5 px-4 py-3 font-sans text-xs text-muted md:text-sm">
+            <li>
+              <Link href="/" className="flex items-center gap-1 hover:text-navy">
+                <HomeIcon size={14} aria-hidden /> Home
+              </Link>
+            </li>
+            <li aria-hidden>
+              <ChevronRight size={12} className="text-border" />
+            </li>
+            <li>
+              <Link href="/cart" className="hover:text-navy">
+                Cart
+              </Link>
+            </li>
+            <li aria-hidden>
+              <ChevronRight size={12} className="text-border" />
+            </li>
+            <li>
+              <span className="font-medium text-charcoal">Shipping</span>
+            </li>
+          </ol>
+        </nav>
+
+        <div className="bg-white">
+          <div className="mx-auto max-w-site px-4 py-8 md:py-10">
+            <div className="mb-6 flex flex-col items-center gap-2 text-center md:mb-8">
+              <h1 className="font-raleway text-3xl font-bold text-navy md:text-4xl">
+                Shipping Details
+              </h1>
+              <p className="font-sans text-sm text-muted md:text-base">
+                Where should we deliver your order?
+              </p>
+            </div>
+
+            <div className="mb-8 md:mb-10">
+              <CheckoutProgress steps={steps} />
+            </div>
+
+            {isEmpty ? (
+              <div className="rounded-card border border-border bg-white p-10 text-center">
+                <p className="mb-4 font-sans text-base text-muted">
+                  Your cart is empty. Add some products before checking out.
+                </p>
+                <Link
+                  href="/"
+                  className="inline-block rounded-btn bg-navy px-6 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
+                >
+                  Continue Shopping
+                </Link>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
+                <div className="flex flex-col gap-6 lg:col-span-8 lg:gap-8">
+                  <Section title="Delivery Address" caption="Where should this go?">
+                    <AddressForm initial={storeShipping ?? undefined} onChange={setDraft} />
+                  </Section>
+
+                  <Section
+                    title="Delivery Method"
+                    caption="Choose how fast and how you want it delivered."
+                  >
+                    <DeliveryMethodSelector
+                      value={deliveryMethod}
+                      onChange={setDeliveryMethod}
+                    />
+                  </Section>
+
+                  <Section
+                    title="Notifications"
+                    caption="Order updates from dispatch to delivery."
+                  >
+                    <NotificationPrefs value={notify} onChange={setNotify} />
+                  </Section>
+
+                  <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <Link
+                      href="/cart"
+                      className="rounded-btn border-2 border-navy bg-white px-5 py-3 text-center font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white sm:text-sm"
+                    >
+                      ← Back to Cart
+                    </Link>
+                    <button
+                      type="submit"
+                      className="rounded-btn bg-navy px-6 py-3 text-center font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy sm:text-sm"
+                    >
+                      Continue to Payment →
+                    </button>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-4">
+                  <CheckoutOrderSummary
+                    items={hydrated ? items : []}
+                    subtotal={hydrated ? totalAmount : 0}
+                    itemCount={hydrated ? totalQuantity : 0}
+                  />
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      </main>
+      <Footer />
+      <ChatBubble />
+    </>
+  );
+}
+
+function Section({
+  title,
+  caption,
+  children,
+}: {
+  title: string;
+  caption?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-card border border-border bg-white p-5 shadow-card md:p-6">
+      <header className="mb-4 md:mb-5">
+        <h2 className="font-raleway text-lg font-bold text-navy md:text-xl">
+          {title}
+        </h2>
+        {caption ? (
+          <p className="mt-1 font-sans text-sm text-muted">{caption}</p>
+        ) : null}
+      </header>
+      {children}
+    </section>
+  );
+}

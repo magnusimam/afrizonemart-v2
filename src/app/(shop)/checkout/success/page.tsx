@@ -1,0 +1,188 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { Calendar, CheckCircle2, Mail, Package, Share2 } from 'lucide-react';
+import { ChatBubble } from '@/components/layout/ChatBubble';
+import { Footer } from '@/components/layout/Footer';
+import { Header } from '@/components/layout/Header';
+import { TrustBarSection } from '@/components/sections/TrustBarSection';
+import { DELIVERY_METHODS } from '@/lib/checkout-data';
+import { useCheckoutStore } from '@/stores/checkoutStore';
+
+export default function SuccessPage() {
+  const orderId = useCheckoutStore((s) => s.orderId);
+  const shipping = useCheckoutStore((s) => s.shipping);
+  const deliveryMethod = useCheckoutStore((s) => s.deliveryMethod);
+  const reset = useCheckoutStore((s) => s.reset);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  const eta = (() => {
+    const d = new Date();
+    const m = DELIVERY_METHODS.find((mth) => mth.id === deliveryMethod);
+    if (!m) return d;
+    if (m.id === 'express') d.setHours(d.getHours() + 24);
+    else if (m.id === 'standard') d.setDate(d.getDate() + 2);
+    else if (m.id === 'pickup') d.setHours(d.getHours() + 4);
+    else d.setDate(d.getDate() + 7);
+    return d;
+  })();
+
+  const etaLabel = eta.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  return (
+    <>
+      <Header />
+      <main className="bg-page pb-12">
+        <section className="bg-white py-12 md:py-20">
+          <div className="mx-auto flex max-w-2xl flex-col items-center gap-6 px-4 text-center">
+            <div className="relative flex h-24 w-24 items-center justify-center md:h-32 md:w-32">
+              <span className="absolute inset-0 animate-ping rounded-full bg-success/20" aria-hidden />
+              <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-success md:h-28 md:w-28">
+                <CheckCircle2 size={48} strokeWidth={2} className="text-white md:hidden" aria-hidden />
+                <CheckCircle2 size={64} strokeWidth={2} className="hidden text-white md:block" aria-hidden />
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <p className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
+                Order Confirmed
+              </p>
+              <h1 className="font-raleway text-3xl font-bold text-navy md:text-5xl">
+                Asante! Your Order is on the Way
+              </h1>
+              <p className="font-sans text-base leading-relaxed text-muted md:text-lg">
+                Thank you{shipping ? `, ${shipping.firstName}` : ''} — your order has been received and our team is preparing it for dispatch.
+              </p>
+            </div>
+
+            {hydrated && orderId ? (
+              <div className="grid w-full grid-cols-1 gap-3 rounded-card border border-border bg-page p-5 text-left sm:grid-cols-2">
+                <Detail label="Order Number" value={orderId} highlight />
+                <Detail label="Estimated Delivery" value={etaLabel} icon={<Calendar size={14} />} />
+                {shipping ? (
+                  <Detail
+                    label="Delivering to"
+                    value={`${shipping.city}, ${shipping.region}`}
+                  />
+                ) : null}
+                <Detail
+                  label="Delivery Method"
+                  value={
+                    DELIVERY_METHODS.find((m) => m.id === deliveryMethod)?.label ?? '—'
+                  }
+                  icon={<Package size={14} />}
+                />
+              </div>
+            ) : null}
+
+            <p className="flex items-center gap-2 font-sans text-sm text-charcoal">
+              <Mail size={16} className="text-navy" aria-hidden />
+              A confirmation email has been sent
+              {shipping?.email ? (
+                <>
+                  to <span className="font-semibold text-navy">{shipping.email}</span>
+                </>
+              ) : null}
+              .
+            </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link
+                href={orderId ? `/account/orders/${orderId}` : '/account/orders'}
+                onClick={reset}
+                className="rounded-btn bg-navy px-6 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy md:text-sm"
+              >
+                Track Your Order
+              </Link>
+              <Link
+                href="/"
+                onClick={reset}
+                className="rounded-btn border-2 border-navy bg-white px-6 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white md:text-sm"
+              >
+                Continue Shopping
+              </Link>
+            </div>
+
+            <div className="flex flex-col items-center gap-3 pt-4">
+              <p className="flex items-center gap-1.5 font-sans text-xs text-muted">
+                <Share2 size={14} aria-hidden />
+                Tell your friends about Afrizonemart:
+              </p>
+              <div className="flex gap-2">
+                <ShareButton href="https://wa.me/?text=I%20just%20shopped%20on%20Afrizonemart!">
+                  WhatsApp
+                </ShareButton>
+                <ShareButton href="https://x.com/intent/tweet?text=Just%20shopped%20on%20%40Afrizonemart!&url=https%3A%2F%2Fafrizonemart.com">
+                  X
+                </ShareButton>
+                <ShareButton href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fafrizonemart.com">
+                  Facebook
+                </ShareButton>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <TrustBarSection />
+      </main>
+      <Footer />
+      <ChatBubble />
+    </>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  icon,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="flex items-center gap-1.5 font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
+        {icon}
+        {label}
+      </span>
+      <span
+        className={`font-raleway text-sm font-bold md:text-base ${
+          highlight ? 'text-amber' : 'text-navy'
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function ShareButton({
+  children,
+  href,
+}: {
+  children: React.ReactNode;
+  href: string;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="rounded-full border border-border bg-white px-4 py-1.5 font-raleway text-xs font-semibold text-navy transition-colors hover:border-navy hover:bg-navy hover:text-white"
+    >
+      {children}
+    </a>
+  );
+}
