@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Raleway } from 'next/font/google';
+import { QueryProvider } from '@/components/providers/QueryProvider';
 import './globals.css';
 
 const raleway = Raleway({
@@ -21,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={raleway.variable}>
       <body className="bg-page font-sans text-charcoal antialiased">
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );
