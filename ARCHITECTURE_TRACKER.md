@@ -313,10 +313,13 @@ only call APIs and render data — never contain business logic.
 
 **Implementation log**:
 - **2026-04-25** — First API endpoints exist before the frontend consumes
-  them: `GET /api/products` and `GET /api/products/:slug`. The Next.js
-  side still imports mock data from `src/lib/products.ts`; flipping it to
-  consume the API via TanStack Query is the next push and will move this
-  to `[x]`.
+  them: `GET /api/products` and `GET /api/products/:slug`.
+- **2026-04-25 (frontend half)** — Groceries section (`ProductsSection`)
+  is now a client component using `useProducts({category: 'groceries'})`
+  via TanStack Query. Other product sections (Deals, Favourites, Female,
+  Purchase Big, Books) still use hardcoded data — they migrate
+  incrementally as we add their API endpoints / category seeds. Stays
+  `[~]` until at least the catalogue side is fully API-driven.
 
 ---
 
@@ -355,7 +358,7 @@ and empty states. Use named exports.
 
 ---
 
-### B4. [~] Rule 4 — State Management
+### B4. [x] Rule 4 — State Management
 
 **What it means**: Zustand for global state. TanStack Query for server data.
 `useState` for local UI. Don't reach for Redux.
@@ -367,10 +370,16 @@ and empty states. Use named exports.
   - `useCheckoutStore` (`src/stores/checkoutStore.ts`) — shipping, delivery
     method, notify prefs, payment method, order id; persisted as
     `azm-checkout`.
-- TanStack Query is **installed** but **not yet wired** because there's no
-  real API to query. Flips to `[x]` when products/auth queries land.
+- **2026-04-25 (TanStack Query wired)** — `QueryProvider`
+  (`src/components/providers/QueryProvider.tsx`) wraps the entire app from
+  `src/app/layout.tsx`. First hooks at `src/hooks/use-products.ts`
+  (`useProducts(params)`, `useProduct(slug)`) calling
+  `src/lib/api/products.ts`. The Groceries section is the first consumer
+  with full loading + error rendering. Default options: 60s staleTime, 5m
+  gcTime, 1 retry, no refetch on focus.
 - Local UI state (`useState`) is used everywhere it should be — modal opens,
   form drafts, accordion sections, gallery active index, wishlist toggle, etc.
+- **Flipped to `[x]`** — three-tier state strategy fully realised.
 
 ---
 
@@ -423,18 +432,26 @@ provided screenshots. Pixel-sample colours; don't guess.
 
 ---
 
-### B8. [ ] Rule 8 — Error and Loading States
+### B8. [~] Rule 8 — Error and Loading States
 
 **What it means**: Every data-fetching component handles **loading**,
 **error**, and **empty** states. No naked spinners; use skeleton placeholders
 that match the final shape.
 
 **Implementation log**:
-- _(empty — empty states exist for several pages, but proper loading
-  skeletons and error boundaries don't yet because we haven't connected to a
-  real API. Will land alongside Rule B1. The API side already returns a
-  consistent JSON error envelope so the frontend has something deterministic
-  to handle.)_
+- **2026-04-25** — Skeletons + error fallbacks introduced for the first
+  data-fetching surface (Groceries section):
+  - `src/components/product/ProductCardSkeleton.tsx` — single-card skeleton
+    matching the exact shape of `ProductCardPlaceholder` so there's no
+    layout shift when real data arrives. `ProductGridSkeleton` renders N.
+  - `src/components/product/ProductGridError.tsx` — inline error tile with
+    "Try Again" button that calls `refetch`. Reads the API error envelope
+    (`error.code` / `error.message`).
+  - The cart, wishlist, orders, and search-no-results pages already had
+    empty states from earlier work.
+- Status `[~]` because only one section (Groceries) demonstrates the
+  pattern. Other sections still use static data and will pick up the same
+  loading/error treatment as we migrate them to the API.
 
 ---
 
