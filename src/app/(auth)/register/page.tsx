@@ -1,19 +1,61 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 import { COUNTRIES, COUNTRY_CODES, getCountry } from '@/lib/countries';
+import { AuthApiError, registerUser } from '@/lib/api/auth';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function RegisterPage() {
-  const [showPwd, setShowPwd] = useState(false);
+  const router = useRouter();
+  const setSession = useAuthStore((s) => s.setSession);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [country, setCountry] = useState('NG');
+  const [showPwd, setShowPwd] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const c = getCountry(country);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+
+    // country/phone are captured locally but not yet persisted server-side —
+    // the User schema doesn't have those fields yet. See ARCHITECTURE_TRACKER
+    // → Followups for the schema extension that will store them.
+    void country;
+    void phone;
+
+    const fullName = [firstName, lastName].map((s) => s.trim()).filter(Boolean).join(' ');
+
+    try {
+      const result = await registerUser({
+        email,
+        password,
+        name: fullName || undefined,
+      });
+      setSession(result);
+      router.push('/account');
+    } catch (err) {
+      setError(
+        err instanceof AuthApiError
+          ? err.message
+          : 'Could not create your account. Please try again.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -30,11 +72,22 @@ export default function RegisterPage() {
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {error && (
+          <div
+            role="alert"
+            className="rounded-input border border-danger/30 bg-danger/5 px-3 py-2 font-sans text-sm text-danger"
+          >
+            {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <Field label="First Name">
             <input
               required
               type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
               className={inputClass}
               autoComplete="given-name"
             />
@@ -43,6 +96,8 @@ export default function RegisterPage() {
             <input
               required
               type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
               className={inputClass}
               autoComplete="family-name"
             />
@@ -53,6 +108,8 @@ export default function RegisterPage() {
           <input
             required
             type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             className={inputClass}
             autoComplete="email"
@@ -86,6 +143,8 @@ export default function RegisterPage() {
             <input
               required
               type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
               placeholder="80 1234 5678"
               className={inputClass}
               autoComplete="tel"
@@ -98,6 +157,8 @@ export default function RegisterPage() {
             <input
               required
               type={showPwd ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 8 characters"
               minLength={8}
               className={`${inputClass} pr-10`}
@@ -133,9 +194,10 @@ export default function RegisterPage() {
 
         <button
           type="submit"
-          className="rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy"
+          disabled={submitting}
+          className="rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Create Account
+          {submitting ? 'Creating account…' : 'Create Account'}
         </button>
 
         <div className="relative my-2 flex items-center">

@@ -6,14 +6,16 @@ import { ChevronRight, Home as HomeIcon, Trash2 } from 'lucide-react';
 import { ChatBubble } from '@/components/layout/ChatBubble';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
-import { CartCouponForm, type AppliedCoupon } from '@/components/cart/CartCouponForm';
+import { CartCouponForm } from '@/components/cart/CartCouponForm';
 import { CartLineItem } from '@/components/cart/CartLineItem';
 import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
 import { EmptyCart } from '@/components/cart/EmptyCart';
 import { OrderSummary } from '@/components/cart/OrderSummary';
 import { RelatedProducts } from '@/components/product/RelatedProducts';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
+import { fetchCart, type CartView } from '@/lib/api/cart';
 import { getRelatedProducts } from '@/lib/products';
+import { useAuthStore } from '@/stores/authStore';
 import {
   selectCartTotalAmount,
   selectCartTotalQuantity,
@@ -32,11 +34,24 @@ export default function CartPage() {
   const clear = useCartStore((s) => s.clear);
   const totalQuantity = useCartStore(selectCartTotalQuantity);
   const totalAmount = useCartStore(selectCartTotalAmount);
-  const [coupon, setCoupon] = useState<AppliedCoupon | undefined>(undefined);
+  const isAuthed = useAuthStore((s) => Boolean(s.user && s.accessToken));
+  const [serverCart, setServerCart] = useState<CartView | null>(null);
 
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  // Pull the server cart so we know the applied coupon (if any) and can
+  // surface the discount line. Refreshes when items change so adding /
+  // removing items mid-session re-validates the coupon against the new
+  // subtotal.
+  useEffect(() => {
+    if (!isAuthed) {
+      setServerCart(null);
+      return;
+    }
+    void fetchCart().then(setServerCart).catch(() => {});
+  }, [isAuthed, items]);
 
   const itemCount = hydrated ? totalQuantity : 0;
   const subtotal = hydrated ? totalAmount : 0;
@@ -129,7 +144,12 @@ export default function CartPage() {
 
                   <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div className="md:max-w-md md:flex-1">
-                      <CartCouponForm applied={coupon} onApply={setCoupon} />
+                      <CartCouponForm
+                        couponCode={serverCart?.couponCode ?? null}
+                        couponDiscount={serverCart?.couponDiscount ?? 0}
+                        onChange={setServerCart}
+                        disabled={!isAuthed}
+                      />
                     </div>
                     <Link
                       href="/"
@@ -144,7 +164,9 @@ export default function CartPage() {
                   <OrderSummary
                     itemCount={itemCount}
                     subtotal={subtotal}
-                    appliedCoupon={coupon}
+                    couponCode={serverCart?.couponCode ?? null}
+                    couponDiscount={serverCart?.couponDiscount ?? 0}
+                    couponFreeShipping={serverCart?.couponFreeShipping ?? false}
                   />
                 </div>
               </div>

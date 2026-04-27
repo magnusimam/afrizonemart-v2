@@ -25,11 +25,14 @@ export interface NotifyPrefs {
 interface CheckoutState {
   shipping?: ShippingAddress;
   deliveryMethod: DeliveryMethodId;
+  /** ID of the API-driven ShippingRate the customer picked. */
+  shippingRateId?: string;
   notify: NotifyPrefs;
   paymentMethod?: PaymentMethodId;
   orderId?: string;
   setShipping: (address: ShippingAddress) => void;
   setDeliveryMethod: (id: DeliveryMethodId) => void;
+  setShippingRateId: (id: string | undefined) => void;
   setNotify: (prefs: NotifyPrefs) => void;
   setPaymentMethod: (id: PaymentMethodId | undefined) => void;
   setOrderId: (id: string) => void;
@@ -41,11 +44,13 @@ export const useCheckoutStore = create<CheckoutState>()(
     (set) => ({
       shipping: undefined,
       deliveryMethod: 'standard',
+      shippingRateId: undefined,
       notify: { email: true, sms: true, whatsapp: false },
       paymentMethod: undefined,
       orderId: undefined,
       setShipping: (address) => set({ shipping: address }),
       setDeliveryMethod: (id) => set({ deliveryMethod: id }),
+      setShippingRateId: (id) => set({ shippingRateId: id }),
       setNotify: (prefs) => set({ notify: prefs }),
       setPaymentMethod: (id) => set({ paymentMethod: id }),
       setOrderId: (id) => set({ orderId: id }),
@@ -53,6 +58,7 @@ export const useCheckoutStore = create<CheckoutState>()(
         set({
           shipping: undefined,
           deliveryMethod: 'standard',
+          shippingRateId: undefined,
           notify: { email: true, sms: true, whatsapp: false },
           paymentMethod: undefined,
           orderId: undefined,

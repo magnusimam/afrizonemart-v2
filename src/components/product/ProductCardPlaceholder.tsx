@@ -11,6 +11,7 @@ type ButtonVariant = 'navy' | 'pink';
 
 interface ProductCardPlaceholderProps {
   id: string;
+  slug?: string;
   name: string;
   price?: number;
   comparePrice?: number;
@@ -34,6 +35,7 @@ const buttonClasses: Record<ButtonVariant, { base: string; oos: string }> = {
 
 export function ProductCardPlaceholder({
   id,
+  slug,
   name,
   price,
   comparePrice,
@@ -52,11 +54,13 @@ export function ProductCardPlaceholder({
   const isInfoOnly = !hasPrice && !outOfStock;
   const showReadMore = outOfStock || isInfoOnly;
 
+  const productSlug = slug ?? id;
+
   const handleAdd = () => {
     if (!hasPrice) return;
     addItem({
       productId: id,
-      slug: id,
+      slug: productSlug,
       name,
       price,
       comparePrice,
@@ -129,7 +133,7 @@ export function ProductCardPlaceholder({
       <div className="flex flex-1 flex-col gap-2 p-2.5">
         <h3 className="line-clamp-2 min-h-[2.5em] font-raleway text-[11px] font-semibold leading-snug text-charcoal md:text-xs">
           <Link
-            href={`/product/maya-himalaya-facial-scrub`}
+            href={`/product/${productSlug}`}
             className="transition-colors hover:text-navy"
           >
             {name}

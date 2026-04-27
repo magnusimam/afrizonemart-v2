@@ -1,25 +1,80 @@
+'use client';
+
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { ChevronRight, Copy, Home as HomeIcon, MessageCircle, Package } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronRight, Home as HomeIcon, Package } from 'lucide-react';
 import { ChatBubble } from '@/components/layout/ChatBubble';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
-import { OrderTracker } from '@/components/account/OrderTracker';
 import { formatPriceNGN } from '@/lib/format';
 import { getCountry } from '@/lib/countries';
-import { MOCK_USER, getMockOrder } from '@/lib/mock-data';
+import { getOrder, type Order } from '@/lib/api/orders';
+import { HttpApiError } from '@/lib/api/client';
+import { useAuthStore } from '@/stores/authStore';
+import type { OrderStatus as UiOrderStatus } from '@/types';
 
 interface PageProps {
   params: { id: string };
 }
 
-export default function OrderDetailPage({ params }: PageProps) {
-  const order = getMockOrder(params.id);
-  if (!order) notFound();
+function statusToUi(s: Order['status']): UiOrderStatus {
+  switch (s) {
+    case 'PENDING_PAYMENT':
+      return 'pending';
+    case 'PAID':
+      return 'paid';
+    case 'FULFILLING':
+      return 'processing';
+    case 'SHIPPED':
+      return 'shipped';
+    case 'DELIVERED':
+      return 'delivered';
+    case 'CANCELLED':
+    case 'REFUNDED':
+      return 'cancelled';
+  }
+}
 
-  const country = getCountry(order.shippingAddress.country);
+function paymentLabel(method: Order['paymentMethod']): string {
+  switch (method) {
+    case 'PAYSTACK':
+      return 'Card / Paystack';
+    case 'GTSQUAD':
+      return 'Card / Squad';
+    case 'BANK_TRANSFER':
+      return 'Bank Transfer';
+    case 'CASH_ON_DELIVERY':
+      return 'Pay on Delivery';
+  }
+}
+
+export default function OrderDetailPage({ params }: PageProps) {
+  const user = useAuthStore((s) => s.user);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setOrder(await getOrder(params.id));
+      } catch (e) {
+        if (e instanceof HttpApiError && e.status === 404) {
+          setError('Order not found.');
+        } else {
+          setError(e instanceof Error ? e.message : 'Could not load order');
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [params.id]);
+
+  const [first, ...rest] = (user?.name ?? user?.email ?? '').split(' ');
+  const lastName = rest.join(' ');
+  const country = order ? getCountry(order.shipCountry) : null;
 
   return (
     <>
@@ -36,14 +91,6 @@ export default function OrderDetailPage({ params }: PageProps) {
               <ChevronRight size={12} className="text-border" />
             </li>
             <li>
-              <Link href="/account" className="hover:text-navy">
-                Account
-              </Link>
-            </li>
-            <li aria-hidden>
-              <ChevronRight size={12} className="text-border" />
-            </li>
-            <li>
               <Link href="/account/orders" className="hover:text-navy">
                 Orders
               </Link>
@@ -52,7 +99,9 @@ export default function OrderDetailPage({ params }: PageProps) {
               <ChevronRight size={12} className="text-border" />
             </li>
             <li>
-              <span className="font-medium text-charcoal">{order.id}</span>
+              <span className="font-medium text-charcoal">
+                {order?.orderNumber ?? params.id}
+              </span>
             </li>
           </ol>
         </nav>
@@ -62,146 +111,101 @@ export default function OrderDetailPage({ params }: PageProps) {
             <div className="lg:col-span-3">
               <AccountSidebar
                 active="/account/orders"
-                userFirstName={MOCK_USER.firstName}
-                userLastName={MOCK_USER.lastName}
+                userFirstName={first || 'You'}
+                userLastName={lastName}
               />
             </div>
 
             <div className="flex flex-col gap-5 lg:col-span-9 lg:gap-6">
-              <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h1 className="font-raleway text-2xl font-bold text-navy md:text-3xl">
-                    Order {order.id}
-                  </h1>
-                  <p className="font-sans text-sm text-muted">
-                    Placed on {order.placedAt} · {order.paymentMethod}
-                  </p>
-                </div>
-                <OrderStatusBadge status={order.status} />
-              </header>
+              {loading && (
+                <p className="font-sans text-sm text-muted">Loading order…</p>
+              )}
 
-              <section className="rounded-card border border-border bg-white p-5 shadow-card md:p-6">
-                <h2 className="mb-5 font-raleway text-lg font-bold text-navy md:text-xl">
-                  Track Your Package
-                </h2>
-                <OrderTracker status={order.status} />
-                {order.trackingNumber ? (
-                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-page p-3">
-                    <div className="flex flex-col">
-                      <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
-                        Tracking Number
-                      </span>
-                      <span className="font-raleway text-sm font-bold text-navy">
-                        {order.trackingNumber}
-                      </span>
-                      <span className="font-sans text-xs text-muted">
-                        Carrier: {order.carrier}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="flex items-center gap-1.5 rounded-btn border border-navy bg-white px-3 py-1.5 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-navy hover:text-white"
-                    >
-                      <Copy size={12} aria-hidden />
-                      Copy
-                    </button>
-                  </div>
-                ) : null}
-              </section>
-
-              <section className="rounded-card border border-border bg-white p-5 shadow-card md:p-6">
-                <h2 className="mb-4 font-raleway text-lg font-bold text-navy md:text-xl">
-                  Items in this order
-                </h2>
-                <div className="flex flex-col divide-y divide-border">
-                  {order.items.map((item) => {
-                    const c = getCountry(item.origin);
-                    return (
-                      <div
-                        key={item.productId}
-                        className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
-                      >
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-card bg-page">
-                          <Package size={28} strokeWidth={1.25} className="text-border" aria-hidden />
-                        </div>
-                        <div className="flex flex-1 flex-col gap-0.5">
-                          <Link
-                            href={`/product/${item.slug}`}
-                            className="font-raleway text-sm font-semibold leading-snug text-navy hover:underline md:text-base"
-                          >
-                            {item.name}
-                          </Link>
-                          {item.variant ? (
-                            <span className="font-sans text-xs text-muted">{item.variant}</span>
-                          ) : null}
-                          <div className="flex items-center gap-2">
-                            <span className="font-sans text-xs text-muted">
-                              Qty: {item.quantity}
-                            </span>
-                            {c ? (
-                              <span className="font-sans text-xs text-muted">
-                                · {c.flag} {c.name}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                        <span className="font-raleway text-sm font-bold text-navy md:text-base">
-                          {formatPriceNGN(item.price * item.quantity)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
-                <section className="rounded-card border border-border bg-white p-5 shadow-card md:p-6">
-                  <h2 className="mb-3 font-raleway text-base font-bold text-navy md:text-lg">
-                    Shipping Address
-                  </h2>
-                  <p className="font-sans text-sm leading-relaxed text-charcoal">
-                    {order.shippingAddress.fullName}
-                    <br />
-                    {order.shippingAddress.line1}
-                    <br />
-                    {order.shippingAddress.city}, {order.shippingAddress.region}
-                    <br />
-                    {country?.flag} {country?.name ?? order.shippingAddress.country}
-                  </p>
-                </section>
-
-                <section className="rounded-card border border-border bg-white p-5 shadow-card md:p-6">
-                  <h2 className="mb-3 font-raleway text-base font-bold text-navy md:text-lg">
-                    Payment & Total
-                  </h2>
-                  <dl className="flex flex-col gap-2 font-sans text-sm">
-                    <Row label="Subtotal" value={formatPriceNGN(order.total - 1500)} />
-                    <Row label="Shipping" value={formatPriceNGN(1500)} />
-                    <Row label="Total" value={formatPriceNGN(order.total)} bold />
-                    <Row label="Method" value={order.paymentMethod} />
-                  </dl>
-                </section>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-white p-5 shadow-card">
-                <div className="flex items-center gap-3">
-                  <MessageCircle size={20} className="text-navy" aria-hidden />
-                  <div>
-                    <p className="font-raleway text-sm font-bold text-navy">
-                      Need help with this order?
-                    </p>
-                    <p className="font-sans text-xs text-muted">
-                      Our team responds within 30 minutes, 24×7.
-                    </p>
-                  </div>
-                </div>
-                <Link
-                  href="/contact"
-                  className="rounded-btn bg-navy px-5 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-card border border-danger/30 bg-danger/5 px-4 py-3 font-sans text-sm text-danger"
                 >
-                  Contact Support
-                </Link>
-              </div>
+                  {error}
+                </div>
+              )}
+
+              {order && (
+                <>
+                  <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h1 className="font-raleway text-2xl font-bold text-navy md:text-3xl">
+                        Order {order.orderNumber}
+                      </h1>
+                      <p className="font-sans text-sm text-muted">
+                        Placed on {new Date(order.createdAt).toLocaleString()} · {paymentLabel(order.paymentMethod)}
+                      </p>
+                    </div>
+                    <OrderStatusBadge status={statusToUi(order.status)} />
+                  </header>
+
+                  <section className="rounded-card border border-border bg-white p-5 md:p-6">
+                    <h2 className="mb-4 flex items-center gap-2 font-raleway text-lg font-bold text-navy">
+                      <Package size={18} aria-hidden /> Items
+                    </h2>
+                    <ul className="flex flex-col divide-y divide-border">
+                      {order.items.map((it) => (
+                        <li
+                          key={it.id}
+                          className="flex flex-wrap items-center justify-between gap-3 py-3"
+                        >
+                          <div className="flex flex-col">
+                            <Link
+                              href={`/product/${it.productSlug}`}
+                              className="font-raleway text-sm font-semibold text-navy hover:text-amber"
+                            >
+                              {it.productName}
+                            </Link>
+                            <span className="font-sans text-xs text-muted">
+                              {formatPriceNGN(it.unitPrice)} × {it.quantity}
+                            </span>
+                          </div>
+                          <span className="font-raleway text-sm font-bold text-navy">
+                            {formatPriceNGN(it.lineTotal)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <dl className="mt-4 flex flex-col gap-2 border-t border-border pt-4 font-sans text-sm">
+                      <div className="flex justify-between">
+                        <dt className="text-muted">Subtotal</dt>
+                        <dd className="text-charcoal">{formatPriceNGN(order.subtotal)}</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-muted">Shipping</dt>
+                        <dd className="text-charcoal">{formatPriceNGN(order.shippingCost)}</dd>
+                      </div>
+                      <div className="flex justify-between font-raleway text-base font-bold">
+                        <dt className="text-navy">Total</dt>
+                        <dd className="text-navy">{formatPriceNGN(order.total)}</dd>
+                      </div>
+                    </dl>
+                  </section>
+
+                  <section className="rounded-card border border-border bg-white p-5 md:p-6">
+                    <h2 className="mb-4 font-raleway text-lg font-bold text-navy">
+                      Shipping to
+                    </h2>
+                    <address className="not-italic font-sans text-sm leading-relaxed text-charcoal">
+                      <strong className="font-raleway font-semibold text-navy">
+                        {order.shipFullName}
+                      </strong>
+                      <br />
+                      {order.shipAddressLine}
+                      <br />
+                      {order.shipCity}
+                      {country ? `, ${country.name}` : ` · ${order.shipCountry}`}
+                      <br />
+                      <span className="text-muted">{order.shipPhone}</span>
+                    </address>
+                  </section>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -209,28 +213,5 @@ export default function OrderDetailPage({ params }: PageProps) {
       <Footer />
       <ChatBubble />
     </>
-  );
-}
-
-function Row({
-  label,
-  value,
-  bold = false,
-}: {
-  label: string;
-  value: string;
-  bold?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-charcoal">{label}</dt>
-      <dd
-        className={`font-raleway ${
-          bold ? 'text-base font-bold text-navy' : 'text-sm font-semibold text-navy'
-        }`}
-      >
-        {value}
-      </dd>
-    </div>
   );
 }

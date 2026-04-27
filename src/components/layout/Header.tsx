@@ -1,7 +1,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Search, User, ChevronDown, Globe } from 'lucide-react';
+import { Search, ChevronDown, Globe } from 'lucide-react';
 import { CartBadge } from '@/components/cart/CartBadge';
+import { HeaderUserMenu } from '@/components/layout/HeaderUserMenu';
 
 const navItems = [
   { label: 'All Categories', href: '/shop', hasDropdown: true },
@@ -57,14 +58,7 @@ export function Header() {
 
         <CartBadge />
 
-
-        <Link
-          href="/account"
-          className="hidden shrink-0 items-center gap-2 font-raleway text-sm font-semibold text-navy hover:text-amber md:flex"
-        >
-          <User size={20} aria-hidden />
-          My Account
-        </Link>
+        <HeaderUserMenu />
       </div>
 
       <nav className="w-full bg-navy">

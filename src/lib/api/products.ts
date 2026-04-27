@@ -23,6 +23,10 @@ class ApiError extends Error {
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
+    // Next 14 defaults server-side fetch to force-cache. We always want
+    // fresh product data on detail pages — TanStack Query handles
+    // caching on the client for list views.
+    cache: 'no-store',
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -56,6 +60,7 @@ function toQueryString(params: ListProductsParams): string {
   if (params.origin) sp.set('origin', params.origin);
   if (params.q) sp.set('q', params.q);
   if (params.inStock !== undefined) sp.set('inStock', String(params.inStock));
+  if (params.onSale !== undefined) sp.set('onSale', String(params.onSale));
   if (params.sort) sp.set('sort', params.sort);
   const qs = sp.toString();
   return qs ? `?${qs}` : '';

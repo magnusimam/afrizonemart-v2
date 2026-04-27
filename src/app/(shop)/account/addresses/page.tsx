@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Edit2, MapPin, Plus, Trash2 } from 'lucide-react';
 import { ChatBubble } from '@/components/layout/ChatBubble';
 import { Footer } from '@/components/layout/Footer';

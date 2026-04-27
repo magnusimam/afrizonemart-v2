@@ -1,21 +1,5 @@
 import Link from 'next/link';
-import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
-
-interface FemaleProduct {
-  id: string;
-  name: string;
-  price: number;
-  origin?: string;
-}
-
-const products: FemaleProduct[] = [
-  { id: 'fp1', name: 'Fanda Lipstick', price: 1000, origin: 'NG' },
-  { id: 'fp2', name: 'Bi Bi Doll Browpencil', price: 800, origin: 'NG' },
-  { id: 'fp3', name: 'Tara Half-Dual Powder Palette', price: 4500, origin: 'EG' },
-  { id: 'fp4', name: 'Opera Silky Pressed Powder', price: 3500, origin: 'KE' },
-  { id: 'fp5', name: 'Tara Bronzer', price: 3200, origin: 'EG' },
-  { id: 'fp6', name: 'Snow Total Coverage Foundation', price: 4800, origin: 'ZA' },
-];
+import { ProductGridFromQuery } from '@/components/product/ProductGridFromQuery';
 
 export function FemaleProductsSection() {
   return (
@@ -28,9 +12,7 @@ export function FemaleProductsSection() {
 
       <div className="bg-white py-6 md:py-8">
         <div className="mx-auto grid max-w-site grid-cols-2 gap-3 px-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 lg:grid-cols-6">
-          {products.map((p) => (
-            <ProductCardPlaceholder key={p.id} {...p} buttonVariant="pink" />
-          ))}
+          <ProductGridFromQuery query={{ category: 'beauty', limit: 6 }} buttonVariant="pink" />
         </div>
 
         <div className="mt-6 flex justify-center px-4 md:mt-8">

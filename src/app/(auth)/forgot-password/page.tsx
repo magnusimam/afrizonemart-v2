@@ -2,15 +2,34 @@
 
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
-import { CheckCircle2, Mail } from 'lucide-react';
+import { CheckCircle2, Loader2, Mail } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthApiError, requestPasswordReset } from '@/lib/api/auth';
 
 export default function ForgotPasswordPage() {
+  const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setError(null);
+    setSubmitting(true);
+    try {
+      await requestPasswordReset(email);
+      setSubmitted(true);
+    } catch (err) {
+      // The API always returns 204 even for unknown emails (anti-enum), so
+      // anything that surfaces here is a real network/server failure.
+      setError(
+        err instanceof AuthApiError
+          ? err.message
+          : 'Could not send reset link. Try again in a moment.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -23,7 +42,10 @@ export default function ForgotPasswordPage() {
             Didn&apos;t get it?{' '}
             <button
               type="button"
-              onClick={() => setSubmitted(false)}
+              onClick={() => {
+                setSubmitted(false);
+                setError(null);
+              }}
               className="font-bold text-navy hover:underline"
             >
               Try again
@@ -36,7 +58,7 @@ export default function ForgotPasswordPage() {
             <CheckCircle2 size={32} aria-hidden />
           </span>
           <p className="font-sans text-sm leading-relaxed text-charcoal">
-            Open your inbox and click the link to reset your password. The link expires in 30 minutes.
+            Open your inbox and click the link to reset your password. The link expires in 60 minutes.
           </p>
           <Link
             href="/login"
@@ -76,6 +98,8 @@ export default function ForgotPasswordPage() {
             <input
               required
               type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               className="w-full rounded-input border border-border bg-white py-2.5 pl-9 pr-3 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none"
               autoComplete="email"
@@ -83,11 +107,22 @@ export default function ForgotPasswordPage() {
           </div>
         </label>
 
+        {error && (
+          <p
+            role="alert"
+            className="rounded-card border border-danger/30 bg-danger/5 px-3 py-2 font-sans text-xs text-danger"
+          >
+            {error}
+          </p>
+        )}
+
         <button
           type="submit"
-          className="rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy"
+          disabled={submitting}
+          className="flex items-center justify-center gap-2 rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-70"
         >
-          Send Reset Link
+          {submitting && <Loader2 size={16} className="animate-spin" aria-hidden />}
+          {submitting ? 'Sending…' : 'Send Reset Link'}
         </button>
       </form>
     </AuthCard>

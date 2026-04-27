@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { ChevronRight, Package, Search } from 'lucide-react';
 import { ChatBubble } from '@/components/layout/ChatBubble';
 import { Footer } from '@/components/layout/Footer';
@@ -6,9 +9,61 @@ import { Header } from '@/components/layout/Header';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
 import { formatPriceNGN } from '@/lib/format';
-import { MOCK_ORDERS, MOCK_USER } from '@/lib/mock-data';
+import { listOrders, type Order } from '@/lib/api/orders';
+import { useAuthStore } from '@/stores/authStore';
+import type { OrderStatus as UiOrderStatus } from '@/types';
+
+function statusToUi(s: Order['status']): UiOrderStatus {
+  switch (s) {
+    case 'PENDING_PAYMENT':
+      return 'pending';
+    case 'PAID':
+      return 'paid';
+    case 'FULFILLING':
+      return 'processing';
+    case 'SHIPPED':
+      return 'shipped';
+    case 'DELIVERED':
+      return 'delivered';
+    case 'CANCELLED':
+    case 'REFUNDED':
+      return 'cancelled';
+  }
+}
+
+function paymentLabel(method: Order['paymentMethod']): string {
+  switch (method) {
+    case 'PAYSTACK':
+      return 'Card / Paystack';
+    case 'GTSQUAD':
+      return 'Card / Squad';
+    case 'BANK_TRANSFER':
+      return 'Bank Transfer';
+    case 'CASH_ON_DELIVERY':
+      return 'Pay on Delivery';
+  }
+}
 
 export default function OrdersPage() {
+  const user = useAuthStore((s) => s.user);
+  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await listOrders();
+        setOrders(r.items);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not load orders');
+        setOrders([]);
+      }
+    })();
+  }, []);
+
+  const [first, ...rest] = (user?.name ?? user?.email ?? '').split(' ');
+  const lastName = rest.join(' ');
+
   return (
     <>
       <Header />
@@ -18,8 +73,8 @@ export default function OrdersPage() {
             <div className="lg:col-span-3">
               <AccountSidebar
                 active="/account/orders"
-                userFirstName={MOCK_USER.firstName}
-                userLastName={MOCK_USER.lastName}
+                userFirstName={first || 'You'}
+                userLastName={lastName}
               />
             </div>
 
@@ -30,7 +85,9 @@ export default function OrdersPage() {
                     Your Orders
                   </h1>
                   <p className="font-sans text-sm text-muted md:text-base">
-                    {MOCK_ORDERS.length} total orders
+                    {orders == null
+                      ? 'Loading…'
+                      : `${orders.length} total order${orders.length === 1 ? '' : 's'}`}
                   </p>
                 </div>
                 <div className="relative">
@@ -47,26 +104,17 @@ export default function OrdersPage() {
                 </div>
               </header>
 
-              <div className="flex flex-wrap gap-2">
-                {(['all', 'processing', 'shipped', 'delivered', 'cancelled'] as const).map(
-                  (f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      className={`rounded-full px-4 py-1.5 font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${
-                        f === 'all'
-                          ? 'bg-navy text-white'
-                          : 'border border-border bg-white text-navy hover:border-navy'
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ),
-                )}
-              </div>
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-card border border-danger/30 bg-danger/5 px-4 py-3 font-sans text-sm text-danger"
+                >
+                  {error}
+                </div>
+              )}
 
               <div className="flex flex-col gap-3 md:gap-4">
-                {MOCK_ORDERS.map((o) => (
+                {(orders ?? []).map((o) => (
                   <article
                     key={o.id}
                     className="rounded-card border border-border bg-white p-4 shadow-card transition-shadow hover:shadow-card-hover md:p-5"
@@ -74,13 +122,13 @@ export default function OrdersPage() {
                     <header className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
                       <div className="flex flex-col gap-1">
                         <span className="font-raleway text-base font-bold text-navy">
-                          Order {o.id}
+                          Order {o.orderNumber}
                         </span>
                         <span className="font-sans text-xs text-muted">
-                          Placed on {o.placedAt}
+                          Placed on {new Date(o.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <OrderStatusBadge status={o.status} />
+                      <OrderStatusBadge status={statusToUi(o.status)} />
                     </header>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -89,10 +137,10 @@ export default function OrdersPage() {
                           Items
                         </span>
                         <span className="font-raleway text-sm font-semibold text-navy">
-                          {o.itemCount} item{o.itemCount === 1 ? '' : 's'}
+                          {o.items.reduce((s, i) => s + i.quantity, 0)} item{o.items.length === 1 ? '' : 's'}
                         </span>
                         <span className="line-clamp-2 font-sans text-xs text-charcoal">
-                          {o.items.map((it) => it.name).join(', ')}
+                          {o.items.map((it) => it.productName).join(', ')}
                         </span>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -103,50 +151,35 @@ export default function OrdersPage() {
                           {formatPriceNGN(o.total)}
                         </span>
                         <span className="font-sans text-xs text-muted">
-                          {o.paymentMethod}
+                          {paymentLabel(o.paymentMethod)}
                         </span>
                       </div>
                       <div className="flex flex-col gap-1">
                         <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
-                          {o.status === 'delivered' ? 'Delivered' : 'Estimated'}
+                          Shipping to
                         </span>
                         <span className="font-raleway text-sm font-semibold text-navy">
-                          {o.estimatedDelivery}
+                          {o.shipCity}, {o.shipCountry}
                         </span>
-                        {o.trackingNumber ? (
-                          <span className="font-sans text-xs text-muted">
-                            Tracking: {o.trackingNumber}
-                          </span>
-                        ) : null}
                       </div>
                     </div>
 
                     <footer className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
                       <span className="font-sans text-xs text-muted">
-                        Shipping to {o.shippingAddress.city}, {o.shippingAddress.region}
+                        {o.shipFullName}
                       </span>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {o.status === 'delivered' ? (
-                          <button
-                            type="button"
-                            className="rounded-btn border border-navy bg-white px-4 py-1.5 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-navy hover:text-white"
-                          >
-                            Reorder
-                          </button>
-                        ) : null}
-                        <Link
-                          href={`/account/orders/${o.id}`}
-                          className="flex items-center gap-1 rounded-btn bg-navy px-4 py-1.5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-amber hover:text-navy"
-                        >
-                          View Details <ChevronRight size={14} aria-hidden />
-                        </Link>
-                      </div>
+                      <Link
+                        href={`/account/orders/${o.id}`}
+                        className="flex items-center gap-1 rounded-btn bg-navy px-4 py-1.5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-amber hover:text-navy"
+                      >
+                        View Details <ChevronRight size={14} aria-hidden />
+                      </Link>
                     </footer>
                   </article>
                 ))}
               </div>
 
-              {MOCK_ORDERS.length === 0 ? (
+              {orders != null && orders.length === 0 && !error ? (
                 <div className="flex flex-col items-center gap-3 rounded-card border border-border bg-white p-12 text-center">
                   <Package size={36} className="text-border" aria-hidden />
                   <p className="font-raleway text-base font-bold text-navy">

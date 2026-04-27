@@ -1,0 +1,52 @@
+'use client';
+
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useAuthStore } from '@/stores/authStore';
+
+interface Props {
+  children: React.ReactNode;
+}
+
+/**
+ * Client-side gate for admin routes. Like RequireAuth, but also checks
+ * that the user has the ADMIN role. Non-admins get bounced to /account
+ * instead of /login (they're authed, just not authorized).
+ */
+export function RequireAdmin({ children }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [hydrated, setHydrated] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const isAuthed = Boolean(user && accessToken);
+  const isAdmin = user?.role === 'ADMIN';
+
+  useEffect(() => {
+    if (useAuthStore.persist?.hasHydrated?.()) {
+      setHydrated(true);
+      return;
+    }
+    const unsub = useAuthStore.persist?.onFinishHydration?.(() => setHydrated(true));
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!isAuthed) {
+      router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
+    } else if (!isAdmin) {
+      router.replace('/account');
+    }
+  }, [hydrated, isAuthed, isAdmin, pathname, router]);
+
+  if (!hydrated || !isAuthed || !isAdmin) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-page font-sans text-sm text-muted">
+        Loading admin…
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}

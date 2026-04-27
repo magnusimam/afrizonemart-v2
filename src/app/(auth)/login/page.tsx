@@ -1,16 +1,43 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
+import { AuthApiError, loginUser } from '@/lib/api/auth';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function LoginPage() {
-  const [showPwd, setShowPwd] = useState(false);
+  const router = useRouter();
+  const setSession = useAuthStore((s) => s.setSession);
 
-  const handleSubmit = (e: FormEvent) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      const result = await loginUser({ email, password });
+      setSession(result);
+      const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+      const fallback = result.user.role === 'ADMIN' ? '/admin' : '/account';
+      router.push(returnUrl && returnUrl.startsWith('/') ? returnUrl : fallback);
+    } catch (err) {
+      setError(
+        err instanceof AuthApiError
+          ? err.message
+          : 'Sign-in failed. Please try again.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -27,11 +54,22 @@ export default function LoginPage() {
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Field label="Email or Phone">
+        {error && (
+          <div
+            role="alert"
+            className="rounded-input border border-danger/30 bg-danger/5 px-3 py-2 font-sans text-sm text-danger"
+          >
+            {error}
+          </div>
+        )}
+
+        <Field label="Email">
           <input
             required
-            type="text"
-            placeholder="you@example.com or +234..."
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
             className={inputClass}
             autoComplete="username"
           />
@@ -52,6 +90,8 @@ export default function LoginPage() {
             <input
               required
               type={showPwd ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               className={`${inputClass} pr-10`}
               autoComplete="current-password"
@@ -74,9 +114,10 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy"
+          disabled={submitting}
+          className="rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Sign In
+          {submitting ? 'Signing in…' : 'Sign In'}
         </button>
 
         <div className="relative my-2 flex items-center">

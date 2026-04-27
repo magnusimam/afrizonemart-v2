@@ -15,22 +15,75 @@ export interface ApiCategory {
   updatedAt: string;
 }
 
+export interface ApiProductBundle {
+  units: number;
+  label: string;
+  price: number;
+  comparePrice: number;
+  savings?: number;
+  popular?: boolean;
+}
+
+export interface ApiProductFeature {
+  icon: 'sparkles' | 'leaf' | 'globe' | 'shield' | 'heart' | 'check' | 'gem';
+  text: string;
+}
+
+export interface ApiProductSpec {
+  label: string;
+  value: string;
+}
+
+export interface ApiProductVariants {
+  type: string;
+  options: string[];
+  default: string;
+}
+
+export interface ApiProductAttributes {
+  bundles: ApiProductBundle[];
+  features: ApiProductFeature[];
+  specifications: ApiProductSpec[];
+  variants?: ApiProductVariants;
+  aboutTitle: string;
+  aboutBody: string;
+  aboutImage: string;
+}
+
+export interface ApiReview {
+  id: string;
+  productId: string;
+  authorName: string;
+  authorCountry: string | null;
+  rating: number;
+  title: string | null;
+  body: string;
+  verified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ApiProduct {
   id: string;
   slug: string;
   name: string;
   brand: string | null;
-  description: string | null;
-  /** Price stored in kobo (1/100 NGN). Divide by 100 for display. */
+  /** Price in Naira (whole units). */
   price: number;
   comparePrice: number | null;
+  discountPercent: number | null;
+  shortDescription: string | null;
+  description: string | null;
+  ingredients: string | null;
   origin: string | null;
   inStock: boolean;
   rating: number;
   reviewCount: number;
   images: string[];
+  attributes: ApiProductAttributes;
   categoryId: string | null;
   category: ApiCategory | null;
+  reviews?: ApiReview[];
   createdAt: string;
   updatedAt: string;
 }
@@ -62,5 +115,6 @@ export interface ListProductsParams {
   origin?: string;
   q?: string;
   inStock?: boolean;
+  onSale?: boolean;
   sort?: 'featured' | 'newest' | 'price-asc' | 'price-desc' | 'rating';
 }

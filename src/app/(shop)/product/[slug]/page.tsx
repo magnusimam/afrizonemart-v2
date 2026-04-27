@@ -11,15 +11,15 @@ import { RelatedProducts } from '@/components/product/RelatedProducts';
 import { ReviewsSection } from '@/components/product/ReviewsSection';
 import { NewsletterSection } from '@/components/sections/NewsletterSection';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
-import { getProduct, getRelatedProducts } from '@/lib/products';
+import { getRelatedProducts, loadProductDetail } from '@/lib/products';
 import type { Metadata } from 'next';
 
 interface PageProps {
   params: { slug: string };
 }
 
-export function generateMetadata({ params }: PageProps): Metadata {
-  const product = getProduct(params.slug);
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const product = await loadProductDetail(params.slug);
   if (!product) return { title: 'Product Not Found' };
   return {
     title: `${product.name} — ${product.brand} | Afrizonemart`,
@@ -27,8 +27,8 @@ export function generateMetadata({ params }: PageProps): Metadata {
   };
 }
 
-export default function ProductPage({ params }: PageProps) {
-  const product = getProduct(params.slug);
+export default async function ProductPage({ params }: PageProps) {
+  const product = await loadProductDetail(params.slug);
   if (!product) notFound();
 
   const related = getRelatedProducts(params.slug);

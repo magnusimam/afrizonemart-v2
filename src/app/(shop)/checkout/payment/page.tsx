@@ -18,13 +18,31 @@ import { PaymentMethodForm } from '@/components/checkout/PaymentMethodForm';
 import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
 import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
 import { formatPriceNGN } from '@/lib/format';
-import { DELIVERY_METHODS, type PaymentMethodId } from '@/lib/checkout-data';
+import { type PaymentMethodId } from '@/lib/checkout-data';
+import { fetchCart, type CartView } from '@/lib/api/cart';
+import { HttpApiError } from '@/lib/api/client';
+import { placeOrder, type PaymentMethodId as ApiPaymentMethod } from '@/lib/api/orders';
+import { initPayment } from '@/lib/api/payments';
+import { fetchShippingRates, type ShippingRate } from '@/lib/api/shipping';
 import { useCheckoutStore } from '@/stores/checkoutStore';
 import {
   selectCartTotalAmount,
   selectCartTotalQuantity,
   useCartStore,
 } from '@/stores/cartStore';
+
+// Card / mobile money / USSD / crypto all funnel through Squad (it
+// handles the channel selection on its own hosted page). Bank transfer
+// + COD bypass the gateway and stay PENDING_PAYMENT for manual
+// confirmation by an admin.
+const PAYMENT_METHOD_MAP: Record<PaymentMethodId, ApiPaymentMethod> = {
+  card: 'GTSQUAD',
+  'mobile-money': 'GTSQUAD',
+  'bank-transfer': 'BANK_TRANSFER',
+  ussd: 'GTSQUAD',
+  crypto: 'GTSQUAD',
+  'pay-on-delivery': 'CASH_ON_DELIVERY',
+};
 
 const steps: CheckoutStep[] = [
   { num: 1, label: 'Cart', status: 'done' },
@@ -40,7 +58,7 @@ export default function PaymentPage() {
   const clearCart = useCartStore((s) => s.clear);
 
   const shipping = useCheckoutStore((s) => s.shipping);
-  const deliveryMethod = useCheckoutStore((s) => s.deliveryMethod);
+  const shippingRateId = useCheckoutStore((s) => s.shippingRateId);
   const storedPayment = useCheckoutStore((s) => s.paymentMethod);
   const setPaymentMethod = useCheckoutStore((s) => s.setPaymentMethod);
   const setOrderId = useCheckoutStore((s) => s.setOrderId);
@@ -49,6 +67,10 @@ export default function PaymentPage() {
   const [billingSame, setBillingSame] = useState(true);
   const [agreed, setAgreed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [serverCart, setServerCart] = useState<CartView | null>(null);
+  const [pickedRate, setPickedRate] = useState<ShippingRate | null>(null);
 
   useEffect(() => {
     setHydrated(true);
@@ -60,22 +82,85 @@ export default function PaymentPage() {
     }
   }, [hydrated, shipping, router]);
 
-  const method = DELIVERY_METHODS.find((m) => m.id === deliveryMethod);
-  const shippingFee = method?.price ?? 0;
-  const total = (hydrated ? totalAmount : 0) + shippingFee;
+  // Pull live cart so we know the applied coupon discount + free-shipping flag.
+  useEffect(() => {
+    void fetchCart().then(setServerCart).catch(() => {});
+  }, []);
+
+  // Resolve the selected shipping rate's details so we can show its
+  // price (with free-above behaviour) in the total.
+  useEffect(() => {
+    if (!shipping?.country || !shippingRateId) {
+      setPickedRate(null);
+      return;
+    }
+    void fetchShippingRates(shipping.country)
+      .then((r) => setPickedRate(r.rates.find((x) => x.id === shippingRateId) ?? null))
+      .catch(() => setPickedRate(null));
+  }, [shipping?.country, shippingRateId]);
+
+  const couponDiscount = serverCart?.couponDiscount ?? 0;
+  const couponFreeShipping = serverCart?.couponFreeShipping ?? false;
+  const subtotal = hydrated ? totalAmount : 0;
+  const baseShipping = (() => {
+    if (!pickedRate) return 0;
+    if (pickedRate.freeAboveAmount != null && subtotal >= pickedRate.freeAboveAmount) return 0;
+    return pickedRate.priceAmount;
+  })();
+  const shippingFee = couponFreeShipping ? 0 : baseShipping;
+  const total = Math.max(0, subtotal - couponDiscount + shippingFee);
 
   const handleSelectMethod = (id: PaymentMethodId) => {
     setSelected(id);
     setPaymentMethod(id);
   };
 
-  const handlePay = (e: React.FormEvent) => {
+  const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selected || !agreed) return;
-    const orderId = `AZM-${Date.now().toString().slice(-8)}`;
-    setOrderId(orderId);
-    clearCart();
-    router.push('/checkout/success');
+    if (!selected || !agreed || !shipping) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const order = await placeOrder({
+        shipping: {
+          fullName: `${shipping.firstName} ${shipping.lastName}`.trim(),
+          phone: shipping.phone,
+          addressLine: [shipping.street, shipping.apartment].filter(Boolean).join(', '),
+          city: shipping.city,
+          country: shipping.country,
+        },
+        paymentMethod: PAYMENT_METHOD_MAP[selected],
+        shippingRateId,
+      });
+      setOrderId(order.orderNumber);
+
+      // Online methods (card / mobile money / USSD / crypto) all flow
+      // through the gateway. Bank transfer + pay-on-delivery skip the
+      // redirect — the order stays PENDING_PAYMENT and an admin
+      // confirms manually.
+      const needsGateway =
+        selected !== 'bank-transfer' && selected !== 'pay-on-delivery';
+
+      if (needsGateway) {
+        const init = await initPayment(order.id);
+        // Hand off to the gateway-hosted (or stub) checkout page. It
+        // POSTs the webhook + redirects back to /checkout/success.
+        clearCart();
+        window.location.href = init.checkoutUrl;
+        return;
+      }
+
+      clearCart();
+      router.push('/checkout/success');
+    } catch (err) {
+      setError(
+        err instanceof HttpApiError
+          ? err.message
+          : 'Could not place your order. Please try again.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -216,6 +301,15 @@ export default function PaymentPage() {
                   </span>
                 </label>
 
+                {error && (
+                  <div
+                    role="alert"
+                    className="rounded-card border border-danger/30 bg-danger/5 px-4 py-3 font-sans text-sm text-danger"
+                  >
+                    {error}
+                  </div>
+                )}
+
                 <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <Link
                     href="/checkout/shipping"
@@ -225,10 +319,10 @@ export default function PaymentPage() {
                   </Link>
                   <button
                     type="submit"
-                    disabled={!selected || !agreed}
+                    disabled={!selected || !agreed || submitting}
                     className="rounded-btn bg-navy px-6 py-4 text-center font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-50 md:text-base"
                   >
-                    Pay {formatPriceNGN(total)}
+                    {submitting ? 'Placing order…' : `Pay ${formatPriceNGN(total)}`}
                   </button>
                 </div>
               </div>

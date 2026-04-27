@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Calendar, CheckCircle2, Mail, Package, Share2 } from 'lucide-react';
+import { Calendar, CheckCircle2, Loader2, Mail, Package, Share2 } from 'lucide-react';
 import { ChatBubble } from '@/components/layout/ChatBubble';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { DELIVERY_METHODS } from '@/lib/checkout-data';
+import { checkOrderPayment } from '@/lib/api/payments';
 import { useCheckoutStore } from '@/stores/checkoutStore';
 
 export default function SuccessPage() {
@@ -16,10 +17,52 @@ export default function SuccessPage() {
   const deliveryMethod = useCheckoutStore((s) => s.deliveryMethod);
   const reset = useCheckoutStore((s) => s.reset);
   const [hydrated, setHydrated] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'unknown' | 'pending' | 'paid' | 'failed'>('unknown');
 
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  // Triggers a server-side verify against the gateway each tick, so
+  // the order flips to PAID even when the webhook URL hasn't been
+  // pointed at us (local dev, before launch). Gives up after ~30s
+  // and surfaces a "still processing" banner.
+  useEffect(() => {
+    if (!hydrated || !orderId) return;
+    let cancelled = false;
+    let attempts = 0;
+    const tick = async () => {
+      if (cancelled) return;
+      attempts += 1;
+      try {
+        const r = await checkOrderPayment(orderId);
+        if (cancelled) return;
+        if (
+          r.orderStatus === 'PAID' ||
+          r.orderStatus === 'FULFILLING' ||
+          r.orderStatus === 'SHIPPED' ||
+          r.orderStatus === 'DELIVERED'
+        ) {
+          setPaymentStatus('paid');
+          return;
+        }
+        if (r.orderStatus === 'CANCELLED') {
+          setPaymentStatus('failed');
+          return;
+        }
+      } catch {
+        /* keep polling */
+      }
+      if (attempts < 15) {
+        setPaymentStatus('pending');
+        setTimeout(() => void tick(), 2000);
+      }
+    };
+    void tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, orderId]);
 
   const eta = (() => {
     const d = new Date();
@@ -54,7 +97,7 @@ export default function SuccessPage() {
 
             <div className="flex flex-col gap-2">
               <p className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
-                Order Confirmed
+                {paymentStatus === 'pending' ? 'Confirming payment…' : 'Order confirmed'}
               </p>
               <h1 className="font-raleway text-3xl font-bold text-navy md:text-5xl">
                 Asante! Your Order is on the Way
@@ -63,6 +106,18 @@ export default function SuccessPage() {
                 Thank you{shipping ? `, ${shipping.firstName}` : ''} — your order has been received and our team is preparing it for dispatch.
               </p>
             </div>
+
+            {paymentStatus === 'pending' && (
+              <div className="flex w-full items-center justify-center gap-2 rounded-card border border-amber/40 bg-amber/10 px-4 py-3 font-sans text-sm text-charcoal">
+                <Loader2 size={16} className="animate-spin text-navy" aria-hidden />
+                Verifying payment with the gateway… you can close this page; a confirmation email will follow.
+              </div>
+            )}
+            {paymentStatus === 'failed' && (
+              <div className="w-full rounded-card border border-danger/30 bg-danger/5 px-4 py-3 font-sans text-sm text-danger">
+                Payment didn&apos;t complete. The order has been cancelled — try again from your cart.
+              </div>
+            )}
 
             {hydrated && orderId ? (
               <div className="grid w-full grid-cols-1 gap-3 rounded-card border border-border bg-page p-5 text-left sm:grid-cols-2">
