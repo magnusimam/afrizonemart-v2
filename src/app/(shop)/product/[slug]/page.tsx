@@ -5,12 +5,14 @@ import { ChatBubble } from '@/components/layout/ChatBubble';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { AboutProductSection } from '@/components/product/AboutProductSection';
+import { DynamicFieldList } from '@/components/product/DynamicFieldDisplay';
 import { ProductGallery } from '@/components/product/ProductGallery';
 import { ProductInfo } from '@/components/product/ProductInfo';
 import { RelatedProducts } from '@/components/product/RelatedProducts';
 import { ReviewsSection } from '@/components/product/ReviewsSection';
 import { NewsletterSection } from '@/components/sections/NewsletterSection';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
+import { listCustomFields } from '@/lib/api/admin';
 import { getRelatedProducts, loadProductDetail } from '@/lib/products';
 import type { Metadata } from 'next';
 
@@ -28,10 +30,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function ProductPage({ params }: PageProps) {
-  const product = await loadProductDetail(params.slug);
+  const [product, customFieldsRes] = await Promise.all([
+    loadProductDetail(params.slug),
+    listCustomFields('PRODUCT'),
+  ]);
   if (!product) notFound();
 
   const related = getRelatedProducts(params.slug);
+  const customFieldDefs = customFieldsRes.items;
 
   return (
     <>
@@ -84,6 +90,17 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
           </div>
         </section>
+
+        {customFieldDefs.length > 0 && (
+          <section className="border-t border-border bg-white py-10">
+            <div className="mx-auto max-w-site px-4">
+              <DynamicFieldList
+                defs={customFieldDefs}
+                attributes={product.attributes}
+              />
+            </div>
+          </section>
+        )}
 
         <AboutProductSection
           title={product.aboutTitle}

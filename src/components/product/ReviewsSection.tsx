@@ -1,5 +1,6 @@
 import { CheckCircle2, Star } from 'lucide-react';
 import { getCountry } from '@/lib/countries';
+import { Flag } from '@/components/common/Flag';
 import type { ProductReview } from '@/lib/products';
 
 interface ReviewsSectionProps {
@@ -99,8 +100,9 @@ export function ReviewsSection({ rating, reviewCount, reviews }: ReviewsSectionP
                           {r.author}
                         </span>
                         {country && (
-                          <span className="font-sans text-xs text-muted" aria-label={country.name}>
-                            {country.flag} {country.name}
+                          <span className="inline-flex items-center gap-1 font-sans text-xs text-muted">
+                            <Flag code={country.code} title={country.name} size="sm" />
+                            {country.name}
                           </span>
                         )}
                         {r.verified && (

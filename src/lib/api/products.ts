@@ -61,6 +61,8 @@ function toQueryString(params: ListProductsParams): string {
   if (params.q) sp.set('q', params.q);
   if (params.inStock !== undefined) sp.set('inStock', String(params.inStock));
   if (params.onSale !== undefined) sp.set('onSale', String(params.onSale));
+  if (params.placement) sp.set('placement', params.placement);
+  if (params.country) sp.set('country', params.country);
   if (params.sort) sp.set('sort', params.sort);
   const qs = sp.toString();
   return qs ? `?${qs}` : '';

@@ -22,6 +22,21 @@ export interface AdminProductList {
   pagination: ApiPagination;
 }
 
+export interface PlacementInput {
+  placement: string;
+  sortOrder?: number;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  countries?: string[];
+}
+
+export interface PlacementDef {
+  key: string;
+  label: string;
+  description: string;
+  group: 'pages' | 'homepage_shelves' | 'curated_lists' | 'cms_pages';
+}
+
 export interface AdminProductInput {
   slug: string;
   name: string;
@@ -38,6 +53,14 @@ export interface AdminProductInput {
   images: string[];
   attributes: Record<string, unknown>;
   categorySlug?: string | null;
+  placements?: PlacementInput[];
+}
+
+export function adminListPlacementCatalog(): Promise<{
+  groups: Record<string, string>;
+  items: PlacementDef[];
+}> {
+  return apiFetchAuthed('/api/admin/placements');
 }
 
 function toQs(params: AdminProductListParams): string {
@@ -889,4 +912,435 @@ export function adminResendNotification(
     method: 'POST',
     body: JSON.stringify(to ? { to } : {}),
   });
+}
+
+// ----- Admin Custom Fields (Phase 10.1) -----
+
+export type CustomFieldScope = 'PRODUCT' | 'ORDER' | 'USER';
+export type CustomFieldType =
+  | 'TEXT'
+  | 'LONGTEXT'
+  | 'NUMBER'
+  | 'BOOLEAN'
+  | 'URL'
+  | 'VIDEO'
+  | 'IMAGE'
+  | 'SELECT'
+  | 'JSON'
+  | 'RICHTEXT';
+
+export interface CustomFieldDef {
+  id: string;
+  scope: CustomFieldScope;
+  key: string;
+  label: string;
+  description: string | null;
+  type: CustomFieldType;
+  required: boolean;
+  sortOrder: number;
+  options: Record<string, unknown>;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomFieldUpsert {
+  scope?: CustomFieldScope;
+  key?: string;
+  label?: string;
+  description?: string | null;
+  type?: CustomFieldType;
+  required?: boolean;
+  sortOrder?: number;
+  options?: Record<string, unknown>;
+  isActive?: boolean;
+}
+
+export function adminListCustomFields(params: {
+  scope?: CustomFieldScope;
+  includeInactive?: boolean;
+} = {}): Promise<{ items: CustomFieldDef[] }> {
+  const sp = new URLSearchParams();
+  if (params.scope) sp.set('scope', params.scope);
+  if (params.includeInactive) sp.set('includeInactive', 'true');
+  const qs = sp.toString();
+  return apiFetchAuthed(`/api/admin/custom-fields${qs ? `?${qs}` : ''}`);
+}
+
+export function adminCreateCustomField(
+  body: Required<Pick<CustomFieldUpsert, 'scope' | 'key' | 'label' | 'type'>> & CustomFieldUpsert,
+): Promise<CustomFieldDef> {
+  return apiFetchAuthed(`/api/admin/custom-fields`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminUpdateCustomField(
+  id: string,
+  body: CustomFieldUpsert,
+): Promise<CustomFieldDef> {
+  return apiFetchAuthed(`/api/admin/custom-fields/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminDeleteCustomField(id: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/custom-fields/${id}`, { method: 'DELETE' });
+}
+
+// Public read used by storefront product page (no auth required).
+export async function listCustomFields(
+  scope: CustomFieldScope,
+): Promise<{ items: CustomFieldDef[] }> {
+  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  const r = await fetch(`${base}/api/custom-fields/${scope}`, { cache: 'no-store' });
+  if (!r.ok) return { items: [] };
+  return r.json();
+}
+
+// ----- Admin Payment Gateways (Phase 10.2) -----
+
+export interface ProviderField {
+  key: string;
+  label: string;
+  type: 'text' | 'password' | 'select';
+  required: boolean;
+  helpText?: string;
+  options?: string[];
+}
+
+export interface ProviderDefinition {
+  key: string;
+  displayName: string;
+  defaultLabel: string;
+  supportedCurrencies: string[];
+  hasEnvironments: boolean;
+  credentialFields: ProviderField[];
+}
+
+export interface PaymentGatewayConfigRow {
+  id: string;
+  provider: string;
+  label: string;
+  environment: string;
+  isActive: boolean;
+  priority: number;
+  currencies: string[];
+  credentials: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function adminListAvailableProviders(): Promise<{ items: ProviderDefinition[] }> {
+  return apiFetchAuthed('/api/admin/payment-gateways/providers');
+}
+
+export function adminListPaymentGateways(): Promise<{ items: PaymentGatewayConfigRow[] }> {
+  return apiFetchAuthed('/api/admin/payment-gateways');
+}
+
+export function adminCreatePaymentGateway(body: {
+  provider: string;
+  label: string;
+  environment: string;
+  isActive?: boolean;
+  priority?: number;
+  currencies: string[];
+  credentials: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}): Promise<PaymentGatewayConfigRow> {
+  return apiFetchAuthed('/api/admin/payment-gateways', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminUpdatePaymentGateway(
+  id: string,
+  body: Partial<Parameters<typeof adminCreatePaymentGateway>[0]>,
+): Promise<PaymentGatewayConfigRow> {
+  return apiFetchAuthed(`/api/admin/payment-gateways/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminDeletePaymentGateway(id: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/payment-gateways/${id}`, { method: 'DELETE' });
+}
+
+// ----- Admin Email Templates (Phase 10.3) -----
+
+export interface EmailBlock {
+  type: string;
+  [k: string]: unknown;
+}
+
+export interface BlockPaletteEntry {
+  type: string;
+  label: string;
+  description: string;
+  factory: () => EmailBlock;
+}
+
+export interface EmailTemplate {
+  id: string;
+  type: string;
+  name: string;
+  subject: string;
+  body: EmailBlock[];
+  preview: string | null;
+  isActive: boolean;
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function adminListEmailBlocks(): Promise<{ items: BlockPaletteEntry[] }> {
+  return apiFetchAuthed('/api/admin/email-templates/blocks');
+}
+
+export function adminListEmailTemplates(): Promise<{ items: EmailTemplate[] }> {
+  return apiFetchAuthed('/api/admin/email-templates');
+}
+
+export function adminUpsertEmailTemplate(body: {
+  type: string;
+  name: string;
+  subject: string;
+  body: EmailBlock[];
+  preview?: string | null;
+  isActive: boolean;
+}): Promise<EmailTemplate> {
+  return apiFetchAuthed('/api/admin/email-templates', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminDeleteEmailTemplate(id: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/email-templates/${id}`, { method: 'DELETE' });
+}
+
+export function adminPreviewEmailTemplate(body: {
+  subject: string;
+  preview?: string | null;
+  body: EmailBlock[];
+  variables?: Record<string, unknown>;
+}): Promise<{ html: string }> {
+  return apiFetchAuthed('/api/admin/email-templates/preview', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminSendTestEmail(body: {
+  to: string;
+  subject: string;
+  preview?: string | null;
+  body: EmailBlock[];
+  variables?: Record<string, unknown>;
+}): Promise<{ ok: true }> {
+  return apiFetchAuthed('/api/admin/email-templates/send-test', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+// ----- Admin Feature Flags (Phase 10.4) -----
+
+export interface FeatureFlagRow {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  defaultValue: boolean;
+  targetingRules: Array<{ match: Record<string, unknown>; value: boolean }>;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function adminListFeatureFlags(): Promise<{ items: FeatureFlagRow[] }> {
+  return apiFetchAuthed('/api/admin/feature-flags');
+}
+
+export function adminCreateFeatureFlag(body: {
+  key: string;
+  name: string;
+  description?: string | null;
+  defaultValue: boolean;
+  targetingRules?: Array<{ match: Record<string, unknown>; value: boolean }>;
+  isActive: boolean;
+}): Promise<FeatureFlagRow> {
+  return apiFetchAuthed('/api/admin/feature-flags', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminUpdateFeatureFlag(
+  id: string,
+  body: Partial<Parameters<typeof adminCreateFeatureFlag>[0]>,
+): Promise<FeatureFlagRow> {
+  return apiFetchAuthed(`/api/admin/feature-flags/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminDeleteFeatureFlag(id: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/feature-flags/${id}`, { method: 'DELETE' });
+}
+
+// ----- Admin Business Rules (Phase 10.5) -----
+
+export interface BusinessRuleRow {
+  id: string;
+  scope: string;
+  key: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  priority: number;
+  conditions: Record<string, unknown>;
+  actions: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function adminListBusinessRules(
+  scope?: string,
+): Promise<{ items: BusinessRuleRow[] }> {
+  const qs = scope ? `?scope=${encodeURIComponent(scope)}` : '';
+  return apiFetchAuthed(`/api/admin/business-rules${qs}`);
+}
+
+export function adminCreateBusinessRule(body: {
+  scope: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  priority: number;
+  conditions: Record<string, unknown>;
+  actions: Record<string, unknown>;
+}): Promise<BusinessRuleRow> {
+  return apiFetchAuthed('/api/admin/business-rules', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminUpdateBusinessRule(
+  id: string,
+  body: Partial<Parameters<typeof adminCreateBusinessRule>[0]>,
+): Promise<BusinessRuleRow> {
+  return apiFetchAuthed(`/api/admin/business-rules/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminDeleteBusinessRule(id: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/business-rules/${id}`, { method: 'DELETE' });
+}
+
+export function adminEvaluateBusinessRules(
+  scope: string,
+  context: Record<string, unknown>,
+): Promise<{
+  hits: Array<{
+    id: string;
+    key: string;
+    name: string;
+    priority: number;
+    actions: Record<string, unknown>;
+  }>;
+}> {
+  return apiFetchAuthed('/api/admin/business-rules/evaluate', {
+    method: 'POST',
+    body: JSON.stringify({ scope, context }),
+  });
+}
+
+// ----- Admin CMS Pages (Phase 10.6) -----
+
+export interface CmsBlock {
+  type: string;
+  [k: string]: unknown;
+}
+
+export interface CmsPageRow {
+  id: string;
+  slug: string;
+  title: string;
+  metaDescription: string | null;
+  blocks: CmsBlock[];
+  isPublished: boolean;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function adminListCmsPages(): Promise<{ items: CmsPageRow[] }> {
+  return apiFetchAuthed('/api/admin/pages');
+}
+
+export function adminGetCmsPage(id: string): Promise<CmsPageRow> {
+  return apiFetchAuthed(`/api/admin/pages/${id}`);
+}
+
+export function adminCreateCmsPage(body: {
+  slug: string;
+  title: string;
+  metaDescription?: string | null;
+  blocks: CmsBlock[];
+  isPublished: boolean;
+}): Promise<CmsPageRow> {
+  return apiFetchAuthed('/api/admin/pages', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminUpdateCmsPage(
+  id: string,
+  body: Partial<Parameters<typeof adminCreateCmsPage>[0]>,
+): Promise<CmsPageRow> {
+  return apiFetchAuthed(`/api/admin/pages/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminDeleteCmsPage(id: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/pages/${id}`, { method: 'DELETE' });
+}
+
+// Public — anyone can read flag values for given keys.
+export async function evaluateFlags(keys: string[]): Promise<Record<string, boolean>> {
+  if (keys.length === 0) return {};
+  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  const r = await fetch(`${base}/api/flags?keys=${encodeURIComponent(keys.join(','))}`, {
+    cache: 'no-store',
+    credentials: 'include',
+  });
+  if (!r.ok) return {};
+  const j = (await r.json()) as { flags: Record<string, boolean> };
+  return j.flags ?? {};
+}
+
+// Public — storefront checkout picker.
+export async function listPublicGateways(
+  currency?: string,
+): Promise<{ items: Array<{ id: string; provider: string; label: string; currencies: string[] }> }> {
+  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  const qs = currency ? `?currency=${encodeURIComponent(currency)}` : '';
+  const r = await fetch(`${base}/api/payments/gateways${qs}`, { cache: 'no-store' });
+  if (!r.ok) return { items: [] };
+  return r.json();
 }

@@ -1,4 +1,4 @@
-import { ProductGridFromQuery } from '@/components/product/ProductGridFromQuery';
+import { PlacementOrFallbackGrid } from '@/components/product/PlacementOrFallbackGrid';
 import { FeatureCategoryCard } from '@/components/category/FeatureCategoryCard';
 
 const featuredCategories = [
@@ -22,7 +22,12 @@ export function DealsSection() {
 
       <div className="bg-white py-6 md:py-8">
         <div className="mx-auto grid max-w-site grid-cols-2 gap-3 px-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 lg:grid-cols-6">
-          <ProductGridFromQuery query={{ onSale: true, limit: 6 }} delivery="2hrs" />
+          <PlacementOrFallbackGrid
+            placement="homepage_featured"
+            fallbackQuery={{ onSale: true }}
+            limit={6}
+            delivery="2hrs"
+          />
         </div>
       </div>
 

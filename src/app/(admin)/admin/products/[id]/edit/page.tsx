@@ -124,6 +124,23 @@ export default function EditProductPage({ params }: PageProps) {
               images: product.images,
               attributes: product.attributes as unknown as Record<string, unknown>,
               categorySlug: product.category?.slug ?? null,
+              placements: (
+                (product as unknown as {
+                  placements?: Array<{
+                    placement: string;
+                    sortOrder?: number;
+                    startsAt?: string | null;
+                    endsAt?: string | null;
+                    countries?: string[];
+                  }>;
+                }).placements ?? []
+              ).map((p) => ({
+                placement: p.placement,
+                sortOrder: p.sortOrder ?? 100,
+                startsAt: p.startsAt ?? null,
+                endsAt: p.endsAt ?? null,
+                countries: p.countries ?? [],
+              })),
             }}
             categories={categories}
             submitting={submitting}

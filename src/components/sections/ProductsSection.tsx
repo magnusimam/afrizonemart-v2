@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ProductGridFromQuery } from '@/components/product/ProductGridFromQuery';
+import { PlacementOrFallbackGrid } from '@/components/product/PlacementOrFallbackGrid';
 
 export function ProductsSection() {
   return (
@@ -19,7 +19,12 @@ export function ProductsSection() {
 
       <div className="bg-white py-6 md:py-8">
         <div className="mx-auto grid max-w-site grid-cols-2 gap-3 px-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 lg:grid-cols-6">
-          <ProductGridFromQuery query={{ category: 'groceries', limit: 24 }} skeletonCount={12} />
+          <PlacementOrFallbackGrid
+            placement="shelf_groceries"
+            fallbackQuery={{ category: 'groceries' }}
+            limit={24}
+            skeletonCount={12}
+          />
         </div>
 
         <div className="mt-6 flex justify-center px-4 md:mt-8">

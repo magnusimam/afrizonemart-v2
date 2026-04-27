@@ -103,6 +103,135 @@ gets ticked off here.
    - **Verified**: 5 random product pages all return 200 with real
      bundles, features, specs, breadcrumb, and (where seeded)
      reviews.
+21. **[~] Phase 10 — Self-service platform** _(queued 2026-04-27)_.
+
+    **The thesis**: every dev task should become a registry + UI. We
+    have the bones (event bus, modules, schema-driven products); now we
+    build the admin tooling that lets non-devs author features.
+
+    **Six sub-workstreams**, independently shippable, ordered by
+    biggest "stop pinging the dev" return:
+
+    - **10.1 Custom Field Registry** _(landed 2026-04-27)_.
+      Schema: `CustomFieldDef` + `CustomFieldScope` + `CustomFieldType`
+      enums (10 types: TEXT, LONGTEXT, NUMBER, BOOLEAN, URL, VIDEO,
+      IMAGE, SELECT, JSON, RICHTEXT). Module
+      `src/modules/custom-fields/{schema,service,controller,routes,
+      admin.routes}.ts`. Admin CRUD at `/api/admin/custom-fields`,
+      public read at `/api/custom-fields/:scope`. Service-side caching
+      (30s TTL). `validateAndNormalizeAttributes` runs on every product
+      create/update and merges validated custom-field values onto the
+      existing `attributes` JSON without disturbing legacy keys
+      (bundles/features/specs/about). Frontend admin at
+      `/admin/custom-fields` with create/edit/delete + scope tabs
+      (PRODUCT/ORDER/USER). `<DynamicFieldInput>` renders the right
+      input control per type in `ProductForm`. `<DynamicFieldDisplay>`
+      + `<DynamicFieldList>` on storefront product page renders the
+      right output (YouTube/Vimeo iframe for VIDEO, `<img>` for IMAGE,
+      `<a>` for URL, etc.). Sidebar entry "Custom Fields" added.
+
+      _Validates the platform pattern_: registry table + provider/type
+      handler + admin UI + dynamic renderer. The same shape ships
+      10.3 (email blocks) and 10.6 (page builder).
+
+    - **10.2 Pluggable payment gateway registry** _(landed 2026-04-27)_.
+      Schema: `PaymentGatewayConfig` (provider, label, environment,
+      isActive, priority, currencies, credentials Json, metadata Json).
+      Code-side **provider registry** in `payments/registry.ts`:
+      `PROVIDER_FACTORIES` maps `'squad' | 'stub' | …` to a
+      `ProviderDefinition` describing display name, currencies,
+      credential field schema, and a `build()` factory. The admin form
+      auto-renders credential inputs from `def.credentialFields` —
+      adding a new provider type is one new file + one registry entry.
+      Refactored existing `GtSquadGateway` and `StubGateway` to take
+      config from constructor instead of env. `payments/service.ts`
+      now resolves the active gateway via DB rows (priority + currency)
+      with env-based Squad as a legacy fallback. `activeGateways()`
+      returns the full active list; webhook handler walks them so
+      multiple providers can share one webhook URL. Public read at
+      `GET /api/payments/gateways?currency=NGN`. Admin CRUD at
+      `/api/admin/payment-gateways/*` with credential redaction
+      (passwords show as `••••<last4>`). Admin UI at
+      `/admin/payment-gateways` with a provider dropdown that
+      auto-renders the right credential fields.
+
+      _Validates the platform pattern_: registry table + provider
+      registry + admin UI. Adding Paystack, Flutterwave, Stripe, M-Pesa
+      is now one ~150-line file in `payments/<provider>-gateway.ts` +
+      one entry in `PROVIDER_FACTORIES`.
+
+    - **10.3 Email template editor** _(landed 2026-04-27)_.
+      Schema: `EmailTemplate` keyed by event type (`order.confirmed`,
+      `user.welcome`, …) with subject + JSON block tree.
+      `templates/render-blocks.tsx` walks the tree and renders each
+      block (heading, sub-heading, paragraph, button, image, info-card,
+      item-list, divider, spacer) using the existing `EmailLayout`
+      primitives. `BLOCK_PALETTE` drives the admin block menu so
+      adding a new block type is one switch case + one palette entry.
+      `interpolate()` substitutes `{variable}` tokens at render time
+      (supports `{a.b.c}` dotted paths). `template-resolver.ts`
+      resolves DB → element with the existing TSX as fallback;
+      `sendEmail` checks the resolver first when caller passes
+      `variables`. Admin at `/admin/email-templates` lists templates
+      and lets you initialise any of 8 known events.
+      `/admin/email-templates/[id]` is the editor: 2-pane layout
+      (block editor left, live iframe preview right), block palette,
+      reorder/remove buttons, "send test" button that ships a real
+      email via Resend with sample variables. System templates can be
+      toggled inactive (falls back to TSX) but not deleted.
+
+    - **10.4 Feature flags** _(landed 2026-04-27)_.
+      Schema: `FeatureFlag` (key, name, description, defaultValue,
+      targetingRules Json, isActive). Module
+      `src/modules/feature-flags/{service,routes,admin.routes}.ts`.
+      Engine evaluates rules in order — first match wins; supports
+      `userId`, `userRole`, `country`, `rolloutPercent` matchers.
+      `rolloutPercent` uses SHA-256 sticky bucketing on (flagKey,
+      userId) so the same user always lands in the same bucket.
+      Public batch read at `GET /api/flags?keys=a,b,c` with
+      `optionalAuth` so anon users still get defaults. Frontend
+      `useFlag('key')` hook batches multiple calls and caches per
+      session. Admin at `/admin/feature-flags` with create/edit
+      dialog: "Always on for ADMIN" toggle + rollout slider +
+      master kill switch (isActive). 10s in-process cache invalidated
+      on any mutation. **Updates Principle #2 → `[x]`.**
+
+    - **10.5 Generic Rules Engine** _(landed 2026-04-27)_.
+      Schema: `BusinessRule` (scope, key, name, isActive, priority,
+      conditions Json, actions Json). Tiny matcher DSL with $eq, $ne,
+      $gt, $gte, $lt, $lte, $in, $any, $all and dotted-path field
+      access (`cart.subtotal`, `user.tier`). `evaluate(scope, ctx)`
+      returns matching rules in priority order;
+      `evaluateActions(scope, ctx)` returns the merged actions map.
+      Admin at `/admin/business-rules` with scope tabs (cart, order,
+      fulfilment, discount, fraud, loyalty), JSON editors for
+      conditions + actions, sample-payload starters per scope, and a
+      `/evaluate` endpoint to test rules against a context. 15s
+      in-process cache invalidated on every mutation.
+      Migration of hardcoded `ALLOWED_TRANSITIONS` and free-shipping
+      logic is post-launch — engine + admin are live now.
+      **Updates Principle #3 → `[x]`.**
+
+    - **10.6 CMS / Page Builder** _(landed 2026-04-27)_.
+      Schema: `CmsPage` (slug unique, title, metaDescription, blocks
+      Json, isPublished, publishedAt). Public read at
+      `GET /api/pages/:slug` (only published rows); admin CRUD at
+      `/api/admin/pages`. Frontend catch-all route at `/p/[...slug]`
+      fetches and renders. Block renderer in
+      `components/cms/PageBlocks.tsx` supports hero, rich-text,
+      banner, image, image-grid, cta, divider, spacer — same
+      pattern as the email block library, adding a new block type
+      is one switch case + one palette entry. Admin at `/admin/pages`
+      with create-and-edit modal; `/admin/pages/[id]` is the
+      2-pane editor (block editor left, **live preview right** that
+      renders the actual block components, not an iframe — instant
+      WYSIWYG).
+
+    **Order rationale**: 10.1 first because it's the smallest scope and
+    directly answers Magnus's YouTube-embed example; the registry +
+    dynamic-renderer pattern then generalises to the email editor (10.3)
+    and CMS (10.6).
+
 20. **[x] Phase 9 — Production deploy readiness** _(landed 2026-04-26)_.
 
     **Shipped**:
@@ -851,6 +980,120 @@ gets ticked off here.
 
 ---
 
+## Post-launch principles audit (2026-04-27)
+
+After Phase 9 (production deploy), here is an honest scoring of all 10
+principles based on the running production system, not the design intent.
+
+| # | Principle | Status | One-line verdict |
+|---|---|---|---|
+| 1 | API-First Design | **[x]** | Frontend (storefront + admin) is a pure consumer; every action goes through `/api/*`. |
+| 2 | Feature Flags | **[ ]** | Not built. Admin Settings cover config toggles, but no per-user/per-cohort rollout system. |
+| 3 | Rules Engine | **[~]** | Pricing/shipping/coupons/free-shipping thresholds are admin-editable data; order status transitions are still in code. |
+| 4 | Schema-Driven Design | **[x]** | `Product.attributes Json` + admin attribute editor lets us add product types (electronics, books, perishables) without migrations. |
+| 5 | Event-Driven Architecture | **[x]** | 11 typed events; 8 modules subscribe; new features (notifications, webhooks, audit) added zero edits to checkout code. |
+| 6 | Separation of Concerns | **[x]** | UI ↔ business ↔ data are three layers. API enforces `routes → controller → service → repository` per module. |
+| 7 | Domain-Driven Design | **[x]** | 18 domain modules, every folder is a business concept. |
+| 8 | Infrastructure as Code | **[x]** | `railway.toml`, `prisma/migrations/`, env-var manifest in `DEPLOY.md`, R2 + DNS documented. |
+| 9 | Modular Architecture | **[x]** | 18 modules, no module imports another's `service.ts`; cross-module talks through eventBus. |
+| 10 | Observability by Default | **[~]** | API has Winston JSON + Sentry hooks + per-request logs. Frontend has neither yet; no metrics/tracing layer. |
+
+**Score: 7 ½ / 10 — `[x]`, 2 `[~]`, 1 `[ ]`.**
+
+The three gaps (#2 feature flags, #3 fuller rules engine, #10 frontend
+observability) are **post-launch work, not blockers**. The platform can
+expand in every direction it was designed for: new product types, new
+event subscribers, new modules, new countries, new front-end clients —
+all without touching existing code.
+
+### Per-principle evidence
+
+**#1 API-First** — Storefront pages call `/api/products`, `/api/cart`,
+`/api/orders`, `/api/auth`, `/api/payments`, `/api/uploads`. Admin
+console calls `/api/admin/*` (12 admin sub-routers). The Next.js
+frontend has zero direct DB queries. A mobile app dropping in tomorrow
+would consume the exact same endpoints.
+
+**#2 Feature Flags** — Honest gap. Closest we have is the admin
+`SETTINGS_REGISTRY` (general/inventory/shipping/orders/notifications/
+advanced groups) which lets staff toggle things like
+`inventory.hide_out_of_stock` or `notifications.send_welcome` from the
+UI. But there is no notion of "show new checkout to 1% of users" or
+"kill-switch this feature for one customer." That requires a
+`FeatureFlag` model + per-user evaluation — designed but not built.
+
+**#3 Rules Engine** — Partial. Data-driven today: shipping zones &
+rates (`/admin/shipping`), coupons & redemptions (`/admin/coupons`),
+free-shipping thresholds, order number prefix, low-stock threshold.
+Still in code: order status transition matrix
+(`admin.service.ts ALLOWED_TRANSITIONS`), refund eligibility logic,
+cancellation rules. A real rules engine (DSL or `if-then-else` data
+table evaluated at runtime) is post-launch.
+
+**#4 Schema-Driven** — `Product.attributes Json @default("{}")` plus
+the structured-attribute admin editor (Phase 1.1) means a new product
+type is a config change. Bundles, features, specifications, variants,
+about-section content all live in `attributes`. No code change needed
+to onboard "electronics with warranty + voltage" or
+"perishables with expiry + allergens".
+
+**#5 Event-Driven** — 11 typed events in `EventMap` (`order.placed`,
+`order.paid`, `order.shipped`, `order.delivered`, `order.cancelled`,
+`order.refunded`, `order.note_added`, `user.registered`,
+`user.logged_in`, `cart.updated`, `product.viewed`,
+`password.reset_requested`). 8 modules emit, 4 subscribe (notifications
+dispatcher, webhooks dispatcher, audit log will land here). Adding the
+welcome email, the audit log, and the Squad webhook all happened
+**without touching `orders/service.ts`**.
+
+**#6 Separation of Concerns** — Hard rule: `controller.ts` only
+touches `req`/`res`, `service.ts` only touches business logic +
+events, `repository.ts` only touches Prisma. Frontend mirrors:
+`pages` → `components` → `lib/api` → API.
+
+**#7 DDD** — Module folders: `auth, cart, categories, coupons,
+customers, audit, health, notifications, orders, payments, products,
+reports, reviews, settings, shipping, uploads, webhooks, admin`.
+Frontend folders: `account, admin, auth, cart, checkout, layout,
+product, sections, shop`. Zero technical-named folders like
+`handlers/` or `processors/`.
+
+**#8 IaC** — `railway.toml` (build + healthcheck + restart policy),
+`prisma/schema.prisma` + `prisma/migrations/` (versioned schema),
+`DEPLOY.md` (full step-by-step runbook with R2 + Vercel + Cloudflare
+DNS), env vars on Railway/Vercel as the source of truth, no secrets
+in code. `.gitignore` properly anchored after the bug we hit. Vercel
+auto-detects Next.js (no `vercel.json` needed).
+
+**#9 Modular** — Every cross-module communication is via the event
+bus. `notifications/dispatcher.ts` subscribes to events from `auth`,
+`orders`, `payments`, but does **not** import their service files.
+Killing one module (e.g. `notifications`) doesn't take down checkout.
+
+**#10 Observability** — API: Winston JSON logger
+(`src/infra/logger.ts`), Sentry hook
+(`src/infra/sentry.ts` — DSN currently empty in prod, ready to wire),
+per-request log middleware with `requestId` correlation, `errorHandler`
+funnels everything through one envelope. Frontend has no Sentry yet
+and no client-side request tracing — explicit follow-up. No
+OpenTelemetry / Prometheus yet (premature for current scale).
+
+### What this audit changes in the tracker
+- **#1 API-First** → `[~]` → `[x]`
+- **#5 Event-Driven** → `[~]` → `[x]`
+- **#6 Separation of Concerns** → `[~]` → `[x]`
+- **#3 Rules Engine** → `[ ]` → `[~]` (partial via Settings + Coupons + Shipping)
+- **#2 Feature Flags** stays `[ ]` — explicit post-launch
+- **#10 Observability** stays `[~]` — frontend Sentry + metrics post-launch
+
+### Code-level rules (Part B) — also re-audited
+- **B1 API-First (code level)** → `[x]` — every section is API-driven now (was `[~]` when only Groceries was wired).
+- **B5 Event-Driven Side Effects** → `[x]` — notifications, audit, webhooks all subscribe to events instead of patching origin code.
+- **B8 Error and Loading States** → `[x]` — every async boundary has a loading + error state (verified during deploy smoke test).
+- **B10 Observability (code level)** → `[~]` — server side complete, client side pending.
+
+---
+
 ## Part A — 10 Scalable Architecture Principles
 *(from `Afrizonemart_2.0_ScalableArchitecture_Apr2026_10EngineeringPrinciples.docx`)*
 
@@ -859,7 +1102,7 @@ organised so it can grow without breaking.
 
 ---
 
-### 1. [~] API-First Design
+### 1. [x] API-First Design
 
 **What it means**: Every core function (orders, payments, products, cart, etc.)
 lives behind an API. The website, future mobile app, WhatsApp bot, and partner
@@ -881,7 +1124,7 @@ days, not months — because the brain is already separate from the face.
 
 ---
 
-### 2. [ ] Feature Flags
+### 2. [x] Feature Flags _(landed 2026-04-27 in Phase 10.4)_
 
 **What it means**: Every feature can be turned on/off from a database row
 without deploying code. Roll out to 1% first, kill instantly if it breaks.
@@ -894,7 +1137,7 @@ something explodes — without engineers touching the code.
 
 ---
 
-### 3. [ ] Rules Engine
+### 3. [x] Rules Engine _(landed 2026-04-27 in Phase 10.5; engine + admin live, migration of legacy hardcoded rules ongoing)_
 
 **What it means**: Pricing, shipping thresholds, discount logic, surge rules,
 loyalty points, regional pricing — all stored as configurable data, edited
@@ -908,7 +1151,7 @@ from the admin dashboard. Not hardcoded in the application.
 
 ---
 
-### 4. [x] Schema-Driven Design
+### 4. [x] Schema-Driven Design (audited 2026-04-27)
 
 **What it means**: Product attributes are flexible. A clothing item has
 size/colour, a food item has expiry/allergens, an electronics item has
@@ -942,7 +1185,7 @@ regulation in a new country) is a configuration change, not a code change.
 
 ---
 
-### 5. [~] Event-Driven Architecture
+### 5. [x] Event-Driven Architecture (audited 2026-04-27)
 
 **What it means**: When `order.placed` fires, every interested service
 (payment, email, inventory, supplier-notification, loyalty, analytics)
@@ -969,7 +1212,7 @@ when new ones are added.
 
 ---
 
-### 6. [~] Separation of Concerns
+### 6. [x] Separation of Concerns (audited 2026-04-27)
 
 **What it means**: UI, business logic, and data are three completely separate
 layers that talk through defined interfaces.
@@ -1152,7 +1395,7 @@ endpoint must comply.
 
 ---
 
-### B1. [~] Rule 1 — API-First (code level)
+### B1. [x] Rule 1 — API-First (code level) (audited 2026-04-27)
 
 **What it means**: Build the endpoint *before* the UI component. Components
 only call APIs and render data — never contain business logic.
@@ -1229,7 +1472,7 @@ and empty states. Use named exports.
 
 ---
 
-### B5. [~] Rule 5 — Event-Driven Side Effects
+### B5. [x] Rule 5 — Event-Driven Side Effects (audited 2026-04-27)
 
 **What it means**: Use `eventBus` for side effects. Adding a notification
 when an order is placed should be a subscriber registration, never a chained
@@ -1278,7 +1521,7 @@ provided screenshots. Pixel-sample colours; don't guess.
 
 ---
 
-### B8. [~] Rule 8 — Error and Loading States
+### B8. [x] Rule 8 — Error and Loading States (audited 2026-04-27)
 
 **What it means**: Every data-fetching component handles **loading**,
 **error**, and **empty** states. No naked spinners; use skeleton placeholders

@@ -23,6 +23,7 @@ import { fetchCart, type CartView } from '@/lib/api/cart';
 import { HttpApiError } from '@/lib/api/client';
 import { placeOrder, type PaymentMethodId as ApiPaymentMethod } from '@/lib/api/orders';
 import { initPayment } from '@/lib/api/payments';
+import { listPublicGateways } from '@/lib/api/admin';
 import { fetchShippingRates, type ShippingRate } from '@/lib/api/shipping';
 import { useCheckoutStore } from '@/stores/checkoutStore';
 import {
@@ -71,6 +72,18 @@ export default function PaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [serverCart, setServerCart] = useState<CartView | null>(null);
   const [pickedRate, setPickedRate] = useState<ShippingRate | null>(null);
+  const [activeGateways, setActiveGateways] = useState<string[]>([]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await listPublicGateways('NGN');
+        setActiveGateways(r.items.map((g) => g.label));
+      } catch {
+        /* fail-soft */
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     setHydrated(true);
@@ -218,6 +231,15 @@ export default function PaymentPage() {
               <div className="flex flex-col gap-6 lg:col-span-8 lg:gap-8">
                 <Section title="Payment Method" caption="Pick how you want to pay.">
                   <PaymentMethodSelector value={selected} onChange={handleSelectMethod} />
+                  {activeGateways.length > 0 && (
+                    <p className="mt-3 flex flex-wrap items-center gap-2 font-sans text-[11px] text-muted">
+                      <Lock size={10} aria-hidden />
+                      Securely processed by{' '}
+                      <span className="font-raleway font-semibold text-charcoal">
+                        {activeGateways.join(', ')}
+                      </span>
+                    </p>
+                  )}
                 </Section>
 
                 {selected ? (

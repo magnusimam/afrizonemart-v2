@@ -6,6 +6,7 @@ import { Check, Heart, Package } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
 import { formatPriceNGN } from '@/lib/format';
 import { getCountry } from '@/lib/countries';
+import { Flag } from '@/components/common/Flag';
 
 type ButtonVariant = 'navy' | 'pink';
 
@@ -124,7 +125,7 @@ export function ProductCardPlaceholder({
             className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-input bg-white/95 px-1.5 py-0.5 font-sans text-[9px] font-semibold text-charcoal shadow-sm backdrop-blur md:text-[10px]"
             title={`Made in ${country.name}`}
           >
-            <span aria-hidden>{country.flag}</span>
+            <Flag code={country.code} title={country.name} size="sm" />
             <span>Made in {country.name}</span>
           </div>
         )}

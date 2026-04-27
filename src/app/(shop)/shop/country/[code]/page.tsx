@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header';
 import { FiltersSidebar } from '@/components/shop/FiltersSidebar';
 import { ShopToolbar } from '@/components/shop/ShopToolbar';
 import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
+import { Flag } from '@/components/common/Flag';
 import {
   COUNTRIES,
   COUNTRY_CODES,
@@ -100,9 +101,12 @@ export default function ShopByCountryPage({ params }: PageProps) {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-4">
-              <span className="text-6xl md:text-8xl" aria-hidden>
-                {country.flag}
-              </span>
+              <Flag
+                code={country.code}
+                title={country.name}
+                size="lg"
+                className="!h-14 !w-auto rounded-md md:!h-20"
+              />
               <div className="flex flex-col gap-1">
                 <h1 className="font-raleway text-3xl font-bold leading-tight md:text-5xl">
                   Made in {country.name}
@@ -145,7 +149,7 @@ export default function ShopByCountryPage({ params }: PageProps) {
                     href={`/shop/country/${cc.slug}`}
                     className="flex flex-col items-center gap-2 rounded-card border border-border bg-white p-4 shadow-card transition-shadow hover:shadow-card-hover"
                   >
-                    <span className="text-3xl" aria-hidden>{cc.flag}</span>
+                    <Flag code={cc.code} title={cc.name} size="lg" className="!h-7 !w-auto rounded-md" />
                     <span className="font-raleway text-xs font-bold text-navy">
                       {cc.name}
                     </span>

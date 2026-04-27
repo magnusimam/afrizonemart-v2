@@ -7,7 +7,7 @@ import { HeaderUserMenu } from '@/components/layout/HeaderUserMenu';
 const navItems = [
   { label: 'All Categories', href: '/shop', hasDropdown: true },
   { label: 'Shop By Country', href: '/shop/country/nigeria' },
-  { label: 'Special Discounts', href: '/deals' },
+  { label: 'Special Discounts', href: '/special-discount' },
   { label: '₦1k Store', href: '/shop/1k-store' },
   { label: "Today's Deals", href: '/deals' },
   { label: 'New Arrivals', href: '/new-arrivals' },

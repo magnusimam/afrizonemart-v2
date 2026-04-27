@@ -8,6 +8,17 @@ import { ShopToolbar } from '@/components/shop/ShopToolbar';
 import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
 import { COUNTRY_CODES } from '@/lib/countries';
 
+const SAMPLE_NAMES = [
+  'Maya Himalaya Facial Scrub', 'Tara Bronzer', 'Fanda Lipstick',
+  'Glynn Day Bed Chaise Lounge', 'Tastic Long Grain Rice 5kg', 'Smoked CatFish 250g',
+  'CT 24 Wrist Watch', 'Maya Curly Hair Kit', 'Genuine White Leather Couch',
+  'Big Bites Lemon 60cl', 'Ground Fenugreek 1kg', 'Ann Chair 20',
+  'AvanGuard Freedom 2', 'Mayo Herbal Shampoo', 'We Naturals Moringa Powder',
+  'Two Piece Native', 'TV Stand 109', 'Recals Jacket Unisex',
+  'Bridie Day Bed', 'Five Crowns Sparkling Brut', 'Coffee Mate Rich Brown',
+  'Cway Nutri-Yo Yoghurt', 'Spectra Cocoa Powder', 'Trendy Shoes For Men',
+];
+
 const SAMPLE_PRODUCTS = Array.from({ length: 24 }, (_, i) => {
   const origins = COUNTRY_CODES;
   const origin = origins[i % origins.length];
@@ -21,17 +32,6 @@ const SAMPLE_PRODUCTS = Array.from({ length: 24 }, (_, i) => {
     origin,
   };
 });
-
-const SAMPLE_NAMES = [
-  'Maya Himalaya Facial Scrub', 'Tara Bronzer', 'Fanda Lipstick',
-  'Glynn Day Bed Chaise Lounge', 'Tastic Long Grain Rice 5kg', 'Smoked CatFish 250g',
-  'CT 24 Wrist Watch', 'Maya Curly Hair Kit', 'Genuine White Leather Couch',
-  'Big Bites Lemon 60cl', 'Ground Fenugreek 1kg', 'Ann Chair 20',
-  'AvanGuard Freedom 2', 'Mayo Herbal Shampoo', 'We Naturals Moringa Powder',
-  'Two Piece Native', 'TV Stand 109', 'Recals Jacket Unisex',
-  'Bridie Day Bed', 'Five Crowns Sparkling Brut', 'Coffee Mate Rich Brown',
-  'Cway Nutri-Yo Yoghurt', 'Spectra Cocoa Powder', 'Trendy Shoes For Men',
-];
 
 export default function ShopPage() {
   return (

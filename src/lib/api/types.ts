@@ -116,5 +116,9 @@ export interface ListProductsParams {
   q?: string;
   inStock?: boolean;
   onSale?: boolean;
+  /** Phase 10.7 — placement key filter (e.g. "homepage_hero"). */
+  placement?: string;
+  /** ISO-2 country used together with placement scoping. */
+  country?: string;
   sort?: 'featured' | 'newest' | 'price-asc' | 'price-desc' | 'rating';
 }

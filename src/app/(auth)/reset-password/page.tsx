@@ -2,12 +2,20 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, Suspense, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthApiError, resetPassword } from '@/lib/api/auth';
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordInner />
+    </Suspense>
+  );
+}
+
+function ResetPasswordInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') ?? '';

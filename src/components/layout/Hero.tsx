@@ -27,7 +27,7 @@ export function Hero() {
           </div>
 
           <Link
-            href="/account/rewards"
+            href="/continental-rewards"
             className="group flex flex-1 items-center gap-3 overflow-hidden rounded-card bg-white p-4 shadow-card"
           >
             <div className="flex flex-col">

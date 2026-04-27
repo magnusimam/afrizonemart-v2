@@ -63,6 +63,10 @@ export interface ProductDetail {
   aboutBody: string;
   aboutImage: string;
   reviews: ProductReview[];
+  // Raw attributes JSON — includes both legacy (bundles/features/specs) and
+  // custom-field values (anything authored from /admin/custom-fields).
+  // The product page reads custom-field values via this object.
+  attributes: Record<string, unknown>;
 }
 
 const STANDARD_SHIPPING =
@@ -147,6 +151,7 @@ export async function loadProductDetail(
       aboutBody: attrs.aboutBody,
       aboutImage: attrs.aboutImage,
       reviews: (api.reviews ?? []).map(reviewFromApi),
+      attributes: (api.attributes ?? {}) as unknown as Record<string, unknown>,
     };
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return null;

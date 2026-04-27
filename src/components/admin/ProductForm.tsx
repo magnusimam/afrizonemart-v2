@@ -1,13 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
-import type { AdminCategory, AdminProductInput } from '@/lib/api/admin';
+import type {
+  AdminCategory,
+  AdminProductInput,
+  CustomFieldDef,
+  PlacementInput,
+} from '@/lib/api/admin';
+import { adminListCustomFields } from '@/lib/api/admin';
 import {
   AttributesEditor,
   type ProductAttributes,
 } from '@/components/admin/AttributesEditor';
+import { DynamicFieldInput } from '@/components/admin/DynamicFieldInput';
 import { ImageUploader } from '@/components/admin/ImageUploader';
+import { PlacementsEditor } from '@/components/admin/PlacementsEditor';
+import { COUNTRIES } from '@/lib/countries';
 
 interface Props {
   initial?: Partial<AdminProductInput>;
@@ -53,6 +62,41 @@ export function ProductForm({
     ...EMPTY_ATTRIBUTES,
     ...((initial.attributes ?? {}) as Partial<ProductAttributes>),
   }));
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDef[]>([]);
+  const [customValues, setCustomValues] = useState<Record<string, unknown>>(() => {
+    const a = (initial.attributes ?? {}) as Record<string, unknown>;
+    // Custom-field values are anything in `attributes` that ISN'T one of
+    // the legacy hardcoded keys; we read them back when defs load below.
+    return a;
+  });
+  const [placements, setPlacements] = useState<PlacementInput[]>(
+    (initial.placements ?? []).map((p) => ({
+      placement: p.placement,
+      sortOrder: p.sortOrder,
+      startsAt: p.startsAt,
+      endsAt: p.endsAt,
+      countries: p.countries ?? [],
+    })),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await adminListCustomFields({ scope: 'PRODUCT' });
+        if (!cancelled) setCustomFieldDefs(r.items);
+      } catch {
+        /* fail-soft: form still works without custom fields */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const setCustomValue = (key: string, value: unknown) => {
+    setCustomValues((prev) => ({ ...prev, [key]: value }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,8 +115,14 @@ export function ProductForm({
       rating: initial.rating ?? 0,
       reviewCount: initial.reviewCount ?? 0,
       images,
-      attributes: attributes as unknown as Record<string, unknown>,
+      // Merge: legacy structured attributes (bundles/features/specs/about)
+      // first, then custom-field values overlay on top using their own keys.
+      attributes: {
+        ...(attributes as unknown as Record<string, unknown>),
+        ...customValues,
+      },
       categorySlug: categorySlug || null,
+      placements,
     };
 
     void onSubmit(input);
@@ -150,6 +200,76 @@ export function ProductForm({
           subtitle="The rich content shown on the product detail page."
         >
           <AttributesEditor value={attributes} onChange={setAttributes} />
+        </Section>
+
+        {customFieldDefs.length > 0 && (
+          <Section
+            title="Custom fields"
+            subtitle="Fields added from Settings → Custom Fields. Render automatically on the storefront."
+          >
+            <div className="grid grid-cols-1 gap-4">
+              {customFieldDefs.map((def) => (
+                <DynamicFieldInput
+                  key={def.id}
+                  def={def}
+                  value={customValues[def.key]}
+                  onChange={(v) => setCustomValue(def.key, v)}
+                />
+              ))}
+            </div>
+          </Section>
+        )}
+
+        <Section
+          title="Where this product appears"
+          subtitle="Auto-derived chips (read-only) reflect what the product's data already does. Manual placements pin the product to specific pages, shelves, hero rotations or custom CMS pages."
+        >
+          <PlacementsEditor
+            value={placements}
+            onChange={setPlacements}
+            autoChips={(() => {
+              const compare =
+                comparePrice.trim() && Number(comparePrice) > Number(price);
+              const originCountry = origin
+                ? COUNTRIES[origin.toUpperCase() as keyof typeof COUNTRIES]
+                : null;
+              return [
+                {
+                  label: compare ? 'On sale' : 'Not on sale',
+                  active: !!compare,
+                  hint: compare
+                    ? 'Auto: comparePrice > price → shows on /deals + /special-discount'
+                    : 'Set a higher compare-at price to enable.',
+                },
+                {
+                  label: originCountry ? `Origin: ${originCountry.name}` : 'Origin: not set',
+                  active: !!originCountry,
+                  hint: originCountry
+                    ? `Auto: surfaces on /shop/country/${originCountry.slug} and the New Arrivals map.`
+                    : 'Pick an origin country to enable country pages.',
+                },
+                {
+                  label: categorySlug
+                    ? `Category: ${categorySlug}`
+                    : 'Category: not set',
+                  active: !!categorySlug,
+                  hint: 'Auto: surfaces on the matching category page and shelves.',
+                },
+                {
+                  label: inStock ? 'In stock' : 'Out of stock — hidden',
+                  active: inStock,
+                  hint: inStock
+                    ? 'Visible to customers.'
+                    : 'Hidden from public listings until back in stock.',
+                },
+                {
+                  label: 'New arrival (auto)',
+                  active: true,
+                  hint: 'Products created in the last 30 days appear in /new-arrivals automatically. Use the New Arrivals — pin placement below to keep an older product featured.',
+                },
+              ];
+            })()}
+          />
         </Section>
       </div>
 

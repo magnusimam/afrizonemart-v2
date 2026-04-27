@@ -6,6 +6,7 @@ import { Package, X } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
 import { formatPriceNGN } from '@/lib/format';
 import { getCountry } from '@/lib/countries';
+import { Flag } from '@/components/common/Flag';
 import { QuantitySelector } from '@/components/product/QuantitySelector';
 import type { CartItem } from '@/types';
 
@@ -60,7 +61,7 @@ export function CartLineItem({ item }: CartLineItemProps) {
           ) : null}
           {country ? (
             <span className="inline-flex items-center gap-1 font-sans text-xs text-muted">
-              <span aria-hidden>{country.flag}</span>
+              <Flag code={country.code} title={country.name} size="sm" />
               Made in {country.name}
             </span>
           ) : null}

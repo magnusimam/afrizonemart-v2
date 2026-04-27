@@ -1,4 +1,4 @@
-import { ProductGridFromQuery } from '@/components/product/ProductGridFromQuery';
+import { PlacementOrFallbackGrid } from '@/components/product/PlacementOrFallbackGrid';
 
 export function PurchaseBigSection() {
   return (
@@ -11,7 +11,11 @@ export function PurchaseBigSection() {
 
       <div className="bg-white py-6 md:py-8">
         <div className="mx-auto grid max-w-site grid-cols-2 gap-3 px-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 lg:grid-cols-6">
-          <ProductGridFromQuery query={{ category: 'interior-decor', limit: 6 }} />
+          <PlacementOrFallbackGrid
+            placement="shelf_home_essentials"
+            fallbackQuery={{ category: 'interior-decor' }}
+            limit={6}
+          />
         </div>
       </div>
     </section>
