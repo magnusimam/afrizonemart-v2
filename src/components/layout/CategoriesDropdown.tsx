@@ -46,10 +46,11 @@ export function CategoriesDropdown() {
     closeTimer.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY);
   }
 
-  // Hide empty categories — admins use the admin UI to flag
-  // categories visible vs not, but the public list already excludes
-  // empties via the productCount filter.
-  const visible = (categories ?? []).filter((c) => c.productCount > 0);
+  // Show every category — even empty ones. Admins use /admin/categories
+  // to control the list; the dropdown reflects the full taxonomy.
+  // Categories with zero products still link to their /shop/<slug>
+  // page where the visitor sees a "no products yet" empty state.
+  const visible = categories ?? [];
 
   return (
     <div
