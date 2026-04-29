@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Check, Heart, Package } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
-import { formatPriceNGN } from '@/lib/format';
 import { getCountry } from '@/lib/countries';
 import { Flag } from '@/components/common/Flag';
+import { DisplayPrice } from '@/components/product/DisplayPrice';
 
 type ButtonVariant = 'navy' | 'pink';
 
@@ -144,13 +144,17 @@ export function ProductCardPlaceholder({
         {hasPrice ? (
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             {comparePrice ? (
-              <span className="font-sans text-[10px] text-muted line-through md:text-xs">
-                {formatPriceNGN(comparePrice)}
-              </span>
+              <DisplayPrice
+                amountNgn={comparePrice}
+                compact
+                className="font-sans text-[10px] text-muted line-through md:text-xs"
+              />
             ) : null}
-            <span className="font-raleway text-sm font-bold text-navy md:text-base">
-              {formatPriceNGN(price)}
-            </span>
+            <DisplayPrice
+              amountNgn={price}
+              compact
+              className="font-raleway text-sm font-bold text-navy md:text-base"
+            />
           </div>
         ) : null}
 

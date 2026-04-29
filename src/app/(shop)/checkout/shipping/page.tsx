@@ -4,9 +4,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Home as HomeIcon } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { AddressForm } from '@/components/checkout/AddressForm';
 import { CheckoutOrderSummary } from '@/components/checkout/CheckoutOrderSummary';
 import { DeliveryMethodSelector } from '@/components/checkout/DeliveryMethodSelector';
@@ -18,6 +15,7 @@ import {
   selectCartTotalQuantity,
   useCartStore,
 } from '@/stores/cartStore';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 
 const steps: CheckoutStep[] = [
   { num: 1, label: 'Cart', status: 'done' },
@@ -56,7 +54,6 @@ export default function ShippingPage() {
 
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         <nav aria-label="Breadcrumb" className="border-b border-border bg-page">
           <ol className="mx-auto flex max-w-site items-center gap-1.5 px-4 py-3 font-sans text-xs text-muted md:text-sm">
@@ -94,7 +91,9 @@ export default function ShippingPage() {
             </div>
 
             <div className="mb-8 md:mb-10">
-              <CheckoutProgress steps={steps} />
+              <SafeBoundary name="checkout:progress" fallback={null}>
+                <CheckoutProgress steps={steps} />
+              </SafeBoundary>
             </div>
 
             {isEmpty ? (
@@ -113,24 +112,37 @@ export default function ShippingPage() {
               <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
                 <div className="flex flex-col gap-6 lg:col-span-8 lg:gap-8">
                   <Section title="Delivery Address" caption="Where should this go?">
-                    <AddressForm initial={storeShipping ?? undefined} onChange={setDraft} />
+                    <SafeBoundary name="checkout:address-form">
+                      <AddressForm initial={storeShipping ?? undefined} onChange={setDraft} />
+                    </SafeBoundary>
                   </Section>
 
                   <Section
                     title="Delivery Method"
                     caption="Choose how fast and how you want it delivered."
                   >
-                    <DeliveryMethodSelector
-                      value={deliveryMethod}
-                      onChange={setDeliveryMethod}
-                    />
+                    <SafeBoundary
+                      name="checkout:delivery-method"
+                      fallback={
+                        <p className="font-sans text-sm text-muted">
+                          Delivery options couldn&apos;t load. Refresh to try again.
+                        </p>
+                      }
+                    >
+                      <DeliveryMethodSelector
+                        value={deliveryMethod}
+                        onChange={setDeliveryMethod}
+                      />
+                    </SafeBoundary>
                   </Section>
 
                   <Section
                     title="Notifications"
                     caption="Order updates from dispatch to delivery."
                   >
-                    <NotificationPrefs value={notify} onChange={setNotify} />
+                    <SafeBoundary name="checkout:notification-prefs" fallback={null}>
+                      <NotificationPrefs value={notify} onChange={setNotify} />
+                    </SafeBoundary>
                   </Section>
 
                   <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -150,19 +162,26 @@ export default function ShippingPage() {
                 </div>
 
                 <div className="lg:col-span-4">
-                  <CheckoutOrderSummary
-                    items={hydrated ? items : []}
-                    subtotal={hydrated ? totalAmount : 0}
-                    itemCount={hydrated ? totalQuantity : 0}
-                  />
+                  <SafeBoundary
+                    name="checkout:order-summary"
+                    fallback={
+                      <div className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
+                        Order summary couldn&apos;t render. Refresh the page.
+                      </div>
+                    }
+                  >
+                    <CheckoutOrderSummary
+                      items={hydrated ? items : []}
+                      subtotal={hydrated ? totalAmount : 0}
+                      itemCount={hydrated ? totalQuantity : 0}
+                    />
+                  </SafeBoundary>
                 </div>
               </form>
             )}
           </div>
         </div>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

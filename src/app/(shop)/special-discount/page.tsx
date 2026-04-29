@@ -1,13 +1,11 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Sparkles } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { HeroLiveStats } from '@/components/sections/HeroLiveStats';
 import { ProductGridFromQuery } from '@/components/product/ProductGridFromQuery';
 import { PlacementShelf } from '@/components/product/PlacementShelf';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -81,7 +79,6 @@ const SHELVES_BOTTOM: Shelf[] = [
 export default function ChristmasMarketPage() {
   return (
     <>
-      <Header />
       <main className="bg-page pb-16">
         {/* Hero — "Premium Vault" treatment.
             • Rotating amber/gold gradient ring around the card (CSS @property
@@ -182,7 +179,9 @@ export default function ChristmasMarketPage() {
           </div>
 
           {/* Live stats row */}
-          <HeroLiveStats />
+          <SafeBoundary name="special:hero-stats" fallback={null}>
+            <HeroLiveStats />
+          </SafeBoundary>
 
           {/* Soft floating glow below the hero */}
           <div
@@ -224,22 +223,28 @@ export default function ChristmasMarketPage() {
         </section>
 
         {/* Marquee-style discount strip */}
-        <DiscountMarquee />
+        <SafeBoundary name="special:marquee" fallback={null}>
+          <DiscountMarquee />
+        </SafeBoundary>
 
         {/* Editor-pinned top picks */}
-        <div className="mx-auto max-w-site px-4 pt-8 md:pt-12">
-          <PlacementShelf
-            placement="special_discount_top"
-            title="Curators&rsquo; picks"
-            subtitle="The deals our team thinks are the best buys this week."
-            delivery="Top pick"
-          />
-        </div>
+        <SafeBoundary name="special:curator-picks" fallback={null}>
+          <div className="mx-auto max-w-site px-4 pt-8 md:pt-12">
+            <PlacementShelf
+              placement="special_discount_top"
+              title="Curators&rsquo; picks"
+              subtitle="The deals our team thinks are the best buys this week."
+              delivery="Top pick"
+            />
+          </div>
+        </SafeBoundary>
 
         {/* Top shelves */}
         <div className="mx-auto flex max-w-site flex-col gap-8 px-4 pt-8 md:gap-12 md:pt-12">
           {SHELVES_TOP.map((shelf) => (
-            <ProductShelf key={shelf.title} shelf={shelf} />
+            <SafeBoundary key={shelf.title} name={`special:shelf:${shelf.title}`} fallback={null}>
+              <ProductShelf shelf={shelf} />
+            </SafeBoundary>
           ))}
         </div>
 
@@ -252,7 +257,9 @@ export default function ChristmasMarketPage() {
         {/* Bottom shelves */}
         <div className="mx-auto flex max-w-site flex-col gap-8 px-4 md:gap-12">
           {SHELVES_BOTTOM.map((shelf) => (
-            <ProductShelf key={shelf.title} shelf={shelf} />
+            <SafeBoundary key={shelf.title} name={`special:shelf:${shelf.title}`} fallback={null}>
+              <ProductShelf shelf={shelf} />
+            </SafeBoundary>
           ))}
         </div>
 
@@ -297,12 +304,12 @@ export default function ChristmasMarketPage() {
           </div>
         </section>
 
-        <div className="mt-12">
-          <TrustBarSection />
-        </div>
+        <SafeBoundary name="special:trust" fallback={null}>
+          <div className="mt-12">
+            <TrustBarSection />
+          </div>
+        </SafeBoundary>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

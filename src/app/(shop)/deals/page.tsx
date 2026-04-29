@@ -3,15 +3,13 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronRight, Flame, Home as HomeIcon, Tag, Timer } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { ApiProductCard } from '@/components/product/ApiProductCard';
 import { PlacementShelf } from '@/components/product/PlacementShelf';
 import { ProductGridSkeleton } from '@/components/product/ProductCardSkeleton';
 import { ProductGridError } from '@/components/product/ProductGridError';
 import { useProducts } from '@/hooks/use-products';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { useState } from 'react';
 
 const SORT_OPTIONS = [
@@ -42,7 +40,6 @@ export default function DealsPage() {
 
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="border-b border-border bg-page">
@@ -169,7 +166,9 @@ export default function DealsPage() {
                 {gi > 0 && <div className="h-px bg-border" />}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-5">
                   {g.cards.map((p) => (
-                    <ApiProductCard key={p.id} product={p} delivery="Sale" />
+                    <SafeBoundary key={p.id} name="deals:card" fallback={null}>
+                      <ApiProductCard product={p} delivery="Sale" />
+                    </SafeBoundary>
                   ))}
                 </div>
                 {g.banner === 'made' && (
@@ -189,10 +188,10 @@ export default function DealsPage() {
             ))}
         </div>
 
-        <TrustBarSection />
+        <SafeBoundary name="deals:trust" fallback={null}>
+          <TrustBarSection />
+        </SafeBoundary>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

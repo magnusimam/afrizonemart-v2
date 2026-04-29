@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    // Cloudflare's Bot Fight Mode blocks server-side fetches from
+    // Next.js's image-optimizer (node-fetch UA). Until BFM is disabled
+    // for images.afrizonemart.com, skip the optimizer and let the
+    // browser fetch the original. R2 already returns a sensible
+    // Cache-Control: public, max-age=31536000, immutable.
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: 'flagcdn.com' },
       // Local API uploads (dev).

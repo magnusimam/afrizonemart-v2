@@ -1,11 +1,15 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Search, ChevronDown, Globe } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { CartBadge } from '@/components/cart/CartBadge';
 import { HeaderUserMenu } from '@/components/layout/HeaderUserMenu';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+import { CurrencySwitcher } from '@/components/common/CurrencySwitcher';
+import { CategoriesDropdown } from '@/components/layout/CategoriesDropdown';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 
+// Static nav items rendered AFTER the All Categories dropdown.
 const navItems = [
-  { label: 'All Categories', href: '/shop', hasDropdown: true },
   { label: 'Shop By Country', href: '/shop/country/nigeria' },
   { label: 'Special Discounts', href: '/special-discount' },
   { label: '₦1k Store', href: '/shop/1k-store' },
@@ -51,9 +55,9 @@ export function Header() {
           </button>
         </form>
 
-        <div className="hidden items-center gap-1 rounded-input border border-border px-2 py-1.5 md:flex">
-          <Globe size={14} className="text-muted" aria-hidden />
-          <span className="font-sans text-xs text-muted">Translate</span>
+        <div className="hidden items-center gap-2 md:flex">
+          <CurrencySwitcher />
+          <LanguageSwitcher />
         </div>
 
         <CartBadge />
@@ -63,6 +67,21 @@ export function Header() {
 
       <nav className="w-full bg-navy">
         <ul className="mx-auto flex max-w-site items-center divide-x divide-white/30 overflow-x-auto py-2.5 pl-20 pr-4">
+          <li className="shrink-0">
+            <SafeBoundary
+              name="header:categories-dropdown"
+              fallback={
+                <Link
+                  href="/shop"
+                  className="flex items-center gap-1 px-4 font-raleway text-xs font-semibold text-white hover:text-amber md:px-6 md:text-sm"
+                >
+                  All Categories
+                </Link>
+              }
+            >
+              <CategoriesDropdown />
+            </SafeBoundary>
+          </li>
           {navItems.map((item) => (
             <li key={item.label} className="shrink-0">
               <Link
@@ -70,7 +89,6 @@ export function Header() {
                 className="flex items-center gap-1 px-4 font-raleway text-xs font-semibold text-white hover:text-amber md:px-6 md:text-sm"
               >
                 {item.label}
-                {item.hasDropdown && <ChevronDown size={14} aria-hidden />}
               </Link>
             </li>
           ))}

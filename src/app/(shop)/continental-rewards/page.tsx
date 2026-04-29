@@ -1,11 +1,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { PlacementShelf } from '@/components/product/PlacementShelf';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -100,7 +98,6 @@ const TIERS: Tier[] = [
 export default function ContinentalRewardsPage() {
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         {/* Intro */}
         <section className="bg-white py-12 md:py-16">
@@ -125,14 +122,16 @@ export default function ContinentalRewardsPage() {
         </section>
 
         {/* Member-exclusive picks */}
-        <section className="mx-auto mt-10 max-w-site px-4">
-          <PlacementShelf
-            placement="continental_rewards_featured"
-            title="Member exclusives"
-            subtitle="Reward-tier products curated for Continental members."
-            delivery="Member"
-          />
-        </section>
+        <SafeBoundary name="rewards:member-exclusives" fallback={null}>
+          <section className="mx-auto mt-10 max-w-site px-4">
+            <PlacementShelf
+              placement="continental_rewards_featured"
+              title="Member exclusives"
+              subtitle="Reward-tier products curated for Continental members."
+              delivery="Member"
+            />
+          </section>
+        </SafeBoundary>
 
         {/* CTAs */}
         <section className="mx-auto mt-10 grid max-w-site grid-cols-1 gap-4 px-4 md:grid-cols-2 md:gap-6">
@@ -160,12 +159,12 @@ export default function ContinentalRewardsPage() {
           </Link>
         </section>
 
-        <div className="mt-12">
-          <TrustBarSection />
-        </div>
+        <SafeBoundary name="rewards:trust" fallback={null}>
+          <div className="mt-12">
+            <TrustBarSection />
+          </div>
+        </SafeBoundary>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

@@ -120,3 +120,24 @@ export function resetPassword(token: string, password: string): Promise<void> {
     body: JSON.stringify({ token, password }),
   });
 }
+
+export function signInWithGoogle(idToken: string): Promise<AuthResult> {
+  return authFetch<AuthResult>('/api/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ idToken }),
+  });
+}
+
+export function startPhoneVerification(phone: string): Promise<{ status: string }> {
+  return authFetch<{ status: string }>('/api/auth/phone/start', {
+    method: 'POST',
+    body: JSON.stringify({ phone }),
+  });
+}
+
+export function verifyPhoneAndSignIn(phone: string, code: string): Promise<AuthResult> {
+  return authFetch<AuthResult>('/api/auth/phone/verify', {
+    method: 'POST',
+    body: JSON.stringify({ phone, code }),
+  });
+}

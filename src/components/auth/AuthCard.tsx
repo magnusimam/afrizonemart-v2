@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 
 interface AuthCardProps {
   title: string;
@@ -30,7 +31,16 @@ export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
             </h1>
             <p className="font-sans text-sm text-muted md:text-base">{subtitle}</p>
           </header>
-          {children}
+          <SafeBoundary
+            name="auth:form"
+            fallback={
+              <p className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
+                Couldn&apos;t render the form. Please refresh the page.
+              </p>
+            }
+          >
+            {children}
+          </SafeBoundary>
         </div>
 
         {footer ? (

@@ -3,9 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Home as HomeIcon, Trash2 } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { CartCouponForm } from '@/components/cart/CartCouponForm';
 import { CartLineItem } from '@/components/cart/CartLineItem';
 import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
@@ -13,6 +10,7 @@ import { EmptyCart } from '@/components/cart/EmptyCart';
 import { OrderSummary } from '@/components/cart/OrderSummary';
 import { RelatedProducts } from '@/components/product/RelatedProducts';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { fetchCart, type CartView } from '@/lib/api/cart';
 import { getRelatedProducts } from '@/lib/products';
 import { useAuthStore } from '@/stores/authStore';
@@ -61,7 +59,6 @@ export default function CartPage() {
 
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         <nav aria-label="Breadcrumb" className="border-b border-border bg-page">
           <ol className="mx-auto flex max-w-site items-center gap-1.5 px-4 py-3 font-sans text-xs text-muted md:text-sm">
@@ -137,19 +134,31 @@ export default function CartPage() {
 
                     <div className="px-4 md:px-5">
                       {cartItems.map((item) => (
-                        <CartLineItem key={item.productId} item={item} />
+                        <SafeBoundary
+                          key={item.productId}
+                          name="cart:line-item"
+                          fallback={
+                            <div className="border-b border-border py-4 font-sans text-xs text-muted">
+                              An item couldn&apos;t render. Refresh the page or remove it from your cart.
+                            </div>
+                          }
+                        >
+                          <CartLineItem item={item} />
+                        </SafeBoundary>
                       ))}
                     </div>
                   </div>
 
                   <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div className="md:max-w-md md:flex-1">
-                      <CartCouponForm
-                        couponCode={serverCart?.couponCode ?? null}
-                        couponDiscount={serverCart?.couponDiscount ?? 0}
-                        onChange={setServerCart}
-                        disabled={!isAuthed}
-                      />
+                      <SafeBoundary name="cart:coupon" fallback={null}>
+                        <CartCouponForm
+                          couponCode={serverCart?.couponCode ?? null}
+                          couponDiscount={serverCart?.couponDiscount ?? 0}
+                          onChange={setServerCart}
+                          disabled={!isAuthed}
+                        />
+                      </SafeBoundary>
                     </div>
                     <Link
                       href="/"
@@ -161,25 +170,38 @@ export default function CartPage() {
                 </div>
 
                 <div className="lg:col-span-4">
-                  <OrderSummary
-                    itemCount={itemCount}
-                    subtotal={subtotal}
-                    couponCode={serverCart?.couponCode ?? null}
-                    couponDiscount={serverCart?.couponDiscount ?? 0}
-                    couponFreeShipping={serverCart?.couponFreeShipping ?? false}
-                  />
+                  <SafeBoundary
+                    name="cart:order-summary"
+                    fallback={
+                      <div className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
+                        Order summary couldn&apos;t render. Try refreshing the page.
+                      </div>
+                    }
+                  >
+                    <OrderSummary
+                      itemCount={itemCount}
+                      subtotal={subtotal}
+                      couponCode={serverCart?.couponCode ?? null}
+                      couponDiscount={serverCart?.couponDiscount ?? 0}
+                      couponFreeShipping={serverCart?.couponFreeShipping ?? false}
+                    />
+                  </SafeBoundary>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {!isEmpty ? <RelatedProducts products={related.slice(0, 6)} /> : null}
+        {!isEmpty ? (
+          <SafeBoundary name="cart:related" fallback={null}>
+            <RelatedProducts products={related.slice(0, 6)} />
+          </SafeBoundary>
+        ) : null}
 
-        <TrustBarSection />
+        <SafeBoundary name="cart:trust" fallback={null}>
+          <TrustBarSection />
+        </SafeBoundary>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

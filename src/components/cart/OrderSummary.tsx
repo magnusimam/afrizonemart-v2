@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Lock } from 'lucide-react';
-import { formatPriceNGN } from '@/lib/format';
+import { DisplayPrice } from '@/components/product/DisplayPrice';
 
 interface OrderSummaryProps {
   itemCount: number;
@@ -34,11 +34,18 @@ export function OrderSummary({
         </h2>
 
         <div className="flex flex-col gap-2.5">
-          <SummaryRow label={`Items (${itemCount})`} value={formatPriceNGN(subtotal)} />
+          <SummaryRow
+            label={`Items (${itemCount})`}
+            value={<DisplayPrice amountNgn={subtotal} compact />}
+          />
           {couponCode && couponDiscount > 0 ? (
             <SummaryRow
               label={`Coupon (${couponCode})`}
-              value={`−${formatPriceNGN(couponDiscount)}`}
+              value={
+                <span>
+                  −<DisplayPrice amountNgn={couponDiscount} compact />
+                </span>
+              }
               valueClass="text-success"
             />
           ) : null}
@@ -60,9 +67,10 @@ export function OrderSummary({
           <span className="font-raleway text-base font-bold text-navy md:text-lg">
             {couponDiscount > 0 ? 'Subtotal after discount' : 'Subtotal'}
           </span>
-          <span className="font-raleway text-2xl font-bold text-navy md:text-3xl">
-            {formatPriceNGN(totalBeforeShipping)}
-          </span>
+          <DisplayPrice
+            amountNgn={totalBeforeShipping}
+            className="font-raleway text-2xl font-bold text-navy md:text-3xl"
+          />
         </div>
 
         {empty ? (
@@ -97,7 +105,7 @@ function SummaryRow({
   valueClass = '',
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   valueClass?: string;
 }) {
   return (

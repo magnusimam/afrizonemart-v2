@@ -1,25 +1,24 @@
 import Link from 'next/link';
 import { Heart, ShoppingCart, Trash2 } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { MOCK_USER, MOCK_WISHLIST } from '@/lib/mock-data';
 
 export default function WishlistPage() {
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         <div className="mx-auto max-w-site px-4 py-6 md:py-10">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
             <div className="lg:col-span-3">
-              <AccountSidebar
-                active="/account/wishlist"
-                userFirstName={MOCK_USER.firstName}
-                userLastName={MOCK_USER.lastName}
-              />
+              <SafeBoundary name="account:sidebar" fallback={null}>
+                <AccountSidebar
+                  active="/account/wishlist"
+                  userFirstName={MOCK_USER.firstName}
+                  userLastName={MOCK_USER.lastName}
+                />
+              </SafeBoundary>
             </div>
 
             <div className="flex flex-col gap-5 lg:col-span-9">
@@ -69,15 +68,16 @@ export default function WishlistPage() {
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
                   {MOCK_WISHLIST.map((item) => (
-                    <ProductCardPlaceholder
-                      key={item.id}
-                      id={item.id}
-                      name={item.name}
-                      price={item.price}
-                      comparePrice={item.comparePrice}
-                      discountPercent={item.discountPercent}
-                      origin={item.origin}
-                    />
+                    <SafeBoundary key={item.id} name="wishlist:card" fallback={null}>
+                      <ProductCardPlaceholder
+                        id={item.id}
+                        name={item.name}
+                        price={item.price}
+                        comparePrice={item.comparePrice}
+                        discountPercent={item.discountPercent}
+                        origin={item.origin}
+                      />
+                    </SafeBoundary>
                   ))}
                 </div>
               )}
@@ -85,8 +85,6 @@ export default function WishlistPage() {
           </div>
         </div>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

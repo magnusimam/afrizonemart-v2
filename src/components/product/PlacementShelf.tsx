@@ -33,7 +33,7 @@ export function PlacementShelf({
   country,
   delivery,
 }: Props) {
-  const { data, isLoading } = useProducts({ placement, country, limit });
+  const { data, isLoading, isError } = useProducts({ placement, country, limit });
   const items = data?.items ?? [];
 
   if (isLoading) {
@@ -47,7 +47,9 @@ export function PlacementShelf({
     );
   }
 
-  if (items.length === 0) return null;
+  // Hide the whole shelf if the API call failed — placements are
+  // optional editorial content; better silent than broken.
+  if (isError || items.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3">

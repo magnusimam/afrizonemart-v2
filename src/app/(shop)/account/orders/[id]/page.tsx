@@ -3,9 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Home as HomeIcon, Package } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
 import { formatPriceNGN } from '@/lib/format';
@@ -13,6 +10,7 @@ import { getCountry } from '@/lib/countries';
 import { getOrder, type Order } from '@/lib/api/orders';
 import { HttpApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/authStore';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import type { OrderStatus as UiOrderStatus } from '@/types';
 
 interface PageProps {
@@ -56,20 +54,44 @@ export default function OrderDetailPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Audit.8 — live status: poll the order every 12s while it's still
+  // in motion (not delivered/cancelled). Stops polling once the order
+  // reaches a terminal state.
   useEffect(() => {
-    void (async () => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = async () => {
+      if (cancelled) return;
       try {
-        setOrder(await getOrder(params.id));
+        const next = await getOrder(params.id);
+        if (cancelled) return;
+        setOrder(next);
+        const isTerminal =
+          next.status === 'DELIVERED' ||
+          next.status === 'CANCELLED' ||
+          next.status === 'REFUNDED';
+        if (!isTerminal) {
+          timer = setTimeout(() => void tick(), 12_000);
+        }
       } catch (e) {
+        if (cancelled) return;
         if (e instanceof HttpApiError && e.status === 404) {
           setError('Order not found.');
         } else {
           setError(e instanceof Error ? e.message : 'Could not load order');
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    })();
+    };
+
+    void tick();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [params.id]);
 
   const [first, ...rest] = (user?.name ?? user?.email ?? '').split(' ');
@@ -78,7 +100,6 @@ export default function OrderDetailPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         <nav aria-label="Breadcrumb" className="border-b border-border bg-page">
           <ol className="mx-auto flex max-w-site items-center gap-1.5 px-4 py-3 font-sans text-xs text-muted md:text-sm">
@@ -109,11 +130,13 @@ export default function OrderDetailPage({ params }: PageProps) {
         <div className="mx-auto max-w-site px-4 py-6 md:py-10">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
             <div className="lg:col-span-3">
-              <AccountSidebar
-                active="/account/orders"
-                userFirstName={first || 'You'}
-                userLastName={lastName}
-              />
+              <SafeBoundary name="account:sidebar" fallback={null}>
+                <AccountSidebar
+                  active="/account/orders"
+                  userFirstName={first || 'You'}
+                  userLastName={lastName}
+                />
+              </SafeBoundary>
             </div>
 
             <div className="flex flex-col gap-5 lg:col-span-9 lg:gap-6">
@@ -210,8 +233,6 @@ export default function OrderDetailPage({ params }: PageProps) {
           </div>
         </div>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

@@ -17,11 +17,11 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
-import { formatPriceNGN } from '@/lib/format';
 import type { FeatureIcon, ProductDetail } from '@/lib/products';
 import { BundleSelector } from './BundleSelector';
 import { ProductAccordion } from './ProductAccordion';
 import { QuantitySelector } from './QuantitySelector';
+import { DisplayPrice } from './DisplayPrice';
 
 const featureIconMap: Record<FeatureIcon, LucideIcon> = {
   sparkles: Sparkles,
@@ -38,14 +38,27 @@ interface ProductInfoProps {
 }
 
 export function ProductInfo({ product }: ProductInfoProps) {
-  const initialBundle = Math.max(0, product.bundles.findIndex((b) => b.popular));
+  // Imported / partially-filled products may not have any bundles. We
+  // synthesize a single "default" bundle from the product price so the
+  // BundleSelector + add-to-cart flow keeps working.
+  const bundles = product.bundles.length > 0
+    ? product.bundles
+    : [
+        {
+          label: '1 unit',
+          price: product.price,
+          units: 1,
+          comparePrice: product.comparePrice ?? product.price,
+        },
+      ];
+  const initialBundle = Math.max(0, bundles.findIndex((b) => b.popular));
   const [variant, setVariant] = useState(product.variants?.default ?? '');
   const [bundleIndex, setBundleIndex] = useState(initialBundle);
   const [quantity, setQuantity] = useState(1);
   const [wished, setWished] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
 
-  const selectedBundle = product.bundles[bundleIndex];
+  const selectedBundle = bundles[bundleIndex] ?? bundles[0];
   const totalPrice = selectedBundle.price * quantity;
 
   const handleAddToCart = () => {
@@ -120,13 +133,16 @@ export function ProductInfo({ product }: ProductInfoProps) {
       </div>
 
       <div className="flex flex-wrap items-baseline gap-3">
-        <span className="font-raleway text-3xl font-bold text-navy md:text-4xl">
-          {formatPriceNGN(product.price)}
-        </span>
+        <DisplayPrice
+          amountNgn={product.price}
+          className="font-raleway text-3xl font-bold text-navy md:text-4xl"
+        />
         {product.comparePrice ? (
-          <span className="font-sans text-lg text-muted line-through">
-            {formatPriceNGN(product.comparePrice)}
-          </span>
+          <DisplayPrice
+            amountNgn={product.comparePrice}
+            compact
+            className="font-sans text-lg text-muted line-through"
+          />
         ) : null}
         {product.discountPercent ? (
           <span className="rounded-input bg-amber px-2.5 py-1 font-raleway text-xs font-bold uppercase tracking-btn text-navy">
@@ -182,7 +198,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
       ) : null}
 
       <BundleSelector
-        bundles={product.bundles}
+        bundles={bundles}
         selectedIndex={bundleIndex}
         onSelect={setBundleIndex}
       />
@@ -193,9 +209,11 @@ export function ProductInfo({ product }: ProductInfoProps) {
           <QuantitySelector value={quantity} onChange={setQuantity} />
           <span className="font-sans text-sm text-muted">
             Subtotal:{' '}
-            <span className="font-raleway font-bold text-navy">
-              {formatPriceNGN(totalPrice)}
-            </span>
+            <DisplayPrice
+              amountNgn={totalPrice}
+              compact
+              className="font-raleway font-bold text-navy"
+            />
           </span>
         </div>
 
@@ -206,7 +224,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
           className="flex w-full items-center justify-center gap-2 rounded-btn bg-navy py-4 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ShoppingCart size={18} aria-hidden />
-          Add to Cart — {formatPriceNGN(totalPrice)}
+          Add to Cart — <DisplayPrice amountNgn={totalPrice} compact />
         </button>
 
         <button

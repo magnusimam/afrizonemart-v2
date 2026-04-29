@@ -3,14 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Heart, MapPin, Package, Sparkles, User } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
 import { formatPriceNGN } from '@/lib/format';
 import { listOrders, type Order } from '@/lib/api/orders';
 import { useAuthStore } from '@/stores/authStore';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import type { OrderStatus as UiOrderStatus } from '@/types';
 
 function statusToUi(s: Order['status']): UiOrderStatus {
@@ -59,7 +57,6 @@ export default function AccountDashboardPage() {
 
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         <div className="mx-auto max-w-site px-4 py-6 md:py-10">
           <div className="mb-6 flex flex-col gap-1 md:mb-8">
@@ -78,11 +75,13 @@ export default function AccountDashboardPage() {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
             <div className="lg:col-span-3">
-              <AccountSidebar
-                active="/account"
-                userFirstName={first || 'You'}
-                userLastName={lastName}
-              />
+              <SafeBoundary name="account:sidebar" fallback={null}>
+                <AccountSidebar
+                  active="/account"
+                  userFirstName={first || 'You'}
+                  userLastName={lastName}
+                />
+              </SafeBoundary>
             </div>
 
             <div className="flex flex-col gap-6 lg:col-span-9">
@@ -176,8 +175,6 @@ export default function AccountDashboardPage() {
           </div>
         </div>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

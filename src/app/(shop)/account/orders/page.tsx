@@ -3,14 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Package, Search } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
 import { formatPriceNGN } from '@/lib/format';
 import { listOrders, type Order } from '@/lib/api/orders';
 import { useAuthStore } from '@/stores/authStore';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import type { OrderStatus as UiOrderStatus } from '@/types';
 
 function statusToUi(s: Order['status']): UiOrderStatus {
@@ -66,16 +64,17 @@ export default function OrdersPage() {
 
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         <div className="mx-auto max-w-site px-4 py-6 md:py-10">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
             <div className="lg:col-span-3">
-              <AccountSidebar
-                active="/account/orders"
-                userFirstName={first || 'You'}
-                userLastName={lastName}
-              />
+              <SafeBoundary name="account:sidebar" fallback={null}>
+                <AccountSidebar
+                  active="/account/orders"
+                  userFirstName={first || 'You'}
+                  userLastName={lastName}
+                />
+              </SafeBoundary>
             </div>
 
             <div className="flex flex-col gap-5 lg:col-span-9">
@@ -115,8 +114,16 @@ export default function OrdersPage() {
 
               <div className="flex flex-col gap-3 md:gap-4">
                 {(orders ?? []).map((o) => (
-                  <article
+                  <SafeBoundary
                     key={o.id}
+                    name="account:order-row"
+                    fallback={
+                      <div className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
+                        One order couldn&apos;t render. Refresh to try again.
+                      </div>
+                    }
+                  >
+                  <article
                     className="rounded-card border border-border bg-white p-4 shadow-card transition-shadow hover:shadow-card-hover md:p-5"
                   >
                     <header className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
@@ -176,6 +183,7 @@ export default function OrdersPage() {
                       </Link>
                     </footer>
                   </article>
+                  </SafeBoundary>
                 ))}
               </div>
 
@@ -197,8 +205,6 @@ export default function OrdersPage() {
           </div>
         </div>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

@@ -27,3 +27,36 @@
     text-wrap: balance;
   }
 }
+
+/* --------------------------------------------------------------
+ * Hide Google Translate's default toolbar/banner. We expose
+ * translation through our own <LanguageSwitcher> component.
+ * -------------------------------------------------------------- */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-gadget,
+#google_translate_element { display: none !important; }
+body { top: 0 !important; }
+.goog-te-spinner-pos { display: none !important; }
+
+
+/* --------------------------------------------------------------
+ * Shop By Country marquee animations (used by ShopByCountrySection).
+ * Defined globally because inline <style> tags in server components
+ * trigger a hydration mismatch on the `>` selector character.
+ * -------------------------------------------------------------- */
+@keyframes azm-marquee-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes azm-marquee-right {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+.group\/marquee:hover > div {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .group\/marquee > div {
+    animation: none !important;
+  }
+}

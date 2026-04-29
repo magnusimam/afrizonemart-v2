@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  typecheck-frontend:
+    name: Typecheck frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  typecheck-api:
+    name: Typecheck API
+    runs-on: ubuntu-latest
+    # Only runs when the API source is colocated; we keep this here
+    # as a placeholder for a future monorepo. For now the API has its
+    # own repo with its own CI.
+    if: ${{ false }}
+    steps:
+      - uses: actions/checkout@v4

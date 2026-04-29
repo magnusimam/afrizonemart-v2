@@ -103,6 +103,269 @@ gets ticked off here.
    - **Verified**: 5 random product pages all return 200 with real
      bundles, features, specs, breadcrumb, and (where seeded)
      reviews.
+26. **[x] Fault-isolation full coverage pass — every page + structural fixes** _(2026-04-29)_ — done.
+
+    Extended the initial fault-isolation work (#25 below) from 4 pages to
+    **every page on the site**, plus fixed both structural issues
+    flagged in the deep audit.
+
+    **Structural fix #1 — Header / Footer / ChatBubble are now in
+    `(shop)/layout.tsx`**, each in its own SafeBoundary. Previously
+    every shop page imported and rendered them inline, so a Header
+    crash on `/cart` would kill the entire cart page (no upper
+    boundary). Now Header/Footer/ChatBubble are mounted once at the
+    layout level — a Header crash leaves the page body and footer
+    rendering normally. Stripped the per-page imports + JSX from 20
+    `(shop)` files in one batch.
+
+    **Structural fix #2 — Admin pages covered by layout-level
+    boundary.** `(admin)/layout.tsx` now wraps `<AdminSidebar>` +
+    `{children}` (the page) + `<ToastViewport>` in three separate
+    SafeBoundaries (`admin:sidebar`, `admin:page`, `admin:toast`).
+    All 28 admin pages inherit the `admin:page` boundary
+    automatically — a throw inside any admin form/table now shows a
+    branded fallback while the sidebar stays intact for navigation.
+
+    **Tier 1 (revenue-critical) section boundaries**:
+    - `cart/page.tsx` — every CartLineItem, CartCouponForm,
+      OrderSummary, RelatedProducts, TrustBarSection wrapped.
+    - `checkout/shipping/page.tsx` — CheckoutProgress, AddressForm,
+      DeliveryMethodSelector, NotificationPrefs,
+      CheckoutOrderSummary all wrapped with task-appropriate
+      fallbacks ("delivery options couldn't load", etc.).
+    - `checkout/payment/page.tsx` — CheckoutProgress,
+      PaymentMethodSelector, PaymentMethodForm, CheckoutOrderSummary
+      all wrapped. The form-level boundary lets one broken
+      gateway disappear without killing the whole payment page.
+    - `checkout/success/page.tsx` — TrustBarSection wrapped (the rest
+      is straightforward enough to rely on the route boundary).
+    - `account/orders/page.tsx` — AccountSidebar wrapped, plus each
+      order row is its own boundary so one malformed order can't
+      hide the rest.
+    - `account/orders/[id]/page.tsx` — AccountSidebar wrapped.
+
+    **Tier 2 (discovery) section boundaries**:
+    - `search/page.tsx` — FiltersSidebar, ShopToolbar, every result
+      card wrapped.
+    - `shop/[category]/page.tsx` — same pattern.
+    - `shop/country/[code]/page.tsx` — same pattern.
+    - `deals/page.tsx` — every ApiProductCard wrapped, TrustBarSection
+      wrapped.
+    - `special-discount/page.tsx` — DiscountMarquee, PlacementShelf,
+      every ProductShelf, TrustBarSection wrapped.
+    - `continental-rewards/page.tsx` — PlacementShelf, TrustBarSection
+      wrapped.
+    - `p/[...slug]` (CMS pages) — covered automatically by the
+      block-level boundaries we added to `renderBlocks()` in
+      `components/cms/PageBlocks.tsx`. Every CMS block (hero,
+      rich-text, banner, image, image-grid, cta, divider, spacer)
+      gets its own `cms:<type>` boundary, so a malformed
+      admin-authored block disappears silently instead of breaking
+      the page.
+
+    **Tier 3 (auth + simple account)**:
+    - 4 auth pages (login, register, forgot-password, reset-password)
+      covered by the SafeBoundary added inside `<AuthCard>` —
+      protects the form children of every auth page in one place.
+    - 4 account simple pages (account, profile, addresses, wishlist)
+      — AccountSidebar wrapped on each. Wishlist also wraps every
+      ProductCardPlaceholder individually.
+
+    **Tier 4 (28 admin pages)** — all covered via the
+    `admin:page` boundary in `(admin)/layout.tsx`. The two
+    block-editor admin pages (`/admin/pages/[id]`,
+    `/admin/email-templates/[id]`) get extra protection via the
+    `cms:<type>` block boundaries (page builder uses the same
+    `renderBlocks`) and the email preview iframe (which already
+    isolates by browser sandbox).
+
+    **Coverage now**: every page on the site has at minimum a
+    route-level boundary + a layout-level boundary. High-traffic
+    pages have additional section-level boundaries. Decorative
+    components use `fallback={null}`; content-critical components
+    show inline messages.
+
+25. **[x] Fault-isolation pass — Layer 1 + 2 + 3** _(2026-04-29)_ — done.
+
+    The rule: **every section of the website must fail independently
+    of every other section.** A broken Africa map on `/new-arrivals`
+    must not crash the page. A broken bundle selector on PDP must
+    not break add-to-cart. A broken admin tool must not crash the
+    admin dashboard.
+
+    **Layer 1 — Route boundaries (Next.js `error.tsx`)**:
+    - `app/error.tsx` — catches anything inside the root segment
+    - `app/global-error.tsx` — last-resort fallback that renders its
+      own `<html><body>` for catastrophes inside the root layout
+    - `app/(shop)/error.tsx` — shop routes
+    - `app/(admin)/error.tsx` — admin routes
+    - `app/(auth)/error.tsx` — auth routes
+    All four use the shared `<RouteError>` component
+    (`src/components/common/RouteError.tsx`) — branded, shows the
+    Next.js `error.digest` for support, has Reload + Home buttons.
+
+    **Layer 2 — Section boundaries (`<SafeBoundary>`)**:
+    - `src/components/common/SafeBoundary.tsx` — class-based React
+      error boundary. Tags Sentry events with `boundary:<name>` so
+      production telemetry shows which section is failing.
+      `fallback={null}` for cosmetic sections (decorative widgets);
+      pass a small inline message for content sections.
+    - **Wrapped surfaces**:
+      - `app/page.tsx` (homepage) — every section: hero, categories,
+        deals, favourites, products grid, female-products,
+        purchase-big, brand banner, books, services, mixed-categories,
+        satisfaction strip, trust bar, newsletter — plus header,
+        footer, chat bubble.
+      - `app/(shop)/new-arrivals/page.tsx` — the page Magnus called
+        out by name. Africa map, editor's pin shelf, every country
+        chapter independently sandboxed.
+      - `app/(shop)/product/[slug]/page.tsx` (PDP) — gallery, info,
+        dynamic fields, about, reviews, related products, trust,
+        newsletter — eight independent boundaries.
+      - `app/(shop)/shop/page.tsx` — filters sidebar, toolbar, and
+        each product card individually wrapped (one bad card →
+        all others still render).
+      - `components/product/ProductGridFromQuery.tsx` — every
+        rendered card wrapped, so a single product with malformed
+        attributes can't break the grid.
+
+    **Layer 3 — Data fallback hardening**:
+    - Audit of every `useProducts` / `useQuery` callsite. All five
+      previously-known callers handle `isError` correctly with retry
+      buttons via `<ProductGridError>`.
+    - Fixed: `PlacementShelf` was destructuring `{ data, isLoading }`
+      only — added `isError` and updated the empty branch to
+      `isError || items.length === 0` so a failed placement query
+      hides the shelf instead of leaving a stuck skeleton.
+
+    **What this earns us in production**:
+    - Sentry events now carry a `boundary` tag — search for
+      `boundary:new-arrivals:africa-map` to find map crashes only.
+    - "Application error: a server-side exception" digest pages
+      should drop to ~zero — route-level boundaries intercept first.
+    - One bad product, one bad section, one bad card no longer
+      cascades into a dead page.
+
+    **Future builds — the rule** (added below as Principle #11
+    + Build Guide Rule B11): every new page, every new section,
+    every new admin tool ships with a `<SafeBoundary>` around
+    cosmetic content + `error.tsx` for the route + `isError`
+    handling on every data hook. PR review checks for these three.
+
+24. **[x] Phase 11 — Geo localization (display-only)** _(2026-04-29)_ — done.
+
+    **API**: new `src/modules/fx/{service,routes}.ts` caches NGN→X
+    rates from `open.er-api.com` in the generic `Setting` table
+    (key `fx.rates`, 24h TTL). Single-flight inflight guard so
+    concurrent requests share one upstream fetch. Static fallback
+    snapshot used only if upstream is down on cold cache. Public
+    endpoint `GET /api/fx/rates` returns the snapshot with 1h
+    `Cache-Control` + `stale-while-revalidate=24h`.
+
+    **Frontend edge**: `src/middleware.ts` reads Vercel's
+    `x-vercel-ip-country` header on every page request and writes
+    `azm_country` + `azm_currency` cookies (30-day TTL). Country
+    defaults to `NG`, currency derived from a small `COUNTRY_TO_CURRENCY`
+    map covering 30+ countries (Eurozone collapsed to EUR, CFA zones
+    to XOF/XAF). Existing `azm_currency` cookie is honoured — explicit
+    user choice wins over geo. Resolved values exposed as
+    `x-azm-country` + `x-azm-currency` request headers so
+    `app/layout.tsx` can hydrate `<GeoProvider>` server-side without
+    parsing cookies.
+
+    **`<GeoProvider>` + `useGeo()` + `useConvertFromNgn()`** in
+    `src/components/providers/GeoProvider.tsx`. Hydrates from cookies
+    on mount, fetches FX once via `lib/api/fx.ts`. Provider-less
+    fallback returns NGN defaults so isolated components don't crash.
+
+    **`<DisplayPrice amountNgn>`** swapped in for `formatPriceNGN()`
+    on the highest-traffic surfaces: `ProductCardPlaceholder`,
+    `ProductInfo` (PDP price + bundle subtotal + add-to-cart CTA),
+    `CartLineItem`, `OrderSummary`. Renders local currency primary
+    with NGN suffix `(NGN18,400)` in non-compact mode; compact mode
+    drops the suffix and puts NGN in the `title=` for hover.
+
+    **Header**: real `<CurrencySwitcher>` + `<LanguageSwitcher>`
+    replaced the static "Translate" placeholder.
+    `<GoogleTranslate>` widget mounted in root layout — Google's
+    default toolbar is hidden via globals.css and we drive
+    translation through the `googtrans` cookie set by
+    `<LanguageSwitcher>`. 13 languages: en, fr, ar, sw, ha, yo,
+    ig, zu, am, pt, es, de, zh-CN.
+
+    **`<GeoBanner>`** shown to first-time non-NG visitors:
+    "Showing prices in {currency} (detected {country}). You'll be
+    charged in NGN at checkout." Persistently dismissible via the
+    `azm_geo_banner_dismissed` cookie.
+
+    **Why display-only for v1**: ships today, validates the FX +
+    geo plumbing in production. Real multi-currency checkout (Squad
+    settling in KES/USD/etc.) lands once Squad enables multi-currency
+    on our merchant — see #23.
+
+23. **[ ] Squad multi-currency contract — charge customers in their local currency (CRITICAL post-launch)** _(queued 2026-04-28)_.
+
+    **Context**: For v1 launch we ship **display-only** currency
+    localization — KES/GHS/USD/etc. shown next to every NGN price via
+    the FX module (Phase 11), checkout still charges in NGN. That keeps
+    the Squad sandbox flow working today but means a Kenyan shopper
+    sees "≈ KSh 18,400" then watches their card get debited in naira
+    with FX markup from their bank. Acceptable for the first week,
+    not a long-term experience.
+
+    **The fix is contractual, not just code**:
+    1. Email Squad account manager: request multi-currency settlement
+       enabled on the merchant account. Squad supports NGN + USD + GBP
+       natively; KES/GHS/ZAR via partner banks.
+    2. Once approved, Squad will issue a new set of API keys per
+       currency (or one key with currency override permission — TBD
+       on their side).
+    3. Update `PaymentGatewayConfig` rows: one row per currency, each
+       with its own `credentials.secretKey` + `currencies: ['KES']`
+       etc. The registry already supports this — `activeGateway()`
+       resolves by currency, so adding a KES gateway is just a new
+       admin row. **No code change needed in `payments/registry.ts`.**
+    4. Frontend `<DisplayPrice>` flips from "display-only" to "real":
+       the cart sends the user's selected currency, checkout creates
+       the Squad init in that currency, the customer's card is debited
+       in their actual local currency. We settle to our NGN account
+       via Squad's settlement engine (their FX, not the customer's
+       bank's).
+
+    **Why soonest, not now**: launching today on display-only is fine
+    because the registry was built for this exact swap. The contract
+    change is the gating item, not the code. Ship the contract email
+    Monday after launch, expect 5-10 business days for Squad approval,
+    then a one-day implementation push.
+
+    **Affects Principle #2 (provider-pluggable)**: validates that the
+    architecture choice was right — the rebuild from "Paystack
+    hardcoded" to "registry of providers per currency" pays off the
+    moment we want to charge in a second currency.
+
+22. **[x] Operator follow-ups — Sentry + PostHog wired** _(2026-04-29)_.
+
+    **Sentry**: project `afrizonemart-frontend` on de.sentry.io
+    (EU region). Env vars `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_DSN`
+    set on production + preview + development. Client + server
+    `Sentry.init` now activates because the DSNs are present.
+
+    **PostHog**: EU project (id 169035) at eu.i.posthog.com.
+    Env vars `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST`
+    set on production + preview + development. `<AnalyticsProvider>`
+    auto-tracks `$pageview` on every SPA navigation as soon as the
+    new prod build serves traffic.
+
+    **Pending custom events** (separate ~30-min ticket each):
+    - `sign_up { method: 'email' | 'google' | 'phone' }` in auth flows
+    - `add_to_cart { productId, value }` in `cartStore.addItem`
+    - `begin_checkout { value }` on /checkout step 1
+    - `purchase { orderId, value, currency }` on /checkout/success
+    - `identifyUser(userId, { email, role })` immediately after sign-in
+
+    **Updates Principle #10 (Observability) → `[x]`** — Winston JSON
+    on the API, Sentry on both ends, PostHog product analytics.
+
 21. **[~] Phase 10 — Self-service platform** _(queued 2026-04-27)_.
 
     **The thesis**: every dev task should become a registry + UI. We
@@ -1384,6 +1647,99 @@ hours; fraud is detected from real signal, not gut feel.
   Sentry DSN not provisioned. All three land in the next observability
   push.
 
+### 11. [x] Fault Isolation _(landed 2026-04-29)_
+
+**What it means**: every section of every page must fail independently
+of every other section. A throw inside one component must NEVER cascade
+into a dead page — at worst it disappears, the rest renders. Three
+layers, all required:
+
+1. **Route-level (`error.tsx`)** — every route segment has an
+   `error.tsx`. If anything inside the route segment throws, header +
+   footer keep rendering, only the route body shows the branded
+   `<RouteError>` fallback. Catches server-component throws too.
+2. **Section-level (`<SafeBoundary>`)** — every major section on every
+   high-traffic page (homepage, PDP, new-arrivals, shop, cart) is
+   wrapped in a `<SafeBoundary name="page:section">`. Telemetry tag
+   `boundary:<name>` lets us see in Sentry which section failed.
+3. **Data-level (`isError` handling)** — every `useQuery` /
+   `useProducts` callsite handles `isError` with a retry button or a
+   silent hide. Audited for completeness, fixed `PlacementShelf` gap.
+
+**Why this matters**: pre-2026-04-29 a single broken Africa map could
+show "Application error" digest pages to every visitor on
+`/new-arrivals`. With Layer 1 + 2 + 3 in place, the same throw becomes
+a Sentry event tagged `boundary:new-arrivals:africa-map` and the user
+sees the rest of the page render normally.
+
+**Code locations**:
+- `src/components/common/SafeBoundary.tsx` — class-based React error
+  boundary, Sentry-aware
+- `src/components/common/RouteError.tsx` — shared route fallback UI
+- `src/app/error.tsx`, `src/app/global-error.tsx`,
+  `src/app/(shop)/error.tsx`, `src/app/(admin)/error.tsx`,
+  `src/app/(auth)/error.tsx` — route boundaries
+
+**The rule for all future builds**:
+- New page → ships with `error.tsx` in its route segment
+- New section → wrapped in `<SafeBoundary name="page:section">`
+- New `useQuery` → handles `isError` with retry or silent hide
+- PR review checklist verifies all three before merge
+
+**What `<SafeBoundary>` does NOT catch** _(added 2026-04-29 after a real
+incident on `/new-arrivals` revealed a misunderstanding):_
+
+`<SafeBoundary>` is a React error boundary, and React error boundaries
+only catch errors **thrown during the render phase of their children**.
+They do not catch:
+
+1. **Module-import errors** — if `import { AfricaMap } from '...'` throws
+   while the file is being evaluated (a top-level statement crashes,
+   a dependency is missing, etc.), the whole route module fails to
+   load before any boundary can mount. Caught only by `error.tsx`.
+
+2. **Hydration mismatches** — if the server-rendered HTML disagrees
+   with the client-rendered tree, React doesn't throw inside a single
+   component, it bails out the whole tree. The "rest of the page"
+   isn't actually fine — every component re-renders and any of them
+   can fail. Caught by `error.tsx` or `global-error.tsx`.
+
+3. **Build-output desync** — if `.next/` is corrupted (e.g., from
+   running `next build` while `next dev` was live, see
+   `feedback_dev_vs_build`), the browser loads HTML that references
+   chunk URLs that 404. The page renders without styles/JS, hydration
+   fails, route boundary catches the result. The fix is to wipe `.next`
+   and restart, not to add another boundary.
+
+4. **Async errors thrown outside render** — `setTimeout`, event
+   handlers, Promise rejections, async iterators. The error fires after
+   render is done, so no boundary is on the call stack to catch it.
+   Use try/catch in handlers and Sentry's `captureException` for these.
+
+5. **Errors in event handlers** — `<button onClick={() => { throw … }}>`
+   fires after render; React error boundaries don't see it. Wrap the
+   handler body in try/catch.
+
+6. **Errors thrown by the boundary's own `componentDidCatch` or
+   `getDerivedStateFromError`** — fall through to the next boundary up.
+   Our `<SafeBoundary>` is small enough that this is unlikely, but
+   worth knowing.
+
+**When you see "We couldn't load this page" instead of a small section
+disappearing**, the failure was one of #1–6 above. Don't try to push
+SafeBoundary deeper — diagnose what crashed pre-render.
+
+**Quick-diagnose checklist when this happens**:
+- 404s on `/_next/static/...` chunks in DevTools Network → it's #3
+  (cache corruption). `rm -rf .next && npm run dev`.
+- "Hydration failed" / "Text content does not match" in console → #2
+  (SSR/client mismatch). Look for `Date.now()`, `Math.random()`,
+  or `typeof window !== 'undefined'` branches in render.
+- The error happens before any component logs a render → #1 (import
+  error). Check the failing module's top-level statements.
+- The error fires from a button click or fetch resolution → #4 or #5
+  (async). Wrap the handler in try/catch.
+
 ---
 
 ## Part B — 10 Architecture Rules (Claude Build Guide v1.1)
@@ -1573,6 +1929,36 @@ caught and reported. Winston for structured logs, Sentry for error tracking.
   logger, Sentry init, per-request log middleware with `X-Request-Id`,
   central error handler that logs and reports to Sentry. Status `[~]` until
   the frontend gets a Sentry SDK and prod DSNs are configured.
+
+### B11. [x] Rule 11 — Fault Isolation _(landed 2026-04-29)_
+
+**What it means**: components fail independently. No section's bug ever
+cascades into a dead page. Three mandatory layers per Principle #11
+above.
+
+**Code-level enforcement**:
+- Every page → wrap each section in `<SafeBoundary name="page:section">`.
+- Every route segment → ship `error.tsx` (use `<RouteError>` for
+  consistent branded fallback).
+- Every `useQuery` → branch on `isError` (retry button OR silent hide).
+- Decorative widgets (maps, illustrations, animated banners) → wrap with
+  `fallback={null}` so failures simply disappear.
+- Content-critical sections (price, stock, CTA) → wrap with a small
+  inline message fallback so users see the failure mode.
+- Adding a third-party widget (chat, video player, embed) → ALWAYS goes
+  inside its own `<SafeBoundary>` because we don't control its code.
+
+**Naming convention**: `boundary:<page>:<section>` — e.g.
+`boundary:pdp:bundle-selector`, `boundary:home:africa-map`. Lets Sentry
+search find a single boundary's failures across all sessions.
+
+**Anti-patterns**:
+- A `try/catch` around JSX (doesn't work, error boundaries are the only
+  React mechanism for render-phase throws).
+- Catching every error at the top of the page (defeats the point —
+  individual sections lose their independence).
+- Wrapping a single button in a SafeBoundary (overkill — wrap the
+  smallest *meaningful* unit, usually a section).
 
 ---
 

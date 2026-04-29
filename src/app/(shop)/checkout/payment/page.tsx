@@ -10,9 +10,6 @@ import {
   Lock,
   ShieldCheck,
 } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { CheckoutOrderSummary } from '@/components/checkout/CheckoutOrderSummary';
 import { PaymentMethodForm } from '@/components/checkout/PaymentMethodForm';
 import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
@@ -26,6 +23,7 @@ import { initPayment } from '@/lib/api/payments';
 import { listPublicGateways } from '@/lib/api/admin';
 import { fetchShippingRates, type ShippingRate } from '@/lib/api/shipping';
 import { useCheckoutStore } from '@/stores/checkoutStore';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import {
   selectCartTotalAmount,
   selectCartTotalQuantity,
@@ -178,7 +176,6 @@ export default function PaymentPage() {
 
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         <nav aria-label="Breadcrumb" className="border-b border-border bg-page">
           <ol className="mx-auto flex max-w-site items-center gap-1.5 px-4 py-3 font-sans text-xs text-muted md:text-sm">
@@ -224,13 +221,24 @@ export default function PaymentPage() {
             </div>
 
             <div className="mb-8 md:mb-10">
-              <CheckoutProgress steps={steps} />
+              <SafeBoundary name="checkout:progress" fallback={null}>
+                <CheckoutProgress steps={steps} />
+              </SafeBoundary>
             </div>
 
             <form onSubmit={handlePay} className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
               <div className="flex flex-col gap-6 lg:col-span-8 lg:gap-8">
                 <Section title="Payment Method" caption="Pick how you want to pay.">
-                  <PaymentMethodSelector value={selected} onChange={handleSelectMethod} />
+                  <SafeBoundary
+                    name="checkout:method-selector"
+                    fallback={
+                      <p className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
+                        We couldn&apos;t load payment options. Please reload the page.
+                      </p>
+                    }
+                  >
+                    <PaymentMethodSelector value={selected} onChange={handleSelectMethod} />
+                  </SafeBoundary>
                   {activeGateways.length > 0 && (
                     <p className="mt-3 flex flex-wrap items-center gap-2 font-sans text-[11px] text-muted">
                       <Lock size={10} aria-hidden />
@@ -247,7 +255,16 @@ export default function PaymentPage() {
                     title="Payment Details"
                     caption="Enter the details for your selected method."
                   >
-                    <PaymentMethodForm method={selected} total={total} />
+                    <SafeBoundary
+                      name="checkout:method-form"
+                      fallback={
+                        <p className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
+                          We couldn&apos;t load this payment form. Try a different payment method.
+                        </p>
+                      }
+                    >
+                      <PaymentMethodForm method={selected} total={total} />
+                    </SafeBoundary>
                   </Section>
                 ) : null}
 
@@ -350,19 +367,26 @@ export default function PaymentPage() {
               </div>
 
               <div className="lg:col-span-4">
-                <CheckoutOrderSummary
-                  items={hydrated ? items : []}
-                  subtotal={hydrated ? totalAmount : 0}
-                  itemCount={hydrated ? totalQuantity : 0}
-                  showShippingRecap
-                />
+                <SafeBoundary
+                  name="checkout:order-summary"
+                  fallback={
+                    <div className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
+                      Order summary couldn&apos;t render. Refresh the page.
+                    </div>
+                  }
+                >
+                  <CheckoutOrderSummary
+                    items={hydrated ? items : []}
+                    subtotal={hydrated ? totalAmount : 0}
+                    itemCount={hydrated ? totalQuantity : 0}
+                    showShippingRecap
+                  />
+                </SafeBoundary>
               </div>
             </form>
           </div>
         </div>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

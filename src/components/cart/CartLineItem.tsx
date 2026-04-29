@@ -4,10 +4,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Package, X } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
-import { formatPriceNGN } from '@/lib/format';
 import { getCountry } from '@/lib/countries';
 import { Flag } from '@/components/common/Flag';
 import { QuantitySelector } from '@/components/product/QuantitySelector';
+import { DisplayPrice } from '@/components/product/DisplayPrice';
 import type { CartItem } from '@/types';
 
 interface CartLineItemProps {
@@ -70,13 +70,17 @@ export function CartLineItem({ item }: CartLineItemProps) {
 
       <div className="col-span-4 flex flex-col items-start md:col-span-2 md:items-center">
         {item.comparePrice && item.comparePrice > item.price ? (
-          <span className="font-sans text-xs text-muted line-through">
-            {formatPriceNGN(item.comparePrice)}
-          </span>
+          <DisplayPrice
+            amountNgn={item.comparePrice}
+            compact
+            className="font-sans text-xs text-muted line-through"
+          />
         ) : null}
-        <span className="font-raleway text-sm font-bold text-navy md:text-base">
-          {formatPriceNGN(item.price)}
-        </span>
+        <DisplayPrice
+          amountNgn={item.price}
+          compact
+          className="font-raleway text-sm font-bold text-navy md:text-base"
+        />
         {item.discountPercent ? (
           <span className="rounded-input bg-amber px-1.5 py-0.5 font-raleway text-[10px] font-bold uppercase text-navy">
             {item.discountPercent}% OFF
@@ -92,9 +96,11 @@ export function CartLineItem({ item }: CartLineItemProps) {
       </div>
 
       <div className="col-span-4 text-right md:col-span-2">
-        <span className="font-raleway text-base font-bold text-navy md:text-lg">
-          {formatPriceNGN(subtotal)}
-        </span>
+        <DisplayPrice
+          amountNgn={subtotal}
+          compact
+          className="font-raleway text-base font-bold text-navy md:text-lg"
+        />
       </div>
     </article>
   );

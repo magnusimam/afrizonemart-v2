@@ -4,14 +4,13 @@ import Link from 'next/link';
 import {
   ArrowRight,
   Bell,
+  Check,
   ChevronRight,
   Home as HomeIcon,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { AfricaMap } from '@/components/sections/AfricaMap';
 import { ApiProductCard } from '@/components/product/ApiProductCard';
@@ -22,6 +21,7 @@ import { ProductGridError } from '@/components/product/ProductGridError';
 import { useProducts } from '@/hooks/use-products';
 import { COUNTRIES, type CountryCode } from '@/lib/countries';
 import type { ApiProduct } from '@/lib/api/types';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 
 /**
  * Editorial micro-copy per country. Marketing edits this without touching
@@ -133,13 +133,36 @@ export default function NewArrivalsPage() {
     [byCountry],
   );
 
-  const activeCodes = useMemo(() => new Set(orderedCountries), [orderedCountries]);
+  const activeIso2Set = useMemo(
+    () => new Set<string>(orderedCountries),
+    [orderedCountries],
+  );
 
-  const chapterIds = useMemo(() => {
-    const m: Partial<Record<CountryCode, string>> = {};
-    for (const code of orderedCountries) m[code] = `country-${code}`;
-    return m;
-  }, [orderedCountries]);
+  // selectedCountry drives the map's regional-tint highlight + glow.
+  // comingSoon shows the inline "be notified" panel under the map.
+  const [selectedCountry, setSelectedCountry] = useState<string | undefined>(
+    undefined,
+  );
+  const [comingSoon, setComingSoon] = useState<string | null>(null);
+
+  function handleCountrySelect(
+    countryName: string,
+    iso2: string,
+    isOnPlatform: boolean,
+  ) {
+    setSelectedCountry(countryName);
+    if (isOnPlatform) {
+      // Country has products — clear any "coming soon" panel and scroll
+      // to its chapter.
+      setComingSoon(null);
+      const id = `country-${iso2}`;
+      const el = typeof document !== 'undefined' ? document.getElementById(id) : null;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      // No products yet — surface the inline coming-soon panel.
+      setComingSoon(countryName);
+    }
+  }
 
   const dropNo = useMemo(currentDropNumber, []);
 
@@ -158,7 +181,6 @@ export default function NewArrivalsPage() {
 
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="border-b border-border bg-page">
@@ -179,7 +201,7 @@ export default function NewArrivalsPage() {
 
         {/* Hero — Africa map + drop banner */}
         <section className="relative overflow-hidden bg-gradient-to-b from-page via-page to-white">
-          <div className="mx-auto grid max-w-site grid-cols-1 gap-8 px-4 py-10 md:grid-cols-12 md:gap-10 md:py-16">
+          <div className="mx-auto grid max-w-site grid-cols-1 gap-8 px-4 pb-10 pt-4 md:grid-cols-12 md:gap-10 md:pb-16 md:pt-6">
             {/* Left column — copy + counter + drop banner */}
             <div className="flex flex-col gap-6 md:col-span-7 md:gap-8">
               <div className="flex flex-col gap-3">
@@ -242,25 +264,44 @@ export default function NewArrivalsPage() {
               </div>
             </div>
 
-            {/* Right column — Africa map */}
-            <div className="md:col-span-5">
-              <AfricaMap activeCodes={activeCodes} chapterIds={chapterIds} />
-              <p className="mt-2 text-center font-sans text-[11px] text-muted">
-                Tap a glowing country to jump to its arrivals.
-              </p>
+            {/* Right column — Africa map (sandboxed: if it throws, the
+                rest of the page keeps rendering — see SafeBoundary).
+                Negative margin pulls only the map up toward the header
+                without affecting the left column's copy alignment. */}
+            <div className="md:col-span-5 md:-mt-12 lg:-mt-16">
+              <SafeBoundary name="new-arrivals:africa-map">
+                <AfricaMap
+                  activeIso2={activeIso2Set}
+                  selectedCountry={selectedCountry}
+                  onCountrySelect={handleCountrySelect}
+                />
+                {comingSoon ? (
+                  <ComingSoonPanel
+                    countryName={comingSoon}
+                    onDismiss={() => setComingSoon(null)}
+                  />
+                ) : (
+                  <p className="mt-2 text-center font-sans text-[11px] text-muted">
+                    Tap a country to jump to its arrivals — or to be notified
+                    when it launches.
+                  </p>
+                )}
+              </SafeBoundary>
             </div>
           </div>
         </section>
 
         {/* Editor-pinned new arrivals (overrides the 30-day window) */}
-        <div className="mx-auto max-w-site px-4 pt-4 md:pt-8">
-          <PlacementShelf
-            placement="new_arrivals_pin"
-            title="Editors&rsquo; pin"
-            subtitle="Hand-picked highlights from across the continent."
-            delivery="Pinned"
-          />
-        </div>
+        <SafeBoundary name="new-arrivals:editors-pin">
+          <div className="mx-auto max-w-site px-4 pt-4 md:pt-8">
+            <PlacementShelf
+              placement="new_arrivals_pin"
+              title="Editors&rsquo; pin"
+              subtitle="Hand-picked highlights from across the continent."
+              delivery="Pinned"
+            />
+          </div>
+        </SafeBoundary>
 
         {/* Country chapters */}
         <div className="mx-auto grid max-w-site grid-cols-1 gap-6 px-4 py-8 md:grid-cols-12 md:gap-8 md:py-10">
@@ -320,11 +361,16 @@ export default function NewArrivalsPage() {
             )}
             {!isLoading &&
               orderedCountries.map((code) => (
-                <CountryChapter
+                <SafeBoundary
                   key={code}
-                  code={code}
-                  products={byCountry.get(code) ?? []}
-                />
+                  name={`new-arrivals:chapter:${code}`}
+                  fallback={null}
+                >
+                  <CountryChapter
+                    code={code}
+                    products={byCountry.get(code) ?? []}
+                  />
+                </SafeBoundary>
               ))}
           </div>
         </div>
@@ -350,8 +396,6 @@ export default function NewArrivalsPage() {
 
         <TrustBarSection />
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }
@@ -479,5 +523,91 @@ function SubscribeForm() {
         <p className="font-sans text-xs text-amber">{error}</p>
       )}
     </form>
+  );
+}
+
+/**
+ * Inline panel under the Africa map. Surfaced when a visitor clicks a
+ * country that doesn't yet have products on Afrizonemart. Lets them
+ * leave their email so we can notify them when products from that
+ * country land. Drops the email into the same `azm.dropAlerts`
+ * localStorage list used by the SubscribeForm above so a later
+ * marketing-list-export wires both intents into one outbound flow.
+ */
+function ComingSoonPanel({
+  countryName,
+  onDismiss,
+}: {
+  countryName: string;
+  onDismiss: () => void;
+}) {
+  const [email, setEmail] = useState('');
+  const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const list = JSON.parse(
+        window.localStorage.getItem('azm.dropAlerts') ?? '[]',
+      ) as Array<{ email: string; country?: string }>;
+      list.push({ email, country: countryName });
+      window.localStorage.setItem('azm.dropAlerts', JSON.stringify(list));
+      setDone(true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="relative mt-3 overflow-hidden rounded-card border border-amber/40 bg-amber/5 px-4 py-3 shadow-card">
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        className="absolute right-2 top-2 rounded-full p-1 text-muted hover:bg-amber/10 hover:text-charcoal"
+      >
+        <X size={14} aria-hidden />
+      </button>
+      <div className="flex items-center gap-2">
+        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber/20">
+          <Sparkles size={14} className="text-amber" aria-hidden />
+        </span>
+        <p className="font-raleway text-sm font-bold leading-tight text-navy">
+          {countryName} — coming soon
+        </p>
+      </div>
+      {done ? (
+        <p className="mt-2 flex items-center gap-1.5 font-sans text-xs text-success">
+          <Check size={14} aria-hidden />
+          You&apos;re on the list. We&apos;ll email when products from{' '}
+          {countryName} arrive.
+        </p>
+      ) : (
+        <>
+          <p className="mt-1.5 font-sans text-xs leading-relaxed text-charcoal">
+            Be first to know when products from {countryName} land on Afrizonemart.
+          </p>
+          <form onSubmit={onSubmit} className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              required
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="flex-1 rounded-input border border-border bg-white px-3 py-2 font-sans text-xs text-charcoal placeholder:text-muted focus:border-navy focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-btn bg-navy px-4 py-2 font-raleway text-[11px] font-bold uppercase tracking-btn text-white transition-colors hover:bg-amber hover:text-navy disabled:opacity-60"
+            >
+              {submitting ? 'Saving…' : 'Notify me'}
+            </button>
+          </form>
+        </>
+      )}
+    </div>
   );
 }

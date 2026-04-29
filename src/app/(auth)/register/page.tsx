@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
-import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { COUNTRIES, COUNTRY_CODES, getCountry } from '@/lib/countries';
-import { AuthApiError, registerUser } from '@/lib/api/auth';
+import { AuthApiError, registerUser, type AuthResult } from '@/lib/api/auth';
 import { useAuthStore } from '@/stores/authStore';
 
 export default function RegisterPage() {
@@ -208,7 +208,13 @@ export default function RegisterPage() {
           <span className="h-px flex-1 bg-border" />
         </div>
 
-        <SocialLoginButtons mode="sign-up" />
+        <GoogleSignInButton
+          text="signup_with"
+          onSuccess={(result: AuthResult) => {
+            setSession(result);
+            router.push('/account');
+          }}
+        />
       </form>
     </AuthCard>
   );

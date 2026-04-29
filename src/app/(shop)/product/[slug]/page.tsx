@@ -1,9 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronRight, Home as HomeIcon } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { AboutProductSection } from '@/components/product/AboutProductSection';
 import { DynamicFieldList } from '@/components/product/DynamicFieldDisplay';
 import { ProductGallery } from '@/components/product/ProductGallery';
@@ -14,6 +11,7 @@ import { NewsletterSection } from '@/components/sections/NewsletterSection';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { listCustomFields } from '@/lib/api/admin';
 import { getRelatedProducts, loadProductDetail } from '@/lib/products';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import type { Metadata } from 'next';
 
 interface PageProps {
@@ -39,9 +37,45 @@ export default async function ProductPage({ params }: PageProps) {
   const related = getRelatedProducts(params.slug);
   const customFieldDefs = customFieldsRes.items;
 
+  // Phase Audit.4 — Schema.org Product JSON-LD for Google Shopping
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://afrizonemart.vercel.app';
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    brand: { '@type': 'Brand', name: product.brand },
+    description: product.shortDescription || product.longDescription,
+    image: product.images.map((i) => i.src),
+    sku: product.slug,
+    category: product.category.name,
+    countryOfOrigin: product.origin,
+    aggregateRating:
+      product.reviewCount > 0
+        ? {
+            '@type': 'AggregateRating',
+            ratingValue: product.rating,
+            reviewCount: product.reviewCount,
+          }
+        : undefined,
+    offers: {
+      '@type': 'Offer',
+      url: `${siteUrl}/product/${product.slug}`,
+      priceCurrency: 'NGN',
+      price: product.price,
+      availability: product.inStock
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+      itemCondition: 'https://schema.org/NewCondition',
+    },
+  };
+
   return (
     <>
-      <Header />
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="bg-white">
         <nav
           aria-label="Breadcrumb"
@@ -79,49 +113,59 @@ export default async function ProductPage({ params }: PageProps) {
         <section className="bg-white py-6 md:py-10">
           <div className="mx-auto grid max-w-site grid-cols-1 gap-8 px-4 lg:grid-cols-12 lg:gap-12">
             <div className="lg:col-span-6">
-              <ProductGallery
-                images={product.images}
-                origin={product.origin}
-                discountPercent={product.discountPercent}
-              />
+              <SafeBoundary name="pdp:gallery">
+                <ProductGallery
+                  images={product.images}
+                  origin={product.origin}
+                  discountPercent={product.discountPercent}
+                />
+              </SafeBoundary>
             </div>
             <div className="lg:col-span-6">
-              <ProductInfo product={product} />
+              <SafeBoundary name="pdp:info">
+                <ProductInfo product={product} />
+              </SafeBoundary>
             </div>
           </div>
         </section>
 
         {customFieldDefs.length > 0 && (
-          <section className="border-t border-border bg-white py-10">
-            <div className="mx-auto max-w-site px-4">
-              <DynamicFieldList
-                defs={customFieldDefs}
-                attributes={product.attributes}
-              />
-            </div>
-          </section>
+          <SafeBoundary name="pdp:dynamic-fields">
+            <section className="border-t border-border bg-white py-10">
+              <div className="mx-auto max-w-site px-4">
+                <DynamicFieldList
+                  defs={customFieldDefs}
+                  attributes={product.attributes}
+                />
+              </div>
+            </section>
+          </SafeBoundary>
         )}
 
-        <AboutProductSection
-          title={product.aboutTitle}
-          body={product.aboutBody}
-          image={product.aboutImage}
-          brand={product.brand}
-        />
+        <SafeBoundary name="pdp:about">
+          <AboutProductSection
+            title={product.aboutTitle}
+            body={product.aboutBody}
+            image={product.aboutImage}
+            brand={product.brand}
+          />
+        </SafeBoundary>
 
-        <ReviewsSection
-          rating={product.rating}
-          reviewCount={product.reviewCount}
-          reviews={product.reviews}
-        />
+        <SafeBoundary name="pdp:reviews">
+          <ReviewsSection
+            rating={product.rating}
+            reviewCount={product.reviewCount}
+            reviews={product.reviews}
+          />
+        </SafeBoundary>
 
-        <RelatedProducts products={related} />
+        <SafeBoundary name="pdp:related">
+          <RelatedProducts products={related} />
+        </SafeBoundary>
 
-        <TrustBarSection />
-        <NewsletterSection />
+        <SafeBoundary name="pdp:trust"><TrustBarSection /></SafeBoundary>
+        <SafeBoundary name="pdp:newsletter"><NewsletterSection /></SafeBoundary>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

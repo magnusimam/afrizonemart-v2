@@ -121,7 +121,19 @@ export async function loadProductDetail(
   try {
     const api = await fetchProduct(slug);
     const compare = api.comparePrice ?? undefined;
-    const attrs = api.attributes;
+    // Imported / partially-filled products won't have the legacy
+    // bundles/features/specs/about keys. Default everything so the page
+    // can render without exploding.
+    const a = (api.attributes ?? {}) as Partial<{
+      bundles: ProductBundle[];
+      features: ProductFeature[];
+      specifications: ProductSpec[];
+      variants: { type: string; options: string[]; default: string };
+      aboutTitle: string;
+      aboutBody: string;
+      aboutImage: string;
+    }>;
+    const aboutBody = a.aboutBody ?? '';
 
     return {
       slug: api.slug,
@@ -135,21 +147,21 @@ export async function loadProductDetail(
       rating: api.rating,
       reviewCount: api.reviewCount,
       inStock: api.inStock,
-      shortDescription: api.shortDescription ?? attrs.aboutBody.slice(0, 160),
-      longDescription: api.description ?? attrs.aboutBody,
+      shortDescription: api.shortDescription ?? aboutBody.slice(0, 160),
+      longDescription: api.description ?? aboutBody,
       price: api.price,
       comparePrice: compare,
       discountPercent: api.discountPercent ?? undefined,
-      variants: attrs.variants,
-      bundles: attrs.bundles,
-      features: attrs.features,
-      specifications: attrs.specifications,
+      variants: a.variants,
+      bundles: a.bundles ?? [],
+      features: a.features ?? [],
+      specifications: a.specifications ?? [],
       shipping: STANDARD_SHIPPING,
       ingredients: api.ingredients ?? undefined,
       images: imagesFromApi(api),
-      aboutTitle: attrs.aboutTitle,
-      aboutBody: attrs.aboutBody,
-      aboutImage: attrs.aboutImage,
+      aboutTitle: a.aboutTitle ?? api.name,
+      aboutBody,
+      aboutImage: a.aboutImage ?? '/images/featured/for-her.jpg',
       reviews: (api.reviews ?? []).map(reviewFromApi),
       attributes: (api.attributes ?? {}) as unknown as Record<string, unknown>,
     };

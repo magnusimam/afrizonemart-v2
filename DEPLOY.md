@@ -173,6 +173,125 @@ If any of those fail, check Railway logs first — every notable event has a str
 
 - Squad live keys + `SQUAD_ENVIRONMENT=live` switch.
 - Frontend Sentry (only API has it).
-- Feature flags / rules engine (Principles 2 & 3).
 - OpenTelemetry / Prometheus metrics.
 - CI/CD: today every push to main auto-deploys. Add branch protection + required preview checks once team grows.
+
+---
+
+## Optional: Google sign-in setup
+
+Enables the "Continue with Google" button on `/login` and `/register`. Without this the button is hidden — the rest of auth still works.
+
+1. **Google Cloud Console → Create OAuth credentials**
+   - Open https://console.cloud.google.com/apis/credentials
+   - Click **+ Create Credentials → OAuth client ID**
+   - Application type: **Web application**
+   - Name: `Afrizonemart Web`
+   - **Authorized JavaScript origins** (add all that apply):
+     - `https://afrizonemart.vercel.app`
+     - `https://afrizonemart.com` (when cutover happens)
+     - `http://localhost:3000` (for local dev)
+   - **Authorized redirect URIs**: leave blank (we use One Tap, not redirect flow)
+   - Click **Create** → copy the **Client ID**.
+
+2. **Set env vars**
+   - **Railway** (`api` service):
+     - `GOOGLE_CLIENT_ID=<the client id>`
+   - **Vercel** (`afrizonemart` project, all environments):
+     - `NEXT_PUBLIC_GOOGLE_CLIENT_ID=<the SAME client id>` (this one is exposed to the browser — that's fine, it's not a secret)
+   - Redeploy both. The button appears.
+
+3. **OAuth Consent Screen** (only needed once per project)
+   - Set User type to **External**, fill in app name, support email, logo, scopes (`email`, `profile`, `openid`).
+   - Until you submit for verification you're in "Testing" mode and can only sign in with the test users you list. For prod, click **Publish App** — Google reviews in ~24h for the basic scopes we use.
+
+---
+
+## Optional: SMS phone auth (Twilio Verify)
+
+Enables phone-number sign-up/sign-in. Without these env vars, the `/api/auth/phone/*` endpoints return a clear "phone auth not configured" error and the storefront's phone tab shows a friendly fallback.
+
+1. **Sign up at twilio.com** (free trial gives ~$15 credit; you can verify ~150 phones for free)
+
+2. **Console → Verify → Services**
+   - Click **Create new** → Friendly name `Afrizonemart Auth`
+   - Code length: **6 digits**
+   - Code TTL: **10 minutes** (default fine)
+   - Save → copy the **Service SID** (starts with `VA…`)
+
+3. **Console → Account → API keys & tokens**
+   - Copy the **Account SID** (starts with `AC…`)
+   - Copy the **Auth Token** (the live one, not test)
+
+4. **Set env vars on Railway** (`api` service):
+   ```env
+   TWILIO_ACCOUNT_SID=AC…
+   TWILIO_AUTH_TOKEN=…
+   TWILIO_VERIFY_SID=VA…
+   ```
+   Redeploy.
+
+5. **Cost note**: Twilio Verify charges ~$0.05 per successful verification (varies by destination country — Nigeria is ~$0.06, US is ~$0.05). Trial credit covers ~150 verifies. Add a top-up at small scale; switch to Africa's Talking later for cheaper Africa-volumes.
+
+6. **Trial limitations**: trial accounts can only send SMS to numbers you've **verified** in the Twilio console. Add your test phone there before testing locally.
+
+---
+
+## Phone sign-in user model note
+
+When a user signs up with their phone, we store a synthetic email like `phone2348012345678@phone.afrizonemart.local` so the `User.email NOT NULL UNIQUE` invariant holds. The user can later add a real email + password from `/account/settings` (TODO). Their primary identifier is `User.phone`.
+
+When a user signs in with Google, the email is real (verified by Google), and we link `User.googleId` so they can come back via Google even if their email later changes.
+
+---
+
+## Optional: Frontend Sentry
+
+Captures every uncaught error in the browser + server runtime. Activates when `NEXT_PUBLIC_SENTRY_DSN` is set.
+
+1. Sign in / create org at https://sentry.io
+2. **+ New project** → platform **Next.js** → name `afrizonemart-frontend`
+3. Copy the **DSN** (looks like `https://abc@o123.ingest.us.sentry.io/456`)
+4. **Vercel** → project → Settings → Environment Variables:
+   - `NEXT_PUBLIC_SENTRY_DSN=<your DSN>` (production + preview + development)
+5. Redeploy. Errors start flowing.
+
+---
+
+## Optional: PostHog analytics
+
+Page-views + custom events (sign-ups, add-to-cart, purchases). Activates when `NEXT_PUBLIC_POSTHOG_KEY` is set.
+
+1. Sign in / create org at https://posthog.com (EU cloud or US — your choice)
+2. Settings → Project API Keys → copy the **Project API Key** (starts with `phc_`)
+3. **Vercel** env vars (all three environments):
+   - `NEXT_PUBLIC_POSTHOG_KEY=phc_…`
+   - `NEXT_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com` (or `https://us.i.posthog.com`)
+4. Redeploy. Tracking starts immediately.
+
+The `trackEvent()` and `identifyUser()` helpers in `components/providers/AnalyticsProvider.tsx` are how to fire conversion events. Already covers `$pageview` automatically. To add `add_to_cart`, `purchase`, etc., import and call from the relevant client component.
+
+---
+
+## Deferred — Meilisearch (real product search)
+
+Storefront search currently uses a Postgres `ILIKE %q%` query. Fast for 200 products, slow at 5k+, no typo tolerance, no facets.
+
+When ready (~2 days of work):
+
+1. **Add a Meilisearch service** to the Railway prod project:
+   - Railway → Add → Docker image → `getmeili/meilisearch:v1.10`
+   - Generate a master API key, set `MEILI_MASTER_KEY` env var on the service
+   - Note its internal URL (e.g. `meilisearch.railway.internal:7700`)
+2. **Add env vars** to the API service:
+   - `MEILI_HOST=http://meilisearch.railway.internal:7700`
+   - `MEILI_API_KEY=<master key>`
+3. **Indexer worker** in `afrizonemart-api/src/modules/search/`:
+   - Subscribe to `product.created` / `product.updated` / `product.deleted` events
+   - Push to Meilisearch index `products` with searchable + filterable attrs
+   - One-time backfill script for existing products
+4. **API endpoint** `/api/search?q=…&category=…&origin=…&limit=…` proxies to Meili
+5. **Storefront** swap the Postgres-based search for the new endpoint
+6. Optional: typo-tolerance, faceted filtering, search-as-you-type
+
+Until then, the storefront search bar continues to work — just not as well.

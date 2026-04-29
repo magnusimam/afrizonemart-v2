@@ -1,23 +1,22 @@
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { COUNTRIES, COUNTRY_CODES } from '@/lib/countries';
 import { MOCK_USER } from '@/lib/mock-data';
 
 export default function ProfilePage() {
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         <div className="mx-auto max-w-site px-4 py-6 md:py-10">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
             <div className="lg:col-span-3">
-              <AccountSidebar
-                active="/account/profile"
-                userFirstName={MOCK_USER.firstName}
-                userLastName={MOCK_USER.lastName}
-              />
+              <SafeBoundary name="account:sidebar" fallback={null}>
+                <AccountSidebar
+                  active="/account/profile"
+                  userFirstName={MOCK_USER.firstName}
+                  userLastName={MOCK_USER.lastName}
+                />
+              </SafeBoundary>
             </div>
 
             <div className="flex flex-col gap-5 lg:col-span-9">
@@ -164,8 +163,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

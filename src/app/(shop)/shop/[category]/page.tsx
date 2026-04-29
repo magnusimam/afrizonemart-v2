@@ -1,11 +1,9 @@
 import Link from 'next/link';
 import { ChevronRight, Home as HomeIcon } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { FiltersSidebar } from '@/components/shop/FiltersSidebar';
 import { ShopToolbar } from '@/components/shop/ShopToolbar';
 import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { COUNTRY_CODES } from '@/lib/countries';
 
 interface PageProps {
@@ -49,7 +47,6 @@ export default function CategoryPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         <nav aria-label="Breadcrumb" className="border-b border-border bg-page">
           <ol className="mx-auto flex max-w-site items-center gap-1.5 px-4 py-3 font-sans text-xs text-muted md:text-sm">
@@ -88,23 +85,27 @@ export default function CategoryPage({ params }: PageProps) {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
             <div className="lg:col-span-3">
-              <FiltersSidebar />
+              <SafeBoundary name="category:filters" fallback={null}>
+                <FiltersSidebar />
+              </SafeBoundary>
             </div>
 
             <div className="flex flex-col gap-4 lg:col-span-9 lg:gap-6">
-              <ShopToolbar total={products.length} />
+              <SafeBoundary name="category:toolbar" fallback={null}>
+                <ShopToolbar total={products.length} />
+              </SafeBoundary>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-4">
                 {products.map((p) => (
-                  <ProductCardPlaceholder key={p.id} {...p} />
+                  <SafeBoundary key={p.id} name="category:card" fallback={null}>
+                    <ProductCardPlaceholder {...p} />
+                  </SafeBoundary>
                 ))}
               </div>
             </div>
           </div>
         </div>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

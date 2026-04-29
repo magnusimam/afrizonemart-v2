@@ -5,19 +5,30 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
-import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
-import { AuthApiError, loginUser } from '@/lib/api/auth';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { PhoneSignInForm } from '@/components/auth/PhoneSignInForm';
+import { AuthApiError, loginUser, type AuthResult } from '@/lib/api/auth';
 import { useAuthStore } from '@/stores/authStore';
+
+type Method = 'email' | 'phone';
 
 export default function LoginPage() {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
 
+  const [method, setMethod] = useState<Method>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const finishSignIn = (result: AuthResult) => {
+    setSession(result);
+    const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+    const fallback = result.user.role === 'ADMIN' ? '/admin' : '/account';
+    router.push(returnUrl && returnUrl.startsWith('/') ? returnUrl : fallback);
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -25,10 +36,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const result = await loginUser({ email, password });
-      setSession(result);
-      const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
-      const fallback = result.user.role === 'ADMIN' ? '/admin' : '/account';
-      router.push(returnUrl && returnUrl.startsWith('/') ? returnUrl : fallback);
+      finishSignIn(result);
     } catch (err) {
       setError(
         err instanceof AuthApiError
@@ -53,7 +61,50 @@ export default function LoginPage() {
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
+        {/* Google sign-in (top — highest conversion path) */}
+        <GoogleSignInButton onSuccess={finishSignIn} onError={(m) => setError(m)} />
+
+        <div className="relative my-1 flex items-center">
+          <span className="h-px flex-1 bg-border" />
+          <span className="px-3 font-raleway text-xs font-semibold uppercase tracking-btn text-muted">
+            or
+          </span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
+        {/* Method picker — Email vs Phone */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setMethod('email');
+              setError(null);
+            }}
+            className={`rounded-btn border px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${
+              method === 'email'
+                ? 'border-navy bg-navy text-white'
+                : 'border-border bg-white text-charcoal hover:border-navy'
+            }`}
+          >
+            Email + Password
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMethod('phone');
+              setError(null);
+            }}
+            className={`rounded-btn border px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${
+              method === 'phone'
+                ? 'border-navy bg-navy text-white'
+                : 'border-border bg-white text-charcoal hover:border-navy'
+            }`}
+          >
+            Phone + SMS
+          </button>
+        </div>
+
         {error && (
           <div
             role="alert"
@@ -63,6 +114,10 @@ export default function LoginPage() {
           </div>
         )}
 
+        {method === 'phone' ? (
+          <PhoneSignInForm onSuccess={finishSignIn} />
+        ) : (
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Field label="Email">
           <input
             required
@@ -119,17 +174,9 @@ export default function LoginPage() {
         >
           {submitting ? 'Signing in…' : 'Sign In'}
         </button>
-
-        <div className="relative my-2 flex items-center">
-          <span className="h-px flex-1 bg-border" />
-          <span className="px-3 font-raleway text-xs font-semibold uppercase tracking-btn text-muted">
-            or
-          </span>
-          <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <SocialLoginButtons mode="sign-in" />
       </form>
+        )}
+      </div>
     </AuthCard>
   );
 }

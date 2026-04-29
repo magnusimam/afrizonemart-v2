@@ -3,13 +3,11 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Calendar, CheckCircle2, Loader2, Mail, Package, Share2 } from 'lucide-react';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { DELIVERY_METHODS } from '@/lib/checkout-data';
 import { checkOrderPayment } from '@/lib/api/payments';
 import { useCheckoutStore } from '@/stores/checkoutStore';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 
 export default function SuccessPage() {
   const orderId = useCheckoutStore((s) => s.orderId);
@@ -83,7 +81,6 @@ export default function SuccessPage() {
 
   return (
     <>
-      <Header />
       <main className="bg-page pb-12">
         <section className="bg-white py-12 md:py-20">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-6 px-4 text-center">
@@ -187,10 +184,10 @@ export default function SuccessPage() {
           </div>
         </section>
 
-        <TrustBarSection />
+        <SafeBoundary name="success:trust" fallback={null}>
+          <TrustBarSection />
+        </SafeBoundary>
       </main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

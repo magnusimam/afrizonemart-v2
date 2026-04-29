@@ -1,7 +1,4 @@
 import { notFound } from 'next/navigation';
-import { ChatBubble } from '@/components/layout/ChatBubble';
-import { Footer } from '@/components/layout/Footer';
-import { Header } from '@/components/layout/Header';
 import { renderBlocks, type CmsBlock } from '@/components/cms/PageBlocks';
 import type { Metadata } from 'next';
 
@@ -45,10 +42,7 @@ export default async function CmsPageRoute({ params }: PageProps) {
 
   return (
     <>
-      <Header />
       <main className="bg-white">{renderBlocks(page.blocks)}</main>
-      <Footer />
-      <ChatBubble />
     </>
   );
 }

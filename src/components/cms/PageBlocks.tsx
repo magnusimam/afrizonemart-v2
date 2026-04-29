@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 
 /**
  * Phase 10.6 — CMS block renderer.
@@ -95,7 +96,13 @@ export const CMS_BLOCK_PALETTE: BlockPaletteEntry[] = [
 ];
 
 export function renderBlocks(blocks: CmsBlock[]): React.ReactNode {
-  return blocks.map((b, i) => <BlockOne key={i} block={b} />);
+  // Each block gets its own boundary so a single malformed admin-authored
+  // block can't take down the whole CMS page.
+  return blocks.map((b, i) => (
+    <SafeBoundary key={i} name={`cms:${b.type}`} fallback={null}>
+      <BlockOne block={b} />
+    </SafeBoundary>
+  ));
 }
 
 function BlockOne({ block }: { block: CmsBlock }) {

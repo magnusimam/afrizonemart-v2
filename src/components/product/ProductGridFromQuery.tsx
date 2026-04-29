@@ -3,6 +3,7 @@
 import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
 import { ProductGridSkeleton } from '@/components/product/ProductCardSkeleton';
 import { ProductGridError } from '@/components/product/ProductGridError';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { useProducts } from '@/hooks/use-products';
 import type { ListProductsParams } from '@/lib/api/types';
 
@@ -45,23 +46,24 @@ export function ProductGridFromQuery({
   return (
     <>
       {data?.items.map((p) => (
-        <ProductCardPlaceholder
-          key={p.id}
-          id={p.id}
-          slug={p.slug}
-          name={p.name}
-          price={p.price}
-          comparePrice={p.comparePrice ?? undefined}
-          discountPercent={
-            p.comparePrice && p.comparePrice > p.price
-              ? Math.round(((p.comparePrice - p.price) / p.comparePrice) * 100)
-              : undefined
-          }
-          outOfStock={!p.inStock}
-          origin={p.origin ?? undefined}
-          delivery={delivery}
-          buttonVariant={buttonVariant}
-        />
+        <SafeBoundary key={p.id} name="product-card" fallback={null}>
+          <ProductCardPlaceholder
+            id={p.id}
+            slug={p.slug}
+            name={p.name}
+            price={p.price}
+            comparePrice={p.comparePrice ?? undefined}
+            discountPercent={
+              p.comparePrice && p.comparePrice > p.price
+                ? Math.round(((p.comparePrice - p.price) / p.comparePrice) * 100)
+                : undefined
+            }
+            outOfStock={!p.inStock}
+            origin={p.origin ?? undefined}
+            delivery={delivery}
+            buttonVariant={buttonVariant}
+          />
+        </SafeBoundary>
       ))}
     </>
   );
