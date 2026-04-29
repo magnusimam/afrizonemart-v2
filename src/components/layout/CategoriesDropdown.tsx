@@ -11,17 +11,21 @@ const HOVER_CLOSE_DELAY = 180;
 /**
  * "All Categories" header dropdown.
  *
- * Fetches the live category list from /api/categories on first hover
- * (lazy — keeps the initial nav render cheap) and caches the result
- * for the rest of the session. Hover-driven open/close with small
- * delays so the menu doesn't flicker as the cursor crosses the gap
- * between trigger and panel.
+ * - On desktop (hover-capable pointers): opens on hover with a small
+ *   open/close delay so the menu doesn't flicker as the cursor
+ *   crosses the gap between trigger and panel.
+ * - On mobile (touch): the trigger is a click toggle, the panel
+ *   closes when the visitor taps outside or picks an item.
+ *
+ * Categories are fetched lazily on first open and cached for the rest
+ * of the session — keeps the initial nav render cheap.
  */
 export function CategoriesDropdown() {
   const [open, setOpen] = useState(false);
   const [categories, setCategories] = useState<ApiCategory[] | null>(null);
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     return () => {
@@ -30,20 +34,49 @@ export function CategoriesDropdown() {
     };
   }, []);
 
+  // Close on outside click (touch + desktop). Necessary because hover
+  // alone doesn't fire on touch devices.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  async function ensureLoaded() {
+    if (categories === null) {
+      const items = await listCategories();
+      setCategories(items);
+    }
+  }
+
   function handleEnter() {
     if (closeTimer.current) clearTimeout(closeTimer.current);
     openTimer.current = setTimeout(async () => {
       setOpen(true);
-      if (categories === null) {
-        const items = await listCategories();
-        setCategories(items);
-      }
+      await ensureLoaded();
     }, HOVER_OPEN_DELAY);
   }
 
   function handleLeave() {
     if (openTimer.current) clearTimeout(openTimer.current);
     closeTimer.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY);
+  }
+
+  function handleTriggerClick(e: React.MouseEvent) {
+    // On touch (no hover), click toggles. On desktop the hover handler
+    // already opened it — but a click should still navigate to /shop,
+    // so we only intercept the click on touch devices that haven't
+    // already opened via hover.
+    if (window.matchMedia('(hover: none)').matches) {
+      e.preventDefault();
+      const next = !open;
+      setOpen(next);
+      if (next) ensureLoaded();
+    }
   }
 
   // Show every category — even empty ones. Admins use /admin/categories
@@ -54,13 +87,15 @@ export function CategoriesDropdown() {
 
   return (
     <div
+      ref={containerRef}
       className="relative"
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
       <Link
         href="/shop"
-        className="flex items-center gap-1 px-4 font-raleway text-xs font-semibold text-white hover:text-amber md:px-6 md:text-sm"
+        onClick={handleTriggerClick}
+        className="flex items-center gap-1 px-3 font-raleway text-xs font-semibold text-white hover:text-amber md:px-6 md:text-sm"
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -75,7 +110,7 @@ export function CategoriesDropdown() {
       {open ? (
         <div
           role="menu"
-          className="absolute left-0 top-full z-50 mt-1 min-w-[260px] max-w-[320px] overflow-hidden rounded-card border border-border bg-white shadow-card"
+          className="absolute left-0 top-full z-50 mt-1 min-w-[240px] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-card border border-border bg-white shadow-card md:max-w-[320px]"
           onMouseEnter={handleEnter}
           onMouseLeave={handleLeave}
         >
@@ -107,7 +142,8 @@ export function CategoriesDropdown() {
                   <Link
                     href={`/shop/${c.slug}`}
                     role="menuitem"
-                    className="flex items-center justify-between gap-3 px-4 py-2 font-sans text-sm text-charcoal transition-colors hover:bg-page hover:text-navy"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5 font-sans text-sm text-charcoal transition-colors hover:bg-page hover:text-navy"
                   >
                     <span className="font-medium">{c.name}</span>
                     <span className="font-mono text-[10px] text-muted">

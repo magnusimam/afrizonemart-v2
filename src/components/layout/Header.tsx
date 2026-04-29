@@ -21,7 +21,10 @@ const navItems = [
 export function Header() {
   return (
     <header className="w-full bg-white">
-      <div className="mx-auto flex max-w-site items-center gap-6 px-3 py-4 md:gap-8 md:px-6 lg:px-10 xl:pl-14 xl:pr-12">
+      {/* TOP STRIP — logo on the left, action icons (cart + user) on
+          the right. Search drops to its own row on mobile so it
+          actually has space; on desktop it sits between logo + actions. */}
+      <div className="mx-auto flex max-w-site flex-wrap items-center gap-3 px-3 py-3 md:flex-nowrap md:gap-6 md:px-6 md:py-4 lg:gap-8 lg:px-10 xl:pl-14 xl:pr-12">
         <Link href="/" className="shrink-0">
           <Image
             src="/images/logo.png"
@@ -29,7 +32,7 @@ export function Header() {
             width={260}
             height={80}
             priority
-            className="h-14 w-auto md:h-16 lg:h-[72px]"
+            className="h-10 w-auto md:h-16 lg:h-[72px]"
           />
         </Link>
 
@@ -37,43 +40,50 @@ export function Header() {
           role="search"
           action="/search"
           method="GET"
-          className="flex max-w-[720px] flex-1 items-stretch overflow-hidden rounded-input border border-border bg-white"
+          className="order-3 flex w-full max-w-[720px] flex-1 items-stretch overflow-hidden rounded-input border border-border bg-white md:order-2 md:w-auto"
         >
           <input
             type="search"
             name="q"
-            placeholder="Search for products, brands & categories..."
+            placeholder="Search products…"
             aria-label="Search products"
-            className="min-w-0 flex-1 px-4 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:outline-none"
+            className="min-w-0 flex-1 px-3 py-2 font-sans text-sm text-charcoal placeholder:text-muted focus:outline-none md:px-4 md:py-2.5"
           />
           <button
             type="submit"
-            className="flex items-center gap-2 bg-navy px-5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-navy-dark md:px-7 md:text-sm"
+            className="flex items-center justify-center gap-2 bg-navy px-3 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-navy-dark md:px-7 md:text-sm"
+            aria-label="Search"
           >
             <Search size={16} aria-hidden />
-            Search
+            <span className="hidden md:inline">Search</span>
           </button>
         </form>
 
-        <div className="hidden items-center gap-2 md:flex">
+        {/* Currency / language only on desktop — they go in the mobile
+            drawer on small screens (drawer pending, see tracker #30). */}
+        <div className="order-2 ml-auto hidden items-center gap-2 md:order-3 md:ml-0 md:flex">
           <CurrencySwitcher />
           <LanguageSwitcher />
         </div>
 
-        <CartBadge />
-
-        <HeaderUserMenu />
+        <div className="order-2 ml-auto flex items-center gap-2 md:order-3 md:ml-0">
+          <CartBadge />
+          <HeaderUserMenu />
+        </div>
       </div>
 
+      {/* CATEGORY NAV STRIP — horizontally scrollable on mobile.
+          Reduced left padding (was 80px, now 12px) so the first item
+          isn't buried off-screen on narrow viewports. */}
       <nav className="w-full bg-navy">
-        <ul className="mx-auto flex max-w-site items-center divide-x divide-white/30 overflow-x-auto py-2.5 pl-20 pr-4">
+        <ul className="mx-auto flex max-w-site items-center divide-x divide-white/30 overflow-x-auto px-3 py-2 md:py-2.5 md:pl-20 md:pr-4">
           <li className="shrink-0">
             <SafeBoundary
               name="header:categories-dropdown"
               fallback={
                 <Link
                   href="/shop"
-                  className="flex items-center gap-1 px-4 font-raleway text-xs font-semibold text-white hover:text-amber md:px-6 md:text-sm"
+                  className="flex items-center gap-1 px-3 font-raleway text-xs font-semibold text-white hover:text-amber md:px-6 md:text-sm"
                 >
                   All Categories
                 </Link>
@@ -86,7 +96,7 @@ export function Header() {
             <li key={item.label} className="shrink-0">
               <Link
                 href={item.href}
-                className="flex items-center gap-1 px-4 font-raleway text-xs font-semibold text-white hover:text-amber md:px-6 md:text-sm"
+                className="flex items-center gap-1 whitespace-nowrap px-3 font-raleway text-xs font-semibold text-white hover:text-amber md:px-6 md:text-sm"
               >
                 {item.label}
               </Link>

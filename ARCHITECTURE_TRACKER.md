@@ -103,6 +103,108 @@ gets ticked off here.
    - **Verified**: 5 random product pages all return 200 with real
      bundles, features, specs, breadcrumb, and (where seeded)
      reviews.
+30. **[ ] Mobile view pass — every page** _(queued 2026-04-29)_.
+
+    Most surfaces are responsive but were not specifically audited on
+    mobile. Need to walk through every page at iPhone-12-mini width
+    (375px) and tablet width (768px), tighten any horizontal-scroll
+    bleed, large-text wraps, touch-target sizes (≥44px), and fix the
+    Hero / AfricaMap / category dropdown / cart / checkout / PDP
+    layouts where collapsed grids look cramped.
+
+29. **[ ] Payment gateway expansion — Paystack + Flutterwave + optional Squad public key** _(queued 2026-04-29)_.
+
+    Today only Squad and Stub are registered in
+    `payments/registry.ts`. The admin form auto-renders any provider
+    we register, so adding a new one is one file + one registry entry.
+
+    - Build `paystack-gateway.ts` (init, verify, webhook signature)
+      and add to `PROVIDER_FACTORIES`.
+    - Build `flutterwave-gateway.ts` similarly.
+    - Optionally add a `publicKey` (text, not required) field to the
+      Squad provider definition for future inline-widget support.
+      Today we use Squad's redirect flow which doesn't need it.
+    - Each adapter ~150 lines mirroring `gtsquad-gateway.ts`.
+
+    **Webhook URL for Squad** (record for ops):
+    `https://api.afrizonemart.com/api/payments/webhook`. Already wired
+    via `paymentRoutes.post('/webhook', webhookHandler)` with
+    HMAC-SHA512 signature verification on the raw body.
+
+28. **[ ] Product upload workflow audit + bulk CSV polish** _(queued 2026-04-29)_.
+
+    Spec from CTO: "create a table with all product information
+    fields, upload, takes effect immediately and perfectly synced.
+    The only manual step should be attaching their respective images."
+
+    **What works today**:
+    - `/admin/products/new` form covers all 13 product fields
+      (name, slug, brand, shortDescription, description, ingredients,
+      price, comparePrice, origin, inStock, category, images,
+      attributes JSON, custom fields, placements).
+    - `<ImageUploader>` drag-drop, multi-image, R2-backed.
+    - `<ImportCsvDialog>` exists for bulk import.
+    - Per-product custom fields render dynamically from the
+      `CustomFieldDef` registry.
+
+    **What needs verification + fixing**:
+    - CSV header mapping covers every column the public PDP reads
+      (name, slug, brand, shortDescription, longDescription,
+      ingredients, price, comparePrice, origin, inStock,
+      categorySlug, attributes — features/specs/bundles/about).
+    - Auto-slug-from-name when slug column is empty.
+    - Auto-create-category when `categorySlug` is unknown (CTO
+      previously OK'd this for the WordPress import).
+    - Post-import "attach images" pass — admin opens each row, uses
+      `<ImageUploader>` to add R2 images. Verify the edit page
+      handles a row that was created via CSV with no images.
+    - Surface CSV import errors in the UI (today they only log to
+      console).
+    - Document the workflow in a one-pager admin can read.
+
+27. **[ ] SEO indexability — full coverage** _(queued 2026-04-29)_.
+
+    Spec from CTO: "every product page, every web page, every slug,
+    every content (titles, descriptions, images) must be indexable.
+    Searches for products and product images should surface
+    Afrizonemart."
+
+    **What we have**:
+    - Per-product `<title>` and `<meta description>` via
+      `generateMetadata` on product/[slug].
+    - Schema.org Product JSON-LD on PDP (price, brand, rating,
+      availability, image).
+    - Basic `app/sitemap.ts` (static URLs only).
+    - `app/robots.ts`.
+    - Image alt text = product name on the gallery.
+
+    **What's missing**:
+    1. **Dynamic sitemap** — sitemap.ts queries `/api/products` and
+       enumerates every product URL with `lastmod`. Same for
+       categories and CMS pages.
+    2. **Image sitemap** (`/sitemap-images.xml`) — every product image
+       gets an entry per Google's image-sitemap spec.
+    3. **Open Graph + Twitter Card meta** on every PDP, category,
+       and CMS page (so WhatsApp / FB / Twitter share previews look
+       right).
+    4. **Canonical URL** on every page (avoids duplicate-content
+       penalties when search params or country variants land users on
+       the same product).
+    5. **BreadcrumbList JSON-LD** alongside Product JSON-LD on PDP
+       (Google shows breadcrumb chips in SERP when present).
+    6. **Enriched image alt text** — extend from product name to
+       include category + brand + origin: e.g. "Maya Himalaya Facial
+       Scrub — Beauty product from Nigeria — Afrizonemart". Lifts
+       Google Image Search ranking.
+    7. **Per-category unique copy** — Google penalises template-only
+       category pages. Add a CMS-editable hero blurb per category.
+    8. **`robots.txt`** updated to reference both the URL sitemap
+       and the image sitemap.
+
+    **Updates Principle #1 (API-first)** indirectly — the public
+    products endpoint becomes the source of truth for sitemap
+    generation, so no separate manifest file to maintain.
+
 23. **[ ] Squad multi-currency contract — charge customers in their local currency (CRITICAL post-launch)** _(queued 2026-04-28)_.
 
     **Context**: For v1 launch we ship **display-only** currency
