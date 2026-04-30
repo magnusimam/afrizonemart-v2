@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Globe2 } from 'lucide-react';
 import { COUNTRIES, COUNTRY_CODES, type CountryCode } from '@/lib/countries';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 
@@ -23,8 +22,7 @@ export function ShopByCountrySection() {
   return (
     <section>
       <div className="w-full bg-navy py-3 text-center md:py-4">
-        <h2 className="flex items-center justify-center gap-2 font-raleway text-base font-bold uppercase tracking-btn text-white md:text-lg">
-          <Globe2 size={18} aria-hidden className="text-amber" />
+        <h2 className="font-raleway text-base font-bold uppercase tracking-btn text-white md:text-lg">
           Shop By Country
         </h2>
       </div>

@@ -106,12 +106,26 @@ function reviewFromApi(r: ApiReview): ProductReview {
 }
 
 function imagesFromApi(api: ApiProduct): ProductImage[] {
+  // SEO-rich alt text: name + brand + category + origin + Afrizonemart.
+  // Lifts ranking in Google Image Search vs the bare product name.
+  const baseParts: string[] = [api.name];
+  if (api.brand) baseParts.push(`by ${api.brand}`);
+  if (api.category?.name && api.origin) {
+    baseParts.push(`${api.category.name} from ${api.origin}`);
+  } else if (api.category?.name) {
+    baseParts.push(api.category.name);
+  } else if (api.origin) {
+    baseParts.push(`from ${api.origin}`);
+  }
+  baseParts.push('Afrizonemart');
+  const baseAlt = baseParts.join(' — ');
+
   if (api.images.length === 0) {
-    return [{ src: FALLBACK_IMAGE, alt: api.name }];
+    return [{ src: FALLBACK_IMAGE, alt: baseAlt }];
   }
   return api.images.map((src, i) => ({
     src,
-    alt: i === 0 ? api.name : `${api.name} — image ${i + 1}`,
+    alt: i === 0 ? baseAlt : `${baseAlt} — view ${i + 1}`,
   }));
 }
 

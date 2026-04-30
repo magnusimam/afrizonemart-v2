@@ -65,16 +65,27 @@ export function HeroSlider() {
   return (
     <div
       className="relative overflow-hidden rounded-card shadow-card"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      // Only pause on real mouse hover — touch devices synthesize a
+      // pointerenter on tap that never gets a corresponding leave,
+      // which would freeze the carousel on mobile.
+      onPointerEnter={(e) => {
+        if (e.pointerType === 'mouse') setPaused(true);
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === 'mouse') setPaused(false);
+      }}
       role="region"
       aria-roledescription="carousel"
       aria-label="Featured Afrizonemart promotions"
     >
       <div
-        className="flex"
+        className="azm-hero-track flex"
         style={{
-          width: `${display.length * 50}%`,
+          // CSS vars consumed by .azm-hero-track in globals.css.
+          // Mobile: each slide takes 100% of the container (1 visible).
+          // Desktop: each slide takes 50% of the container (2 visible).
+          ['--track-w-mobile' as string]: `${display.length * 100}%`,
+          ['--track-w-desktop' as string]: `${display.length * 50}%`,
           transform: `translateX(-${index * itemPctOfTrack}%)`,
           transition: animate ? `transform ${TRANSITION_MS}ms ease-in-out` : 'none',
         }}

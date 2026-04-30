@@ -12,6 +12,7 @@ import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { listCustomFields } from '@/lib/api/admin';
 import { getRelatedProducts, loadProductDetail } from '@/lib/products';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { SITE_NAME, SITE_URL, absUrl, metaDescription, productImageAlt } from '@/lib/seo';
 import type { Metadata } from 'next';
 
 interface PageProps {
@@ -20,10 +21,38 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const product = await loadProductDetail(params.slug);
-  if (!product) return { title: 'Product Not Found' };
+  if (!product) {
+    return {
+      title: 'Product Not Found',
+      robots: { index: false, follow: true },
+    };
+  }
+  const title = product.brand
+    ? `${product.name} — ${product.brand}`
+    : product.name;
+  const description = metaDescription(
+    product.shortDescription || product.longDescription,
+  );
+  const url = `/product/${product.slug}`;
+  const ogImage = product.images[0]?.src ?? undefined;
   return {
-    title: `${product.name} — ${product.brand} | Afrizonemart`,
-    description: product.shortDescription,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website',
+      url: absUrl(url),
+      siteName: SITE_NAME,
+      title,
+      description,
+      images: ogImage ? [{ url: ogImage, alt: productImageAlt(product) }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
+    },
   };
 }
 
@@ -37,36 +66,69 @@ export default async function ProductPage({ params }: PageProps) {
   const related = getRelatedProducts(params.slug);
   const customFieldDefs = customFieldsRes.items;
 
-  // Phase Audit.4 — Schema.org Product JSON-LD for Google Shopping
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://afrizonemart.vercel.app';
+  // Schema.org structured data — Product JSON-LD for Google Shopping
+  // + BreadcrumbList JSON-LD so Google shows breadcrumb chips in
+  // search results. Both wrapped in a single @graph payload.
+  const productUrl = `${SITE_URL}/product/${product.slug}`;
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: product.name,
-    brand: { '@type': 'Brand', name: product.brand },
-    description: product.shortDescription || product.longDescription,
-    image: product.images.map((i) => i.src),
-    sku: product.slug,
-    category: product.category.name,
-    countryOfOrigin: product.origin,
-    aggregateRating:
-      product.reviewCount > 0
-        ? {
-            '@type': 'AggregateRating',
-            ratingValue: product.rating,
-            reviewCount: product.reviewCount,
-          }
-        : undefined,
-    offers: {
-      '@type': 'Offer',
-      url: `${siteUrl}/product/${product.slug}`,
-      priceCurrency: 'NGN',
-      price: product.price,
-      availability: product.inStock
-        ? 'https://schema.org/InStock'
-        : 'https://schema.org/OutOfStock',
-      itemCondition: 'https://schema.org/NewCondition',
-    },
+    '@graph': [
+      {
+        '@type': 'Product',
+        '@id': `${productUrl}#product`,
+        name: product.name,
+        brand: product.brand
+          ? { '@type': 'Brand', name: product.brand }
+          : undefined,
+        description: metaDescription(product.shortDescription || product.longDescription),
+        image: product.images.map((i) => i.src),
+        sku: product.slug,
+        category: product.category.name,
+        countryOfOrigin: product.origin,
+        aggregateRating:
+          product.reviewCount > 0
+            ? {
+                '@type': 'AggregateRating',
+                ratingValue: product.rating,
+                reviewCount: product.reviewCount,
+              }
+            : undefined,
+        offers: {
+          '@type': 'Offer',
+          url: productUrl,
+          priceCurrency: 'NGN',
+          price: product.price,
+          availability: product.inStock
+            ? 'https://schema.org/InStock'
+            : 'https://schema.org/OutOfStock',
+          itemCondition: 'https://schema.org/NewCondition',
+          seller: { '@type': 'Organization', name: SITE_NAME },
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: SITE_URL,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: product.category.name,
+            item: `${SITE_URL}/shop/${product.category.slug}`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: product.name,
+            item: productUrl,
+          },
+        ],
+      },
+    ],
   };
 
   return (

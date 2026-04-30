@@ -90,10 +90,47 @@ export function ImportCsvDialog({ open, onClose, onSuccess }: Props) {
               <a
                 href={TEMPLATE_URL}
                 download
-                className="mb-4 inline-flex items-center gap-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:underline"
+                className="mb-3 inline-flex items-center gap-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:underline"
               >
                 <Download size={13} aria-hidden /> Download template CSV
               </a>
+
+              <details className="mb-4 rounded-card border border-border bg-page p-3 font-sans text-xs text-charcoal">
+                <summary className="cursor-pointer font-raleway text-[11px] font-bold uppercase tracking-btn text-navy">
+                  How the bulk import works
+                </summary>
+                <ul className="mt-2 flex flex-col gap-1.5 leading-relaxed text-muted">
+                  <li>
+                    <strong className="text-charcoal">Required:</strong> name, price.
+                    Everything else is optional.
+                  </li>
+                  <li>
+                    <strong className="text-charcoal">Slug auto-generated</strong>{' '}
+                    from the name when omitted (e.g. &quot;Maya Facial Scrub&quot; →{' '}
+                    <code className="rounded bg-white px-1">maya-facial-scrub</code>).
+                  </li>
+                  <li>
+                    <strong className="text-charcoal">categorySlug auto-creates</strong>{' '}
+                    when unknown — saves you a trip to /admin/categories first. Rename
+                    the category later if needed.
+                  </li>
+                  <li>
+                    <strong className="text-charcoal">Existing rows update</strong> by
+                    slug. Hand-edited attributes (bundles, features, specs, about) are
+                    preserved on update.
+                  </li>
+                  <li>
+                    <strong className="text-charcoal">Images are optional</strong> —
+                    leave blank and attach them per-product after import via the
+                    image uploader on each product&apos;s edit page.
+                  </li>
+                  <li>
+                    <strong className="text-charcoal">images column</strong> takes
+                    pipe-separated URLs:{' '}
+                    <code className="rounded bg-white px-1">a.jpg|b.jpg</code>.
+                  </li>
+                </ul>
+              </details>
 
               <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-border bg-page py-10 text-center hover:border-navy">
                 <FileUp size={28} className="text-navy" aria-hidden />
@@ -101,7 +138,7 @@ export function ImportCsvDialog({ open, onClose, onSuccess }: Props) {
                   {file ? file.name : 'Pick a CSV file'}
                 </span>
                 <span className="font-sans text-[11px] text-muted">
-                  Required columns: slug, name, price, categorySlug
+                  Required: name, price · Optional: slug, brand, categorySlug, …
                 </span>
                 <input
                   type="file"

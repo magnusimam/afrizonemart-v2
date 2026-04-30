@@ -10,17 +10,20 @@ export function Hero() {
           <HeroSlider />
         </div>
 
-        <div className="flex flex-col gap-3 md:col-span-3 md:gap-4">
-          <div className="flex flex-1 flex-col items-center justify-center rounded-card bg-navy p-5 text-center shadow-card">
-            <h3 className="font-raleway text-lg font-bold leading-tight text-white md:text-xl">
+        {/* On mobile the two cards sit SIDE BY SIDE under the slider
+            (matches the design spec). On desktop they stack vertically
+            in the right rail of the 12-col grid. */}
+        <div className="grid grid-cols-2 gap-3 md:col-span-3 md:flex md:flex-col md:gap-4">
+          <div className="flex flex-col items-center justify-center rounded-card bg-navy p-3 text-center shadow-card md:flex-1 md:p-5">
+            <h3 className="font-raleway text-sm font-bold leading-tight text-white md:text-xl">
               Welcome to Afrizonemart!
             </h3>
-            <p className="mt-1 font-sans text-xs text-white/80 md:text-sm">
+            <p className="mt-1 font-sans text-[11px] text-white/80 md:text-sm">
               For best shopping experience
             </p>
             <Link
               href="/register"
-              className="mt-4 inline-block rounded-btn bg-amber px-8 py-2.5 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-white"
+              className="mt-3 inline-block rounded-btn bg-amber px-5 py-2 font-raleway text-[11px] font-bold uppercase tracking-btn text-navy transition-colors hover:bg-white md:mt-4 md:px-8 md:py-2.5 md:text-xs"
             >
               Sign Up!
             </Link>
@@ -28,11 +31,13 @@ export function Hero() {
 
           <Link
             href="/continental-rewards"
-            className="group flex flex-1 items-center gap-3 overflow-hidden rounded-card bg-white p-4 shadow-card"
+            className="group flex items-center gap-2 overflow-hidden rounded-card bg-white p-3 shadow-card md:flex-1 md:gap-3 md:p-4"
           >
-            <div className="flex flex-col">
-              <span className="font-sans text-sm text-charcoal">Get our</span>
-              <span className="font-raleway text-xl font-bold leading-tight text-navy md:text-2xl">
+            <div className="flex min-w-0 flex-col">
+              <span className="font-sans text-[11px] text-charcoal md:text-sm">
+                Get our
+              </span>
+              <span className="font-raleway text-sm font-bold leading-tight text-navy md:text-2xl">
                 Continental
                 <br />
                 Rewards
@@ -43,7 +48,7 @@ export function Hero() {
               alt="Continental Rewards loyalty cards"
               width={400}
               height={260}
-              className="ml-auto h-auto w-32 shrink-0 object-contain transition-transform duration-300 group-hover:scale-105 md:w-40"
+              className="ml-auto h-auto w-16 shrink-0 object-contain transition-transform duration-300 group-hover:scale-105 md:w-40"
             />
           </Link>
         </div>

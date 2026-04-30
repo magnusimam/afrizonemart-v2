@@ -86,20 +86,20 @@ export function ShopByCategorySection() {
       </div>
 
       <div className="bg-page py-6 md:py-8">
-        <div className="mx-auto flex max-w-site flex-col gap-4 px-4 md:gap-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+        <div className="mx-auto flex max-w-site flex-col gap-3 px-3 md:gap-6 md:px-4">
+          <div className="grid grid-cols-3 gap-2 md:gap-6">
             {rowOne.map((c) => (
               <ShopByCategoryCard key={c.name} {...c} />
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+          <div className="grid grid-cols-3 gap-2 md:gap-6">
             {rowTwo.map((c) => (
               <ShopByCategoryCard key={c.name} {...c} />
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+          <div className="grid grid-cols-2 gap-2 md:gap-6">
             {rowThree.map((c) => (
               <ShopByCategoryCard key={c.name} {...c} />
             ))}

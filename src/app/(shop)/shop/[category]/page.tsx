@@ -5,9 +5,36 @@ import { ShopToolbar } from '@/components/shop/ShopToolbar';
 import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { COUNTRY_CODES } from '@/lib/countries';
+import { SITE_NAME, absUrl } from '@/lib/seo';
+import type { Metadata } from 'next';
 
 interface PageProps {
   params: { category: string };
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const cat = CATEGORY_TITLES[params.category] ?? {
+    title: params.category.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+    description: `Browse African-made ${params.category.replace(/-/g, ' ')} on Afrizonemart — verified products from across the continent.`,
+  };
+  const url = `/shop/${params.category}`;
+  return {
+    title: cat.title,
+    description: cat.description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website',
+      url: absUrl(url),
+      siteName: SITE_NAME,
+      title: cat.title,
+      description: cat.description,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: cat.title,
+      description: cat.description,
+    },
+  };
 }
 
 const CATEGORY_TITLES: Record<string, { title: string; description: string }> = {

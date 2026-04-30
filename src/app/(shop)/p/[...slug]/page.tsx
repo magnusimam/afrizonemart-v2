@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { renderBlocks, type CmsBlock } from '@/components/cms/PageBlocks';
+import { SITE_NAME, absUrl, metaDescription } from '@/lib/seo';
 import type { Metadata } from 'next';
 
 interface PageProps {
@@ -28,10 +29,26 @@ async function loadPage(slug: string): Promise<CmsPageRow | null> {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const slug = params.slug.join('/');
   const page = await loadPage(slug);
-  if (!page) return { title: 'Page not found' };
+  if (!page) {
+    return {
+      title: 'Page not found',
+      robots: { index: false, follow: true },
+    };
+  }
+  const url = `/p/${slug}`;
+  const description = metaDescription(page.metaDescription);
   return {
-    title: `${page.title} | Afrizonemart`,
-    description: page.metaDescription ?? undefined,
+    title: page.title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'article',
+      url: absUrl(url),
+      siteName: SITE_NAME,
+      title: page.title,
+      description,
+    },
+    twitter: { card: 'summary_large_image', title: page.title, description },
   };
 }
 

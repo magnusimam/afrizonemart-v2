@@ -39,7 +39,7 @@ export function CategoriesSection() {
 
         <div
           ref={scrollRef}
-          className="grid flex-1 auto-cols-[44%] grid-flow-col gap-3 overflow-x-auto scroll-smooth pb-1 sm:auto-cols-[30%] md:auto-cols-[22%] md:gap-4 lg:auto-cols-fr lg:grid-cols-7 lg:grid-flow-row"
+          className="grid flex-1 auto-cols-[30%] grid-flow-col gap-2 overflow-x-auto scroll-smooth pb-1 sm:auto-cols-[26%] md:auto-cols-[22%] md:gap-4 lg:auto-cols-fr lg:grid-cols-7 lg:grid-flow-row"
           style={{ scrollbarWidth: 'none' }}
         >
           {categories.map((c) => (

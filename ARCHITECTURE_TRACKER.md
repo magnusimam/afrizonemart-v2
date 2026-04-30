@@ -44,6 +44,62 @@ The four workstreams below are committed for the current push, in order.
 Each one updates its proper Principle / Rule / Phase home as it lands and
 gets ticked off here.
 
+### 🔴 TOP PRIORITY — CTO operator tasks
+
+31. **[ ] Submit sitemap.xml + sitemap-images.xml to Google Search Console** _(queued 2026-04-29 — TOP PRIORITY)_.
+
+    The eight-layer SEO pass (item #27) is shipped, but **Google
+    won't crawl us at scale until the sitemaps are submitted in
+    Search Console**. Without this step the indexing-eligible pages
+    stay near-invisible for the first few weeks of launch.
+
+    **Steps Magnus needs to do** (one-time, ~10 minutes):
+
+    1. Go to https://search.google.com/search-console
+    2. **Add property** → enter `https://afrizonemart.vercel.app`
+       (or `https://afrizonemart.com` once the apex DNS is cut over —
+       see project memory `production_deploy`).
+    3. Verify ownership. Easiest: pick the **HTML tag** method. Copy
+       the `<meta name="google-site-verification" …>` token Google
+       shows you and tell Claude — it goes into `app/layout.tsx`'s
+       `metadata.verification.google` field. Redeploy and click Verify
+       in GSC. Alternative: **DNS TXT** record on Cloudflare (already
+       managing afrizonemart.com DNS).
+    4. Once verified, in the GSC sidebar pick **Sitemaps** and add:
+       - `sitemap.xml`
+       - `sitemap-images.xml`
+    5. Both should report **Success** within a few minutes. From
+       there:
+       - Google starts crawling every product, category, and CMS page.
+       - Image-Search ranking activates for product photos.
+       - Coverage and Performance reports populate within ~48 hours.
+
+    **Bonus tasks while in GSC** (each takes < 60 seconds):
+    - **Bing Webmaster Tools** — same sitemaps, mirror submission at
+      https://www.bing.com/webmasters. Picks up Yahoo + DuckDuckGo
+      indirectly.
+    - **Google Merchant Center** — link the same property and
+      auto-feed product data via the Product JSON-LD already on every
+      PDP. Eligible for free Shopping listings.
+    - **Google Business Profile** (if you set up a physical Lagos
+      address) — links the brand to a verified business entity.
+
+    **What to watch in the first 7 days**:
+    - GSC → Coverage → "Indexed" should climb from ~0 to ~80% of
+      submitted URLs within a week.
+    - GSC → Performance → impressions for branded queries
+      ("afrizonemart") should appear within 48 hours; product-specific
+      queries within 2 weeks.
+    - Sentry → no spike in 404s on `/sitemap.xml` or
+      `/sitemap-images.xml` (means Google is fetching them OK).
+
+    **Why this is top priority over #29 (more gateways) and #30
+    (more mobile polish)**: those compound from launch. GSC
+    submission compounds from *the day Google first crawls us* — every
+    day delayed is a day of lost organic-search reach.
+
+
+
 1. **[x] Auth hardening** _(2026-04-26)_ — done.
    - **API**: `cookie-parser` mounted; `auth/controller.ts` sets/reads/
      clears `azm_refresh` httpOnly cookie (Path=`/api/auth`,
@@ -131,7 +187,70 @@ gets ticked off here.
     via `paymentRoutes.post('/webhook', webhookHandler)` with
     HMAC-SHA512 signature verification on the raw body.
 
-28. **[ ] Product upload workflow audit + bulk CSV polish** _(queued 2026-04-29)_.
+28. **[x] Product upload workflow audit + bulk CSV polish** _(2026-04-29)_ — done.
+
+    **The 12 CSV columns** (PDP-aligned, 1:1 with what the public
+    product page reads):
+    1. `slug` _(optional — auto-generated from `name` if blank)_ — URL identifier, e.g. `maya-himalaya-facial-scrub`
+    2. `name` _(required)_ — display title shown on cards + PDP
+    3. `brand` _(optional)_ — manufacturer / line / artisan name
+    4. `price` _(required)_ — selling price in NGN integer
+    5. `comparePrice` _(optional)_ — strike-through "was" price; if higher than `price`, discount % is auto-computed
+    6. `categorySlug` _(optional, auto-creates if unknown)_ — e.g. `beauty`, `groceries`, `fashion`
+    7. `origin` _(optional)_ — ISO-2 country code (e.g. `NG`, `KE`, `ZA`); used for the flag on cards + the country chapter on `/new-arrivals`
+    8. `inStock` _(optional, defaults true)_ — `true|false|yes|no|1|0`
+    9. `shortDescription` _(optional)_ — one-line tagline shown on PDP under the name
+    10. `description` _(optional)_ — the long-form copy in the Description accordion
+    11. `ingredients` _(optional)_ — text shown in the Ingredients accordion (when set, that accordion section appears)
+    12. `images` _(optional)_ — `|`-separated list of image URLs; can be left blank and attached per-product after import
+
+    Computed automatically and not exposed as columns:
+    - `discountPercent` — derived from `price` vs `comparePrice`
+    - `attributes` JSON (bundles, features, specifications, aboutTitle, aboutBody, aboutImage) — auto-defaulted on CREATE, preserved on UPDATE so a CSV refresh of pricing/copy never wipes hand-tuned content. Editable per-product later via the admin form.
+
+    **Audit findings**: the foundation was already solid —
+    - `<ImportCsvDialog>` already surfaces per-row errors (not just
+      console-logs) with row number + slug + message.
+    - `BulkUploadResult` returns `{total, created, updated, skipped,
+      errors, results[]}` — exactly the shape needed for UI.
+    - Existing rows update by slug; hand-edited `attributes` (bundles,
+      features, specs, about) are preserved on UPDATE so a CSV refresh
+      of pricing/copy doesn't wipe carefully tuned content.
+    - Discount % auto-computed from price/comparePrice.
+    - Sensible auto-defaults applied to `attributes` only on CREATE.
+
+    **Gaps fixed today**:
+    - `slug` is now optional — auto-generated from `name` via a
+      80-char-max lower-kebab slugify.
+    - `categorySlug` is now auto-created when unknown — admin doesn't
+      need to pre-create categories before importing. Reuses the same
+      newly-minted row across rows in the same import. Renaming via
+      `/admin/categories` post-import is a one-line edit.
+    - In-dialog help block (`<details>` accordion) explains the
+      workflow up-front — required vs optional fields, slug behaviour,
+      category behaviour, image attach pattern, update-by-slug
+      semantics.
+    - Required-columns hint in the upload zone updated from
+      "slug, name, price, categorySlug" to "name, price · Optional
+      slug, brand, categorySlug, …".
+    - `BULK_TEMPLATE_CSV` now ships 4 example rows demonstrating: full
+      row, slug-auto, category-auto-created, minimal/out-of-stock.
+
+    **The full workflow** the CTO asked for:
+    1. Admin builds a spreadsheet of products (Excel / Google Sheets)
+       with the 12 columns. Only `name` + `price` are required.
+    2. Export as CSV, upload via `/admin/products` → "Import CSV".
+    3. Errors (if any) shown per-row in the dialog — admin fixes the
+       offending rows in the source sheet and re-imports.
+    4. After import, admin opens each new product's edit page and
+       attaches images via `<ImageUploader>` (drag-drop or pick → R2
+       upload → URL stored on the row). The product is now live with
+       full PDP rendering: bundles/features/specs/about all
+       auto-defaulted, hand-tunable from the same edit page later.
+
+    **Verified**: edit page handles a CSV-imported row with no images
+    correctly (gallery falls back to a Package icon placeholder; admin
+    can drop in images and save).
 
     Spec from CTO: "create a table with all product information
     fields, upload, takes effect immediately and perfectly synced.
@@ -162,7 +281,121 @@ gets ticked off here.
       console).
     - Document the workflow in a one-pager admin can read.
 
-27. **[ ] SEO indexability — full coverage** _(queued 2026-04-29)_.
+27. **[x] SEO indexability — full coverage** _(2026-04-29)_ — done.
+
+    Eight-layer SEO pass shipped. Every page, every product, every
+    image, every CMS-authored content piece is now discoverable +
+    indexable.
+
+    **Layer 1 — Site identity foundation (`src/lib/seo.ts`)**:
+    - `SITE_URL`, `SITE_NAME`, `SITE_TAGLINE`, `SITE_DEFAULT_TITLE`,
+      `SITE_DEFAULT_DESCRIPTION`, `SITE_DEFAULT_OG_IMAGE`,
+      `SITE_TWITTER` — single source of truth for every meta tag.
+    - `absUrl(path)` — path → absolute URL helper.
+    - `metaDescription(input, fallback)` — strips HTML, collapses
+      whitespace, clamps to 155 chars (Google's display threshold).
+    - `productImageAlt(product)` — builds enriched alt text.
+
+    **Layer 2 — Site-wide JSON-LD
+    (`src/components/seo/SiteJsonLd.tsx`)**:
+    Mounted in `<head>` of root layout. Emits two `@graph` entries:
+    - `Organization` — name, logo, description, social `sameAs`,
+      contact point with multilingual `availableLanguage`.
+    - `WebSite` — includes a `SearchAction` so Google shows a
+      sitelinks search box for the brand in SERP.
+
+    **Layer 3 — Root metadata
+    (`src/app/layout.tsx`)** — full Next 14 Metadata API:
+    - `metadataBase` (so relative OG URLs resolve correctly)
+    - `title.template` — `%s | Afrizonemart` appended to every
+      per-page title automatically
+    - `keywords`, `applicationName`, `authors`, `referrer`,
+      `formatDetection`
+    - `alternates.canonical` + `alternates.languages.en`
+    - `openGraph` (type, locale, siteName, image 1200×630)
+    - `twitter` (summary_large_image card, site/creator handles)
+    - `robots` with explicit `googleBot` directives
+      (max-snippet, max-image-preview=large, max-video-preview)
+    - `icons` (favicon + apple-touch)
+
+    **Layer 4 — Product detail page
+    (`src/app/(shop)/product/[slug]/page.tsx`)**:
+    - `generateMetadata` returns title, description (cleaned via
+      `metaDescription`), canonical, OG (with first product image as
+      og:image), Twitter Card.
+    - JSON-LD upgraded to a `@graph` with TWO entries:
+      - `Product` — name, brand, description, image[], sku, category,
+        countryOfOrigin, aggregateRating, offers (priceCurrency, price,
+        availability, itemCondition, **seller**)
+      - `BreadcrumbList` — Home → Category → Product (Google shows
+        breadcrumb chips in SERP when present)
+    - 404 (notFound) returns `robots: { index: false }` so dead
+      product slugs don't pollute the index.
+
+    **Layer 5 — Image alt enrichment
+    (`src/lib/products.ts → imagesFromApi`)**:
+    Every product gallery image now has alt text in the form
+    `{name} — by {brand} — {category} from {origin} — Afrizonemart`.
+    First image gets the full alt; subsequent images append
+    `— view N` so each is uniquely identifiable in image search.
+
+    **Layer 6 — Category pages
+    (`src/app/(shop)/shop/[category]/page.tsx`)**:
+    `generateMetadata` per category — title, unique description,
+    canonical (`/shop/<slug>`), OG, Twitter Card. Falls back to a
+    sensible humanized name + generic description for unknown
+    categories.
+
+    **Layer 7 — Standalone-page metadata**:
+    Added `layout.tsx` with `metadata` exports to client-only pages
+    that previously had no SEO:
+    - `/new-arrivals` — "New Arrivals — Latest African-Made Products"
+    - `/deals` — "Today's Deals — Discounts on African-Made Products"
+    - `/search` — "Search Products" (indexable landing, query
+      strings ignored to avoid SERP-bloat)
+    - `/p/[...slug]` (CMS pages) — title from CMS row, description
+      from `metaDescription` field, OG `type: article`, canonical
+    - `/special-discount`, `/continental-rewards`,
+      `/shop/automobile` — already had metadata; left as-is.
+
+    **Layer 8 — Dynamic sitemaps + robots**:
+    - `src/app/sitemap.ts` — enumerates static pages, **every
+      category** (live from `/api/categories`), **every product**
+      (paginates `/api/products`, safety-capped at 10,000), **every
+      published CMS page** (live from new `GET /api/pages` public
+      endpoint added today), and country-shop pages. `lastModified`
+      uses each row's `updatedAt` so Google knows what's fresh.
+    - `src/app/sitemap-images.xml/route.ts` — separate Google
+      image-sitemap with `<image:image>` entries for every product
+      image, including `<image:title>` and `<image:caption>` with
+      enriched copy (name + brand + category + origin + brand).
+      Lifts ranking in Google Image Search.
+    - `src/app/robots.ts` — references **both** sitemaps,
+      disallows transactional surfaces (admin, account, api,
+      checkout, cart, login, register, forgot/reset-password).
+
+    **API change (Railway-deployed)**:
+    - New public endpoint `GET /api/pages` returns every published
+      CMS page (slug, title, metaDescription, publishedAt, updatedAt)
+      with `Cache-Control: public, max-age=300, swr=3600`. Lets the
+      sitemap enumerate authored content without admin auth.
+
+    **What this earns us**:
+    - Every product detail page is discoverable, indexable, and
+      shows in SERP with breadcrumb chips, price, rating stars (when
+      reviews exist), and availability badge.
+    - Every product image has SEO-rich alt text and lives in a
+      Google-compatible image sitemap → eligible for Google Image
+      Search ranking.
+    - Brand searches surface a sitelinks search box in SERP via the
+      WebSite + SearchAction JSON-LD.
+    - Share previews (WhatsApp, Facebook, Twitter, LinkedIn) render
+      properly via Open Graph + Twitter Card meta on every shareable
+      page.
+    - CMS pages (admin-authored) auto-appear in the sitemap on the
+      next request without any manual step.
+
+
 
     Spec from CTO: "every product page, every web page, every slug,
     every content (titles, descriptions, images) must be indexable.

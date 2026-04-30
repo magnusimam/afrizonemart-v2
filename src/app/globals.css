@@ -62,3 +62,17 @@ body { top: 0 !important; }
     animation: none !important;
   }
 }
+
+/* --------------------------------------------------------------
+ * HeroSlider track width — mobile shows 1 slide at a time,
+ * desktop shows 2. Driven by CSS vars set inline by the
+ * component so the slide count stays dynamic.
+ * -------------------------------------------------------------- */
+.azm-hero-track {
+  width: var(--track-w-mobile);
+}
+@media (min-width: 768px) {
+  .azm-hero-track {
+    width: var(--track-w-desktop);
+  }
+}

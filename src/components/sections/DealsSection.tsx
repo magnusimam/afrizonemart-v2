@@ -32,7 +32,7 @@ export function DealsSection() {
       </div>
 
       <div className="bg-white pb-8 md:pb-12">
-        <div className="mx-auto grid max-w-site grid-cols-1 gap-4 px-4 md:grid-cols-3 md:gap-6">
+        <div className="mx-auto grid max-w-site grid-cols-3 gap-2 px-3 md:gap-6 md:px-4">
           {featuredCategories.map((c) => (
             <FeatureCategoryCard key={c.name} {...c} />
           ))}
