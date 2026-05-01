@@ -118,6 +118,10 @@ export interface BulkUploadResult {
     status: 'created' | 'updated' | 'skipped' | 'error';
     message?: string;
   }>;
+  /** CSV headers the importer didn't recognise — their values were
+   *  saved into each product's `attributes.customAttributes`. Surfaced
+   *  in the dialog so admins can promote them to proper custom fields. */
+  unknownColumns?: string[];
 }
 
 export function adminBulkUploadProducts(csv: string): Promise<BulkUploadResult> {
@@ -137,6 +141,7 @@ export interface AdminCategoryInput {
   slug: string;
   name: string;
   image?: string | null;
+  parentId?: string | null;
 }
 
 export function adminListCategories(): Promise<{ items: AdminCategory[] }> {

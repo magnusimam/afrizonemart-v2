@@ -5,7 +5,9 @@ export interface ApiCategory {
   slug: string;
   name: string;
   image: string | null;
+  parentId: string | null;
   productCount: number;
+  children: ApiCategory[];
 }
 
 export async function listCategories(): Promise<ApiCategory[]> {

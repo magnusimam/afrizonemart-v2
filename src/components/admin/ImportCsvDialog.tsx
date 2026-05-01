@@ -115,6 +115,26 @@ export function ImportCsvDialog({ open, onClose, onSuccess }: Props) {
                     the category later if needed.
                   </li>
                   <li>
+                    <strong className="text-charcoal">subcategorySlug</strong> auto-creates
+                    a subcategory under the parent named in <code className="rounded bg-white px-1">categorySlug</code>.
+                    The product is then assigned to the subcategory (the leaf wins).
+                    Subcategorising requires a parent — a row with{' '}
+                    <code className="rounded bg-white px-1">subcategorySlug</code>{' '}
+                    but no <code className="rounded bg-white px-1">categorySlug</code>{' '}
+                    is rejected.
+                  </li>
+                  <li>
+                    <strong className="text-charcoal">Unknown columns are kept</strong> —
+                    any header you add that isn&apos;t a built-in field (e.g.{' '}
+                    <code className="rounded bg-white px-1">weight</code>,{' '}
+                    <code className="rounded bg-white px-1">vendor</code>) gets stored
+                    on each product under{' '}
+                    <code className="rounded bg-white px-1">attributes.customAttributes</code>.
+                    Empty values are skipped, so a sparse CSV won&apos;t wipe data
+                    that&apos;s already there. Promote any of these to a proper
+                    custom field later from /admin/custom-fields.
+                  </li>
+                  <li>
                     <strong className="text-charcoal">Existing rows update</strong> by
                     slug. Hand-edited attributes (bundles, features, specs, about) are
                     preserved on update.
@@ -138,7 +158,7 @@ export function ImportCsvDialog({ open, onClose, onSuccess }: Props) {
                   {file ? file.name : 'Pick a CSV file'}
                 </span>
                 <span className="font-sans text-[11px] text-muted">
-                  Required: name, price · Optional: slug, brand, categorySlug, …
+                  Required: name, price · Optional: slug, brand, categorySlug, subcategorySlug, …
                 </span>
                 <input
                   type="file"
@@ -186,6 +206,31 @@ export function ImportCsvDialog({ open, onClose, onSuccess }: Props) {
                     {result.errors > 25 && (
                       <li className="text-muted">…and {result.errors - 25} more.</li>
                     )}
+                  </ul>
+                </div>
+              )}
+
+              {result.unknownColumns && result.unknownColumns.length > 0 && (
+                <div className="rounded-card border border-amber/30 bg-amber/5 p-3">
+                  <p className="mb-1 font-raleway text-xs font-bold uppercase tracking-btn text-amber-dark">
+                    Unrecognised columns saved as custom attributes
+                  </p>
+                  <p className="mb-2 font-sans text-[11px] text-muted">
+                    These headers don&apos;t map to a built-in product field, so their
+                    values were stored under{' '}
+                    <code className="rounded bg-white px-1">attributes.customAttributes</code>{' '}
+                    on each row. Visit /admin/custom-fields to promote any to a proper
+                    field with type, required flag, and admin UI.
+                  </p>
+                  <ul className="flex flex-wrap gap-1.5 font-sans text-xs">
+                    {result.unknownColumns.map((c) => (
+                      <li
+                        key={c}
+                        className="rounded-full border border-amber/40 bg-white px-2 py-0.5 font-mono text-[11px] text-charcoal"
+                      >
+                        {c}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}

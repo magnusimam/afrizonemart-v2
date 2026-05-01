@@ -121,9 +121,11 @@ The seed creates 9 categories + 44 demo products. Replace via the admin UI once 
 5. Hit the temporary `.vercel.app` URL — site should load, products should fetch from prod API.
 6. **Project Settings → Domains** → add `afrizonemart.com` and `www.afrizonemart.com`.
    - Vercel will tell you to either change nameservers (don't — DNS is on Cloudflare) or add A/CNAME records. Add the records in Cloudflare:
-     - `afrizonemart.com` → `A` → `76.76.21.21` (Vercel's apex IP), proxy **disabled**
+     - `afrizonemart.com` → `A` → `216.198.79.1`, proxy **disabled**
+     - `afrizonemart.com` → `A` → `64.29.17.1`, proxy **disabled** (Vercel needs both apex IPs as of 2026)
      - `www.afrizonemart.com` → `CNAME` → `cname.vercel-dns.com`, proxy **disabled**
-7. Vercel will issue the cert within 1–5 min. Once it's green, you can re-enable Cloudflare proxy (orange cloud) if you want CF caching/WAF in front.
+   - **Do NOT use the old `76.76.21.21` apex IP** — Vercel deprecated it in 2026; cert provisioning silently fails (no error, just no TLS on 443). Verify with `curl -sS https://api.vercel.com/v6/domains/<DOMAIN>/config?teamId=<TEAM> -H "Authorization: Bearer <TOKEN>"` — `recommendedIPv4 rank 1` is the source of truth.
+7. Vercel will issue the cert within 1–5 min. Leave proxy **disabled** — turning on the orange cloud on the apex breaks Vercel's HTTP-01 cert renewal flow. CF caching is optional and not worth the breakage.
 
 ---
 

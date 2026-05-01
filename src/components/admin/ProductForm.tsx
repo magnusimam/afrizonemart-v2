@@ -311,20 +311,76 @@ export function ProductForm({
         </Section>
 
         <Section title="Organisation">
-          <Field label="Category">
-            <select
-              value={categorySlug ?? ''}
-              onChange={(e) => setCategorySlug(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">— Uncategorised —</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.slug}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {(() => {
+            // Resolve which category the product is currently assigned to,
+            // and split it into "top-level + (optional) subcategory" so we
+            // can render two cascading selects. The product's `categorySlug`
+            // is always the leaf — pointing at a sub when one is selected,
+            // else the top-level category.
+            const topLevel = categories.filter((c) => !c.parentId);
+            const current = categories.find((c) => c.slug === categorySlug);
+            const parent = current?.parentId
+              ? categories.find((c) => c.id === current.parentId) ?? null
+              : current ?? null;
+            const subOptions = parent
+              ? categories.filter((c) => c.parentId === parent.id)
+              : [];
+            const currentSubSlug = current?.parentId ? current.slug : '';
+
+            const onParentChange = (slug: string) => {
+              // Switching the parent always clears any previously chosen
+              // subcategory — the old sub may not belong to the new parent.
+              setCategorySlug(slug);
+            };
+            const onSubChange = (slug: string) => {
+              // Empty sub means "stay on the parent" — fall back to the
+              // currently selected top-level slug.
+              setCategorySlug(slug || parent?.slug || '');
+            };
+
+            return (
+              <>
+                <Field label="Category">
+                  <select
+                    value={parent?.slug ?? ''}
+                    onChange={(e) => onParentChange(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">— Uncategorised —</option>
+                    {topLevel.map((c) => (
+                      <option key={c.id} value={c.slug}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {parent && (
+                  <Field
+                    label="Subcategory"
+                    hint={
+                      subOptions.length === 0
+                        ? `No subcategories under "${parent.name}" yet — create one in /admin/categories.`
+                        : 'Optional — leave empty to keep the product at the top-level category.'
+                    }
+                  >
+                    <select
+                      value={currentSubSlug}
+                      onChange={(e) => onSubChange(e.target.value)}
+                      disabled={subOptions.length === 0}
+                      className={inputClass}
+                    >
+                      <option value="">— None —</option>
+                      {subOptions.map((c) => (
+                        <option key={c.id} value={c.slug}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
+              </>
+            );
+          })()}
         </Section>
 
         <Section

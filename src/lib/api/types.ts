@@ -11,6 +11,7 @@ export interface ApiCategory {
   slug: string;
   name: string;
   image: string | null;
+  parentId: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -46,6 +46,157 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+33. **[x] Subcategories + self-healing CSV import** _(2026-05-01)_ — done.
+
+    **Why**: CTO was about to upload products via CSV with a
+    `subcategory` column that didn't map to anything in the schema,
+    plus wanted the CSV to never get blocked by "category doesn't
+    exist yet" or "field not in product form" errors.
+
+    **Schema** (`afrizonemart-api/prisma/schema.prisma`):
+    `Category` gains `parentId String?` self-relation
+    (`@relation("CategoryTree")`, `onDelete: SetNull`) and an index
+    on `parentId`. Migration file
+    `prisma/migrations/20260501120000_category_parent/migration.sql`
+    captures the SQL; DB is synced via `prisma db push` since this
+    project never baselined `_prisma_migrations` (kept consistent
+    with prior history). Category slugs remain globally unique so
+    storefront URLs stay unambiguous.
+
+    **API CSV import** (`products/admin.bulk.ts`):
+    - New `subcategorySlug` column. Auto-creates the subcategory
+      under the row's `categorySlug` parent if missing. The
+      product's `categoryId` always points at the leaf
+      (subcategory if present, else top-level) — Shopify/WooCommerce
+      pattern. Errors raised when:
+        - `subcategorySlug` set but `categorySlug` empty (sub needs parent),
+        - the named subcategory slug already exists under a *different*
+          parent (silent mis-assign protection — common WordPress trap).
+    - **Unknown columns** stash into
+      `attributes.customAttributes.<colname>` on the product. Empty
+      values skipped (sparse spreadsheets don't wipe data). On
+      UPDATE the importer merges new keys over existing
+      customAttributes without touching the rest of attributes
+      (bundles/features/specs/about) — preserves hand-edited
+      content.
+    - Result type now includes `unknownColumns: string[]` so the
+      dialog can surface "you uploaded a `weight` column we didn't
+      recognise — saved into customAttributes."
+
+    **Categories module**:
+    - `admin.service.ts` enforces max depth 2 (no grand-children),
+      blocks moving a category that has children, blocks deleting
+      a category with subcategories nested under it.
+    - Public list endpoint (`categories/routes.ts`) now returns a
+      tree (top-level + nested children) for the storefront's
+      navigation. Product counts are per-node only — not rolled up
+      from descendants — so empty subcategories can be hidden at
+      render time without lying about the parent count.
+
+    **Admin UI**:
+    - `/admin/categories` rewritten as a tree view with
+      collapse/expand handles, `+ Sub` action on top-level rows,
+      inline subcategory draft form. Sub rows visually offset and
+      tagged with a "sub" pill.
+    - `ProductForm.tsx` Organisation section now a 2-step picker:
+      Category (top-level) → Subcategory (children of that
+      category). Picking a parent clears any previously-chosen
+      sub. Sub select hidden when no children exist; hint text
+      points admin to /admin/categories.
+    - `ImportCsvDialog.tsx` help block updated:
+        - lists `subcategorySlug` and the parent-required rule,
+        - explains the unknown-columns stash + that empty values
+          don't wipe.
+      After import, the dialog renders a yellow "Unrecognised
+      columns saved as custom attributes" panel with each column
+      name as a chip + a pointer to /admin/custom-fields for
+      promotion.
+
+    **Storefront**:
+    - New nested route
+      `/shop/[category]/[subcategory]/page.tsx` resolves the pair
+      from the public categories tree; 404s when the child
+      doesn't actually belong to the named parent (no
+      `/shop/books/fresh-fruits` confusion). Breadcrumb shows
+      Home → Shop → Parent → Sub. Still uses the shared
+      mock-product placeholder grid pending the broader
+      "/shop/[category] pages still on mocks" migration tracked
+      in Followups.
+
+    **Followups added**:
+    - `/shop/[category]` and `/shop/[category]/[subcategory]`
+      both still render mock products. Migrate to
+      `useProducts({category: leafSlug})` once the followups
+      list catches up — single change covers both routes.
+    - Header nav has no submenu UI yet; subcategories aren't
+      discoverable through the top-bar dropdown until that lands.
+
+    **CSV template** now ships with `subcategorySlug` as a
+    column and four example rows including one that auto-creates
+    both category + subcategory (`furniture` + `living-room`).
+
+32. **[x] Apex domain cutover — afrizonemart.com goes live on Vercel** _(2026-05-01)_ — done.
+
+    Old WordPress is fully retired; v2 now serves on the apex.
+
+    **Symptom**: DNS for `afrizonemart.com` resolved to `76.76.21.21`
+    (Vercel's apex IP per the original DEPLOY.md), and Vercel showed
+    the domain attached + aliased to a Ready production deployment,
+    but `https://afrizonemart.com:443` refused all TCP connections.
+    `afrizonemart.vercel.app` worked. Classic "DNS correct, Vercel
+    config correct, no TLS" pattern.
+
+    **Diagnosis** (via Vercel API
+    `/v6/domains/afrizonemart.com/config`):
+    - `aValues: ["76.76.21.21"]`
+    - `recommendedIPv4: rank 1 = ["216.198.79.1", "64.29.17.1"]`,
+      rank 2 = `["76.76.21.21"]`
+    - `ipStatus: "optional-change"`, `misconfigured: false`,
+      `verified: true`
+
+    Vercel **deprecated `76.76.21.21`** in 2026 and migrated apex
+    traffic to a new IP pair. The old IP is still listed as rank 2
+    (so `misconfigured` reports `false` — silent footgun) but in
+    practice no longer accepts traffic, which means Vercel's HTTP-01
+    cert challenge can't reach the domain → no cert issued → 443
+    refuses every connection.
+
+    **Fix** (Cloudflare DNS, via API):
+    - Updated apex A record `afrizonemart.com` from `76.76.21.21`
+      → `216.198.79.1` (proxy off)
+    - Added second apex A record `afrizonemart.com → 64.29.17.1`
+      (proxy off)
+    - `www` CNAME `cname.vercel-dns.com` left as-is (still rank 2,
+      still works)
+    - Cert issued within seconds; `https://afrizonemart.com` →
+      200 OK, `https://www.afrizonemart.com` → 308 redirect to apex.
+
+    **Second issue uncovered during the cutover**: someone (or
+    something) had flipped `api.afrizonemart.com` from gray cloud to
+    orange cloud the day before, which made every API request go
+    through Cloudflare's WAF and return `403 Forbidden`. Restored
+    `proxied: false` so traffic goes direct to Railway's Fastly edge
+    via CNAME `wcvxy749.up.railway.app`. CORS preflight from
+    `https://afrizonemart.com` now returns 204 with the right
+    `access-control-allow-origin`.
+
+    **Railway env updates**:
+    - `WEB_URL=https://afrizonemart.com` (was
+      `https://afrizonemart.vercel.app`)
+    - `CORS_ORIGINS=https://afrizonemart.com,https://www.afrizonemart.com,https://afrizonemart.vercel.app`
+      (kept vercel.app as fallback for QA)
+    - API auto-redeployed on env change.
+
+    **Doc updates**: `DEPLOY.md` step 5.6 rewritten to use the new
+    IP pair, flagging the silent `misconfigured: false` footgun and
+    that the orange cloud breaks HTTP-01 renewal so it must stay
+    gray on the apex.
+
+    **Lesson for the file**: when Vercel's `domains config` API
+    reports `misconfigured: false` with `ipStatus: "optional-change"`,
+    treat it as a hard misconfiguration. The current `aValues` may
+    be on a deprecated rank-2 entry that no longer accepts traffic.
+
 31. **[ ] Submit sitemap.xml + sitemap-images.xml to Google Search Console** _(queued 2026-04-29 — TOP PRIORITY)_.
 
     The eight-layer SEO pass (item #27) is shipped, but **Google
