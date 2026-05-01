@@ -110,18 +110,24 @@ export function ImportCsvDialog({ open, onClose, onSuccess }: Props) {
                     <code className="rounded bg-white px-1">maya-facial-scrub</code>).
                   </li>
                   <li>
-                    <strong className="text-charcoal">categorySlug auto-creates</strong>{' '}
-                    when unknown — saves you a trip to /admin/categories first. Rename
-                    the category later if needed.
+                    <strong className="text-charcoal">category</strong> takes a
+                    human-readable name (e.g. <code className="rounded bg-white px-1">Groceries</code>).
+                    The slug is derived automatically (
+                    <code className="rounded bg-white px-1">groceries</code>); the
+                    name you typed is preserved as the display name. Unknown
+                    categories are auto-created on import. Use{' '}
+                    <code className="rounded bg-white px-1">categorySlug</code>{' '}
+                    instead when you need explicit control.
                   </li>
                   <li>
-                    <strong className="text-charcoal">subcategorySlug</strong> auto-creates
-                    a subcategory under the parent named in <code className="rounded bg-white px-1">categorySlug</code>.
-                    The product is then assigned to the subcategory (the leaf wins).
-                    Subcategorising requires a parent — a row with{' '}
-                    <code className="rounded bg-white px-1">subcategorySlug</code>{' '}
-                    but no <code className="rounded bg-white px-1">categorySlug</code>{' '}
-                    is rejected.
+                    <strong className="text-charcoal">subcategory</strong> works
+                    the same way — pass a name like{' '}
+                    <code className="rounded bg-white px-1">Sauces &amp; Pastes</code>{' '}
+                    and it&apos;s auto-created as a child of whatever{' '}
+                    <code className="rounded bg-white px-1">category</code> the
+                    row names. The product is then assigned to the subcategory
+                    (leaf wins — same rule Shopify/WooCommerce use). A
+                    subcategory without a parent category is rejected.
                   </li>
                   <li>
                     <strong className="text-charcoal">Unknown columns are kept</strong> —
@@ -158,7 +164,7 @@ export function ImportCsvDialog({ open, onClose, onSuccess }: Props) {
                   {file ? file.name : 'Pick a CSV file'}
                 </span>
                 <span className="font-sans text-[11px] text-muted">
-                  Required: name, price · Optional: slug, brand, categorySlug, subcategorySlug, …
+                  Required: name, price · Optional: brand, category, subcategory, origin, …
                 </span>
                 <input
                   type="file"
