@@ -34,7 +34,11 @@ export function RequireAdmin({ children }: Props) {
   useEffect(() => {
     if (!hydrated) return;
     if (!isAuthed) {
-      router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
+      // Send unauthenticated visitors to the dedicated admin sign-in
+      // (not /login, which is customer-facing). This avoids leaking
+      // admin URLs to the public marketing flow and makes the
+      // "you need to log in to admin" intent obvious.
+      router.replace(`/admin/login?returnUrl=${encodeURIComponent(pathname)}`);
     } else if (!isAdmin) {
       router.replace('/account');
     }

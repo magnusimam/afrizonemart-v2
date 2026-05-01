@@ -46,6 +46,57 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+35. **[x] Dedicated admin sign-in UI + admin user re-seeded** _(2026-05-01)_ — done.
+
+    **Symptoms reported**: customer login worked but landed admins
+    in `/admin` from a marketing-flavoured page; "Google sign-in
+    button is missing"; "admin login isn't working."
+
+    **Root causes**:
+    - Prod DB had the admin user but the original seed password was
+      forgotten. `Invalid email or password` was the API responding
+      correctly. Reset via direct DB write through the Railway
+      public proxy URL (`shuttle.proxy.rlwy.net:25514`).
+    - `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is unset in Vercel env, so
+      `GoogleSignInButton` short-circuits to `return null`. Same on
+      Railway side (`GOOGLE_CLIENT_ID` unset). Out of scope until
+      Magnus creates an OAuth Client in Google Cloud Console.
+    - There was no separate admin sign-in surface — admins shared
+      `/login` with customers.
+
+    **Built**: `app/(admin-auth)/admin/login/page.tsx`. Distinct
+    route group so the `RequireAdmin` guard doesn't bounce
+    visitors into a redirect loop (the (admin) layout would
+    otherwise wrap any `/admin/*` URL). Visual treatment:
+    full-screen navy gradient, white-on-navy form, amber CTA,
+    shield icon, "restricted area" subtitle. No alt sign-in
+    methods (Google/phone are customer-facing concerns). No
+    "create account" link.
+
+    **Behaviour**:
+    - Already-authed admins are redirected straight to `/admin`
+      (or the `?returnUrl` if it points inside `/admin`) — refresh
+      doesn't kick you out.
+    - A successful sign-in for a non-ADMIN account is rejected
+      here: the freshly-issued session is cleared and the form
+      shows "This account is not an admin. Use the customer
+      sign-in at /login." Avoids leaving a half-authed customer
+      with admin-flow expectations.
+    - `RequireAdmin.tsx` now redirects unauthenticated visitors
+      to `/admin/login?returnUrl=…` instead of `/login`. Keeps
+      admin flow self-contained.
+    - `(admin-auth)/layout.tsx` sets
+      `robots: { index: false, follow: false }` so search engines
+      never index the admin sign-in (no point inviting
+      credential-stuffing).
+
+    **Followups**:
+    - Google sign-in wiring once Magnus provides the OAuth Client
+      ID (frontend and backend env both need it; same value).
+    - `/legal/terms` 404 spotted in browser console — separate
+      placeholder page in the footer that was never built. Add
+      a stub or remove the footer link.
+
 34. **[x] Bulk product actions in admin** _(2026-05-01)_ — done.
 
     **Why**: CTO wanted to apply changes to many products at once
