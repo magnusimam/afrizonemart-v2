@@ -106,6 +106,27 @@ export function adminDeleteProduct(id: string): Promise<void> {
   return apiFetchAuthed<void>(`/api/admin/products/${id}`, { method: 'DELETE' });
 }
 
+export type AdminBulkAction =
+  | { kind: 'delete' }
+  | { kind: 'set-in-stock'; value: boolean }
+  | { kind: 'set-category'; categorySlug: string | null };
+
+export interface AdminBulkActionResult {
+  affected: number;
+  /** IDs the server refused (e.g. delete of a product with order history). */
+  skipped: Array<{ id: string; reason: string }>;
+}
+
+export function adminBulkProductAction(
+  ids: string[],
+  action: AdminBulkAction,
+): Promise<AdminBulkActionResult> {
+  return apiFetchAuthed<AdminBulkActionResult>('/api/admin/products/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ ids, action }),
+  });
+}
+
 export interface BulkUploadResult {
   total: number;
   created: number;

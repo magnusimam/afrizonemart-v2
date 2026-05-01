@@ -46,6 +46,45 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+34. **[x] Bulk product actions in admin** _(2026-05-01)_ — done.
+
+    **Why**: CTO wanted to apply changes to many products at once
+    rather than clicking row-by-row, especially before/after a CSV
+    import sweep.
+
+    **API**: new `POST /api/admin/products/bulk` with body
+    `{ ids: string[] (1–500), action: { kind: 'delete' | 'set-in-stock' (+ value: bool) | 'set-category' (+ categorySlug: string|null) } }`.
+    Implementation in `products/admin.service.ts` →
+    `adminBulkProductAction`. Returns `{ affected, skipped: [{id, reason}] }`.
+
+    **Partial-success semantics for `delete`**: products with order
+    history (`OrderItem.productId` references) are skipped server-
+    side rather than failing the whole call — same rule as the
+    single-delete path. The toast tells the admin how many went
+    through and shows the first reason. Cart items + reviews are
+    cleaned up in a transaction before the actual `deleteMany`.
+
+    **UI** (`/admin/products/page.tsx`):
+    - Per-row checkbox + tri-state "select all on this page" header
+      checkbox (uses `indeterminate` when some-but-not-all visible
+      rows are selected).
+    - Selection persists across pagination + filter changes so
+      admins can sweep across many pages.
+    - Sticky navy action bar appears the moment >0 are selected:
+      "Mark in stock", "Mark out of stock", "Move to…"
+      (dropdown with the full 2-level category tree, indented),
+      "Delete", and "Clear".
+    - Delete uses `ConfirmDialog` with explicit copy about the
+      order-history skip behaviour.
+    - On success, selection clears and the table reloads. On any
+      `skipped` rows the toast switches to info-tone and surfaces
+      the first reason.
+
+    **Why a custom action bar instead of a `<select>` of actions**:
+    discoverability + tap targets — admins doing bulk ops on a
+    laptop or tablet want one click per intent, not click → choose
+    → click "Apply".
+
 33. **[x] Subcategories + self-healing CSV import** _(2026-05-01)_ — done.
 
     **Why**: CTO was about to upload products via CSV with a
