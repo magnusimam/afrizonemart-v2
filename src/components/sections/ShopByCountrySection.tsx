@@ -14,16 +14,27 @@ import { SafeBoundary } from '@/components/common/SafeBoundary';
  * Pure-CSS keyframes via a <style jsx> block — no JS runtime, works
  * in server components, no client bundle cost.
  */
-export function ShopByCountrySection() {
-  const half = Math.ceil(COUNTRY_CODES.length / 2);
-  const rowA = COUNTRY_CODES.slice(0, half);
-  const rowB = COUNTRY_CODES.slice(half);
+interface Props {
+  /// Optional headline override fed by the page builder. Layout stays.
+  headline?: string;
+  /// Optional subset of country codes to feature. Empty = full list.
+  countryCodes?: CountryCode[];
+}
+
+export function ShopByCountrySection({
+  headline = 'Shop By Country',
+  countryCodes,
+}: Props = {}) {
+  const codes = countryCodes && countryCodes.length > 0 ? countryCodes : COUNTRY_CODES;
+  const half = Math.ceil(codes.length / 2);
+  const rowA = codes.slice(0, half);
+  const rowB = codes.slice(half);
 
   return (
     <section>
       <div className="w-full bg-navy py-3 text-center md:py-4">
         <h2 className="font-raleway text-base font-bold uppercase tracking-btn text-white md:text-lg">
-          Shop By Country
+          {headline}
         </h2>
       </div>
 

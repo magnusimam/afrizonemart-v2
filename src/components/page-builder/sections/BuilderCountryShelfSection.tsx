@@ -1,9 +1,21 @@
 import { ShopByCountrySection } from '@/components/sections/ShopByCountrySection';
+import type { CountryCode } from '@/lib/countries';
+import type { ApiPageSection, CountryShelfSectionConfig } from '@/lib/api/page-builder';
 
-/// Wrapper around the existing twin-marquee ShopByCountrySection. The
-/// underlying component pulls from the COUNTRY_CODES list — admin
-/// override of which countries to show is a future enhancement (the
-/// schema accepts countryCodes but the renderer ignores it for now).
-export function BuilderCountryShelfSection() {
-  return <ShopByCountrySection />;
+interface Props {
+  section: ApiPageSection;
+}
+
+/// Delegates to the existing ShopByCountrySection — the admin only
+/// owns the headline override and (optionally) which country codes
+/// to feature. Layout / animation stays in code.
+export function BuilderCountryShelfSection({ section }: Props) {
+  const config = section.config as CountryShelfSectionConfig;
+  const codes = (config.countryCodes ?? []) as CountryCode[];
+  return (
+    <ShopByCountrySection
+      headline={config.headline ?? section.headline ?? undefined}
+      countryCodes={codes.length > 0 ? codes : undefined}
+    />
+  );
 }

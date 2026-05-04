@@ -42,13 +42,13 @@ export function renderSection(section: ApiPageSection): React.ReactNode {
     case 'africa-map':
       return <BuilderAfricaMapSection section={section} />;
     case 'newsletter':
-      return <BuilderNewsletterSection section={section} />;
+      return <BuilderNewsletterSection />;
     case 'trust-bar':
-      return <BuilderTrustBarSection section={section} />;
+      return <BuilderTrustBarSection />;
     case 'quotation-form':
-      return <BuilderQuotationFormSection section={section} />;
+      return <BuilderQuotationFormSection />;
     case 'country-shelf':
-      return <BuilderCountryShelfSection />;
+      return <BuilderCountryShelfSection section={section} />;
     case 'feature-cards':
       return <BuilderFeatureCardsSection section={section} />;
     case 'services-grid':

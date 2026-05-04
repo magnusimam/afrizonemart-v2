@@ -74,33 +74,51 @@ const rowThree: CardData[] = [
   },
 ];
 
-export function ShopByCategorySection() {
+interface Props {
+  /// Page-builder override: a flat list of cards split into rows of 3
+  /// when the layout requires it. Defaults preserve the existing
+  /// homepage rows. Layout (amber stripe, navy band, grid sizing)
+  /// stays in code.
+  headline?: string;
+  cards?: CardData[];
+}
+
+export function ShopByCategorySection({ headline = 'Shop By Category', cards }: Props = {}) {
+  // When the page builder supplies a flat list, split it into the same
+  // 3-3-2 rhythm the homepage uses. Otherwise fall back to the
+  // hardcoded rows.
+  const flat = cards ?? [...rowOne, ...rowTwo, ...rowThree];
+  const useDefault = !cards;
+  const r1 = useDefault ? rowOne : flat.slice(0, 3);
+  const r2 = useDefault ? rowTwo : flat.slice(3, 6);
+  const r3 = useDefault ? rowThree : flat.slice(6, 8);
+
   return (
     <section>
       <div className="h-2 w-full bg-amber" aria-hidden />
 
       <div className="w-full bg-navy py-3 text-center">
         <h2 className="font-raleway text-base font-bold uppercase tracking-btn text-white md:text-lg">
-          Shop By Category
+          {headline}
         </h2>
       </div>
 
       <div className="bg-page py-6 md:py-8">
         <div className="mx-auto flex max-w-site flex-col gap-3 px-3 md:gap-6 md:px-4">
           <div className="grid grid-cols-3 gap-2 md:gap-6">
-            {rowOne.map((c) => (
+            {r1.map((c) => (
               <ShopByCategoryCard key={c.name} {...c} />
             ))}
           </div>
 
           <div className="grid grid-cols-3 gap-2 md:gap-6">
-            {rowTwo.map((c) => (
+            {r2.map((c) => (
               <ShopByCategoryCard key={c.name} {...c} />
             ))}
           </div>
 
           <div className="grid grid-cols-2 gap-2 md:gap-6">
-            {rowThree.map((c) => (
+            {r3.map((c) => (
               <ShopByCategoryCard key={c.name} {...c} />
             ))}
           </div>

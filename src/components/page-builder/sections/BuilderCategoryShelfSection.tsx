@@ -1,82 +1,36 @@
-import Image from 'next/image';
-import Link from 'next/link';
+import { CategoriesSection } from '@/components/sections/CategoriesSection';
 import { listCategories } from '@/lib/api/categories';
 import type {
   ApiPageSection,
   CategoryShelfSectionConfig,
 } from '@/lib/api/page-builder';
-import { resolveAccentColor } from '../section-registry';
 
 interface Props {
   section: ApiPageSection;
 }
 
-/// Strip of category tiles. Layout 'grid' wraps; 'scroll' overflows
-/// horizontally (mobile-friendly carousel without JS).
+/// Renders the homepage's "Everything Made in Africa" categories strip
+/// by delegating to the existing CategoriesSection. The builder owns
+/// the category list (slugs); the visual layout (scroll, card sizing,
+/// chevrons) stays in code so admin edits can never change the design.
 export async function BuilderCategoryShelfSection({ section }: Props) {
   const config = section.config as CategoryShelfSectionConfig;
-  const all = await listCategories();
-  const wanted = new Set(config.categorySlugs);
-  // Flatten parent/children — category-shelf can reference subs too.
-  const flat = all.flatMap((c) => [c, ...(c.children ?? [])]);
-  const ordered = config.categorySlugs
-    .map((slug) => flat.find((c) => c.slug === slug))
-    .filter((c): c is NonNullable<typeof c> => Boolean(c) && wanted.has((c as { slug: string }).slug));
+  const slugs = config.categorySlugs ?? [];
+  if (slugs.length === 0) return <CategoriesSection />;
 
-  if (ordered.length === 0) return null;
-
-  const containerClass =
-    config.layout === 'scroll'
-      ? 'flex gap-4 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-      : 'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6';
-
-  return (
-    <section className="bg-page py-10 md:py-14">
-      <div className="mx-auto max-w-site px-4">
-        {section.headline && (
-          <header className="mb-6">
-            <div
-              className="h-1 w-12 rounded-full"
-              style={{ backgroundColor: resolveAccentColor(section.accentColor) }}
-              aria-hidden
-            />
-            <h2 className="mt-3 font-raleway text-2xl font-bold text-navy md:text-3xl">
-              {section.headline}
-            </h2>
-          </header>
-        )}
-
-        <div className={containerClass}>
-          {ordered.map((c) => (
-            <Link
-              key={c.id}
-              href={c.parentId ? `/shop/${c.parentId}/${c.slug}` : `/shop/${c.slug}`}
-              className={`group flex flex-col items-center gap-2 rounded-card border border-border bg-white p-4 transition-shadow hover:shadow-card ${
-                config.layout === 'scroll' ? 'min-w-[140px] shrink-0' : ''
-              }`}
-            >
-              {c.image ? (
-                <div className="relative h-20 w-20 overflow-hidden rounded-full">
-                  <Image
-                    src={c.image}
-                    alt={`${c.name} category`}
-                    fill
-                    sizes="80px"
-                    className="object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber/10 font-raleway text-2xl font-bold text-amber">
-                  {c.name[0]?.toUpperCase()}
-                </div>
-              )}
-              <span className="text-center font-raleway text-xs font-semibold text-navy group-hover:text-amber">
-                {c.name}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+  // Resolve slugs → display info from the live category tree so the
+  // strip uses the real category names + images each one has been
+  // assigned. Falls back to a humanised slug + the catch-all for-her
+  // image when the slug isn't in the tree.
+  const tree = await listCategories();
+  const flat = tree.flatMap((c) => [c, ...(c.children ?? [])]);
+  const items = slugs.map((slug) => {
+    const found = flat.find((c) => c.slug === slug);
+    return {
+      name: found?.name ?? slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+      image: found?.image ?? '/images/categories/for-her.jpg',
+      href: found?.parentId ? `/shop/${found.parentId}/${slug}` : `/shop/${slug}`,
+    };
+  });
+  return <CategoriesSection categories={items} />;
 }

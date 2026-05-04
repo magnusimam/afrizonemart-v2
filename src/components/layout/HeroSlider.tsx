@@ -8,7 +8,11 @@ interface Slide {
   alt: string;
 }
 
-const slides: Slide[] = [
+/// Default slide list. Used when the page builder hasn't supplied a
+/// custom set — keeps the homepage rendering exactly as it always has
+/// when nothing's published. Page-builder edits flow in via the
+/// optional `slides` prop without changing the layout/animation.
+const DEFAULT_SLIDES: Slide[] = [
   { src: '/images/hero/slide-world-map.jpg', alt: 'From Africa to the rest of the world' },
   { src: '/images/hero/slide-just-for-you.jpg', alt: 'Just For You — featured African fashion' },
   { src: '/images/hero/slide-member-benefits.jpg', alt: 'Special Member-Only Benefits — Earn points every time you shop' },
@@ -24,7 +28,15 @@ const slides: Slide[] = [
 const ADVANCE_MS = 5000;
 const TRANSITION_MS = 700;
 
-export function HeroSlider() {
+interface Props {
+  /// Optional override — the page builder feeds slides here. Empty/null
+  /// falls back to the default list so the storefront renders normally
+  /// when nothing has been published.
+  slides?: Slide[];
+}
+
+export function HeroSlider({ slides: slidesProp }: Props = {}) {
+  const slides = slidesProp && slidesProp.length > 0 ? slidesProp : DEFAULT_SLIDES;
   const [index, setIndex] = useState(0);
   const [animate, setAnimate] = useState(true);
   const [paused, setPaused] = useState(false);

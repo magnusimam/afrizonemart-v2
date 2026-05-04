@@ -4,7 +4,15 @@ import { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CategoryCard } from '@/components/category/CategoryCard';
 
-const categories = [
+interface CategoryItem {
+  name: string;
+  image: string;
+  href: string;
+}
+
+/// Default category strip. Page builder may override via `categories`
+/// prop without changing the section layout/scroll behaviour.
+const DEFAULT_CATEGORIES: CategoryItem[] = [
   { name: 'For Her', image: '/images/categories/for-her.jpg', href: '/shop/for-her' },
   { name: 'For Him', image: '/images/categories/for-him.jpg', href: '/shop/for-him' },
   { name: 'Beer, Wines & Spirit', image: '/images/categories/beer.jpg', href: '/shop/beer-wines-spirit' },
@@ -14,7 +22,13 @@ const categories = [
   { name: 'Beauty & Personal Care', image: '/images/categories/beauty.jpg', href: '/shop/beauty' },
 ];
 
-export function CategoriesSection() {
+interface Props {
+  categories?: CategoryItem[];
+}
+
+export function CategoriesSection({ categories: categoriesProp }: Props = {}) {
+  const categories =
+    categoriesProp && categoriesProp.length > 0 ? categoriesProp : DEFAULT_CATEGORIES;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (dir: 'left' | 'right') => {
