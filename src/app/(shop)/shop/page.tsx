@@ -5,6 +5,7 @@ import { ShopToolbar } from '@/components/shop/ShopToolbar';
 import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
 import { COUNTRY_CODES } from '@/lib/countries';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { PageRenderer } from '@/components/page-builder/PageRenderer';
 
 const SAMPLE_NAMES = [
   'Maya Himalaya Facial Scrub', 'Tara Bronzer', 'Fanda Lipstick',
@@ -32,6 +33,14 @@ const SAMPLE_PRODUCTS = Array.from({ length: 24 }, (_, i) => {
 });
 
 export default function ShopPage() {
+  // PageRenderer fetches the "shop" page from the builder. When admin
+  // hasn't published any builder sections yet, the fallback (existing
+  // hardcoded layout) renders unchanged. The moment they Publish, the
+  // builder sections take over.
+  return <PageRenderer slug="shop" fallback={<ShopFallback />} />;
+}
+
+function ShopFallback() {
   return (
     <>
       <main className="bg-page pb-12">

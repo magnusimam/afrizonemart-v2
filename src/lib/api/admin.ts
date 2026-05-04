@@ -1370,3 +1370,205 @@ export async function listPublicGateways(
   if (!r.ok) return { items: [] };
   return r.json();
 }
+
+// ----- Site Pages (page-builder) -----
+
+import type { ApiPageSection, SectionType } from './page-builder';
+
+export interface AdminPageSummary {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  publishedAt: string | null;
+  sectionCount: number;
+  revisionCount: number;
+  updatedAt: string;
+}
+
+export interface AdminPage {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  publishedAt: string | null;
+  sections: ApiPageSection[];
+}
+
+export interface AdminPageRevision {
+  id: string;
+  authorEmail: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export function adminListSitePages(): Promise<{ items: AdminPageSummary[] }> {
+  return apiFetchAuthed('/api/admin/site-pages');
+}
+
+export function adminGetSitePage(id: string): Promise<AdminPage> {
+  return apiFetchAuthed(`/api/admin/site-pages/${id}`);
+}
+
+export function adminCreateSitePage(input: {
+  slug: string;
+  title: string;
+  description?: string | null;
+}): Promise<AdminPage> {
+  return apiFetchAuthed('/api/admin/site-pages', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminUpdateSitePage(
+  id: string,
+  input: Partial<{ slug: string; title: string; description: string | null }>,
+): Promise<AdminPage> {
+  return apiFetchAuthed(`/api/admin/site-pages/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminDeleteSitePage(id: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/site-pages/${id}`, { method: 'DELETE' });
+}
+
+export interface AdminSectionInput {
+  type: SectionType;
+  position?: number;
+  visible?: boolean;
+  headline?: string | null;
+  subheadline?: string | null;
+  accentColor?: string | null;
+  config: unknown;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  countries?: string[];
+}
+
+export function adminCreateSection(
+  pageId: string,
+  input: AdminSectionInput,
+): Promise<ApiPageSection> {
+  return apiFetchAuthed(`/api/admin/site-pages/${pageId}/sections`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminUpdateSection(
+  pageId: string,
+  sectionId: string,
+  input: Partial<AdminSectionInput>,
+): Promise<ApiPageSection> {
+  return apiFetchAuthed(`/api/admin/site-pages/${pageId}/sections/${sectionId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminDeleteSection(pageId: string, sectionId: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/site-pages/${pageId}/sections/${sectionId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function adminReorderSections(pageId: string, ids: string[]): Promise<AdminPage> {
+  return apiFetchAuthed(`/api/admin/site-pages/${pageId}/sections/reorder`, {
+    method: 'PATCH',
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export function adminPublishSitePage(
+  pageId: string,
+  note?: string | null,
+): Promise<AdminPage> {
+  return apiFetchAuthed(`/api/admin/site-pages/${pageId}/publish`, {
+    method: 'POST',
+    body: JSON.stringify({ note: note ?? null }),
+  });
+}
+
+export function adminListSitePageRevisions(
+  pageId: string,
+): Promise<{ items: AdminPageRevision[] }> {
+  return apiFetchAuthed(`/api/admin/site-pages/${pageId}/revisions`);
+}
+
+export function adminRevertSitePage(pageId: string, revisionId: string): Promise<AdminPage> {
+  return apiFetchAuthed(`/api/admin/site-pages/${pageId}/revert`, {
+    method: 'POST',
+    body: JSON.stringify({ revisionId }),
+  });
+}
+
+// ----- Blog -----
+
+export interface AdminBlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  content: string;
+  heroImage: string | null;
+  heroImageAlt: string | null;
+  authorId: string | null;
+  authorName: string | null;
+  status: 'DRAFT' | 'PUBLISHED' | 'SCHEDULED';
+  publishedAt: string | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
+  ogImage: string | null;
+  tags: string[];
+  readingTimeMin: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminBlogPostList {
+  items: AdminBlogPost[];
+  pagination: { page: number; limit: number; total: number; pages: number };
+}
+
+export function adminListBlogPosts(params: {
+  page?: number;
+  limit?: number;
+  status?: 'DRAFT' | 'PUBLISHED' | 'SCHEDULED' | 'ALL';
+  q?: string;
+}): Promise<AdminBlogPostList> {
+  const sp = new URLSearchParams();
+  if (params.page) sp.set('page', String(params.page));
+  if (params.limit) sp.set('limit', String(params.limit));
+  if (params.status) sp.set('status', params.status);
+  if (params.q) sp.set('q', params.q);
+  const qs = sp.toString();
+  return apiFetchAuthed(`/api/admin/blog${qs ? `?${qs}` : ''}`);
+}
+
+export function adminGetBlogPost(id: string): Promise<AdminBlogPost> {
+  return apiFetchAuthed(`/api/admin/blog/${id}`);
+}
+
+export function adminCreateBlogPost(input: Partial<AdminBlogPost>): Promise<AdminBlogPost> {
+  return apiFetchAuthed('/api/admin/blog', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminUpdateBlogPost(
+  id: string,
+  input: Partial<AdminBlogPost>,
+): Promise<AdminBlogPost> {
+  return apiFetchAuthed(`/api/admin/blog/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminDeleteBlogPost(id: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/blog/${id}`, { method: 'DELETE' });
+}

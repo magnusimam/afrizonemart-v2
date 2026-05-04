@@ -8,6 +8,9 @@ export type UploadFolder =
   | 'about'
   | 'reviews'
   | 'sellers'
+  | 'hero-slides'
+  | 'banners'
+  | 'blog'
   | 'misc';
 
 export interface UploadedAsset {

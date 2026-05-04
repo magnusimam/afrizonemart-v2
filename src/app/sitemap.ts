@@ -128,5 +128,39 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     /* fail-soft */
   }
 
+  // 6. Blog index + every published post — paginate through /api/blog.
+  out.push({
+    url: `${SITE_URL}/blog`,
+    lastModified: now,
+    changeFrequency: 'daily',
+    priority: 0.8,
+  });
+  try {
+    let page = 1;
+    while (true) {
+      const r = await fetch(`${API_BASE}/api/blog?page=${page}&limit=50`, {
+        next: { revalidate: 600 },
+      });
+      if (!r.ok) break;
+      const data = (await r.json()) as {
+        items: Array<{ slug: string; publishedAt?: string | null }>;
+        pagination?: { pages: number };
+      };
+      for (const p of data.items) {
+        out.push({
+          url: `${SITE_URL}/blog/${p.slug}`,
+          lastModified: p.publishedAt ? new Date(p.publishedAt) : now,
+          changeFrequency: 'monthly',
+          priority: 0.7,
+        });
+      }
+      if (!data.pagination || page >= data.pagination.pages) break;
+      page++;
+      if (page > 50) break; // safety cap — 2,500 posts
+    }
+  } catch {
+    /* fail-soft */
+  }
+
   return out;
 }

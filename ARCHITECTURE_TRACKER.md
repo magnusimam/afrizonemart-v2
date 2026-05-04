@@ -46,6 +46,128 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+36. **[x] Page-builder CMS (Phase 1 + draft/publish + scheduling) and full Blog system** _(2026-05-03)_ — done.
+
+    **Why**: CTO wanted a content management system so non-engineers
+    can edit any page on the site (homepage, category pages, landing
+    pages) without touching code — change images, headlines, container
+    accents, number of product rows per shelf, drag sections to reorder,
+    add new sections, hide sections temporarily, and target sections by
+    country or schedule. Plus a full blog with SEO indexing.
+
+    **Schema** (`afrizonemart-api/prisma/schema.prisma`):
+    - `Page` — slug + title + publishedAt
+    - `PageSection` — typed sections (`type` discriminator, `position`,
+      `headline`, `subheadline`, `accentColor`, `config Json`,
+      `draftConfig Json` for future draft semantics, `startsAt`,
+      `endsAt`, `countries[]`)
+    - `PageRevision` — snapshot of the entire section list per publish.
+      Last 50 retained per page.
+    - `BlogPost` — slug, title, excerpt, content (HTML), heroImage +
+      alt, author snapshot, status (DRAFT/PUBLISHED/SCHEDULED),
+      publishedAt, full SEO meta overrides, tags[], readingTimeMin
+    - `MediaAsset` — placeholder for the deferred image library
+
+    Schema applied via `prisma db push` to both dev and prod.
+
+    **API — pages module** (`src/modules/pages/`):
+    - `GET /api/site/:slug` — public, returns the latest revision
+      snapshot filtered by visibility window + country (geo cookie)
+    - `/api/admin/site-pages/*` — full admin CRUD: pages, sections,
+      reorder, publish, list revisions, revert
+    - 9 section types with zod-validated config schemas in
+      `section-types.ts`: hero, product-grid, category-shelf,
+      image-banner, rich-text, africa-map, newsletter, trust-bar,
+      quotation-form
+    - Public reads from latest **revision snapshot** rather than
+      live PageSection rows — gives true draft/publish: admin edits
+      to PageSection are invisible until they click Publish (which
+      writes a fresh snapshot)
+
+    **API — blog module** (`src/modules/blog/`):
+    - `GET /api/blog`, `GET /api/blog/:slug`, `GET /api/blog/tags`
+    - Admin CRUD with status transitions (DRAFT/PUBLISHED/SCHEDULED)
+    - Cron (`startScheduledBlogCron`, 60s tick) flips SCHEDULED →
+      PUBLISHED when the time arrives
+    - Auto-computed reading time (200 wpm)
+
+    **Storefront — page builder**:
+    - `<PageRenderer slug="..." />` (`src/components/page-builder/`)
+      fetches `/api/site/:slug` and dispatches each section to its
+      registered renderer. Each section wrapped in `SafeBoundary` so
+      a single bad config can't take down the whole page.
+    - 9 `Builder*` section renderers under
+      `src/components/page-builder/sections/` mirror the section types
+    - `app/page.tsx` (homepage) replaced with
+      `<PageRenderer slug="home" fallback={<HomeFallback />} />` — the
+      hardcoded layout is the fallback when the home page hasn't been
+      published. Once seeded + published, the builder takes over.
+
+    **Storefront — blog**:
+    - `/blog` — paginated list with tag filter chips + breadcrumb +
+      Metadata API (canonical, OG, Twitter)
+    - `/blog/[slug]` — post detail with hero image, breadcrumb, body
+      HTML render, related posts, full SEO meta, **Article JSON-LD**
+      for Google Discover + rich result eligibility
+    - `/blog/rss.xml` — RSS 2.0 feed (1h cache) for syndication
+    - Sitemap (`app/sitemap.ts`) extended to include `/blog` index
+      + every published post
+
+    **Admin — site builder UI** (`/admin/site-pages`):
+    - List of pages with create-new + status badges
+    - Builder page: section list with up/down reorder, visibility
+      toggle, delete, click-to-edit
+    - Editor pane: per-type config editor (`SectionEditor.tsx`
+      switches on type), accent color presets + custom hex,
+      headline/subheadline overrides
+    - Visibility & targeting: Show from / Hide after datetime
+      pickers + ISO-2 country codes
+    - Publish button + publish note + revision history with
+      one-click revert
+
+    **Admin — blog UI** (`/admin/blog`):
+    - List with status filter + search, status badges
+    - `/admin/blog/new` and `/admin/blog/[id]` share `<BlogPostForm>`
+    - Editor: title (auto-derives slug), excerpt, hero image upload,
+      HTML body with live preview toggle, author, tags, full SEO
+      panel (meta title/desc/OG image), status + scheduled-publish
+      datetime, "Save & publish now" shortcut
+    - Word count + reading time live in the editor
+
+    **Initial home-page seed**
+    (`afrizonemart-api/scripts/seed-home-page.ts`):
+    Idempotent — creates the "home" page with 9 sections that mirror
+    the existing hardcoded layout (hero with 4 slides, groceries grid,
+    deals, customer favourites / new arrivals, beauty for-her, home,
+    books, trust bar, newsletter). Publishes immediately + writes
+    initial revision. Already run against prod DB.
+
+    **AdminSidebar**: new "Site Builder" + "Blog" links. Existing
+    "Pages" route renamed to "Pages (legacy)" — distinct from the
+    new builder; will be retired in a future cleanup.
+
+    **Mount paths** (avoiding the legacy `cmsRoutes` at `/api/pages`):
+    - Public new page-builder: `/api/site/:slug`
+    - Admin new page-builder: `/api/admin/site-pages/*`
+    - Public blog: `/api/blog`
+    - Admin blog: `/api/admin/blog`
+
+    **Deferred to future sessions**:
+    - Image library with required alt text (`MediaAsset` model
+      already in schema, just no UI yet)
+    - Section templates (clone-as-template / save-as-template)
+    - Mobile preview toggle in the builder
+    - Audit-log surface for who-edited-what-when (existing audit
+      module captures it, just no UI surface)
+    - True draft preview — admin currently can't see their unpublished
+      edits as they'll appear on the storefront. Workaround: the
+      builder UI itself is a structured representation
+    - TipTap/ProseMirror rich-text editor (currently HTML textarea
+      with live-preview toggle)
+    - Per-product placement config UI for the `placement`
+      product-source kind (the API already supports it via the
+      placements module)
+
 35. **[x] Dedicated admin sign-in UI + admin user re-seeded** _(2026-05-01)_ — done.
 
     **Symptoms reported**: customer login worked but landed admins
