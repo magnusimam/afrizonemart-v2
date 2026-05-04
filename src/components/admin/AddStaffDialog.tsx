@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Eye, EyeOff, X } from 'lucide-react';
 import { adminCreateStaff, type StaffCreatableRole, type StaffMember } from '@/lib/api/admin';
 import { HttpApiError } from '@/lib/api/client';
 import { toast } from '@/components/admin/Toast';
-import { ROLE_DESCRIPTIONS } from '@/lib/permissions';
+import {
+  ALL_CAPABILITIES,
+  CAPABILITY_LABELS,
+  ROLE_DESCRIPTIONS,
+  type Capability,
+} from '@/lib/permissions';
 
 interface Props {
   open: boolean;
@@ -16,20 +21,32 @@ interface Props {
 export function AddStaffDialog({ open, onClose, onCreated }: Props) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<StaffCreatableRole>('SELLER');
+  const [role, setRole] = useState<StaffCreatableRole>('STAFF');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
+  const [permissions, setPermissions] = useState<Set<Capability>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Group capabilities by their `domain` for the checkbox UI.
+  const capsByDomain = useMemo(() => {
+    const groups: Record<string, Capability[]> = {};
+    for (const cap of ALL_CAPABILITIES) {
+      const domain = CAPABILITY_LABELS[cap].domain;
+      (groups[domain] ??= []).push(cap);
+    }
+    return groups;
+  }, []);
 
   if (!open) return null;
 
   const reset = () => {
     setEmail('');
     setName('');
-    setRole('SELLER');
+    setRole('STAFF');
     setPassword('');
     setShowPwd(false);
+    setPermissions(new Set());
     setError(null);
   };
 
@@ -39,9 +56,36 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
     onClose();
   };
 
+  const togglePermission = (cap: Capability) => {
+    setPermissions((prev) => {
+      const next = new Set(prev);
+      if (next.has(cap)) next.delete(cap);
+      else next.add(cap);
+      return next;
+    });
+  };
+
+  const toggleDomain = (domain: string) => {
+    const caps = capsByDomain[domain];
+    setPermissions((prev) => {
+      const allOn = caps.every((c) => prev.has(c));
+      const next = new Set(prev);
+      if (allOn) {
+        for (const c of caps) next.delete(c);
+      } else {
+        for (const c of caps) next.add(c);
+      }
+      return next;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (role === 'STAFF' && permissions.size === 0) {
+      setError('Pick at least one section this staff member can access.');
+      return;
+    }
     setBusy(true);
     try {
       const created = await adminCreateStaff({
@@ -49,13 +93,20 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
         name: name.trim() || undefined,
         role,
         password,
+        permissions: role === 'STAFF' ? Array.from(permissions) : undefined,
       });
       toast(`Added ${created.email} as ${created.role}`);
       onCreated(created);
       reset();
       onClose();
     } catch (err) {
-      setError(err instanceof HttpApiError ? err.message : err instanceof Error ? err.message : 'Failed to add staff');
+      setError(
+        err instanceof HttpApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Failed to add staff',
+      );
     } finally {
       setBusy(false);
     }
@@ -65,20 +116,21 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/40 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/40 px-4 py-6"
       onClick={close}
     >
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
-        className="flex w-full max-w-md flex-col rounded-card bg-white shadow-card-hover"
+        className="flex max-h-full w-full max-w-2xl flex-col rounded-card bg-white shadow-card-hover"
       >
         <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
           <div>
             <h2 className="font-raleway text-lg font-bold text-navy">Add staff member</h2>
             <p className="mt-1 font-sans text-xs text-muted">
-              Creates a user with elevated role + an initial password. Share the
-              credentials securely; the user can change their own password later.
+              Creates a user account with the role you pick + the initial password
+              you set. Share the credentials securely — they can change the password
+              after first sign-in.
             </p>
           </div>
           <button
@@ -92,61 +144,131 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
           </button>
         </header>
 
-        <div className="flex flex-col gap-4 px-6 py-5">
-          <Field label="Email" required>
-            <input
-              required
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="off"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Name">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="off"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Role" required>
-            <select
-              required
-              value={role}
-              onChange={(e) => setRole(e.target.value as StaffCreatableRole)}
-              className={inputClass}
-            >
-              <option value="SELLER">Seller</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-            <p className="mt-1 font-sans text-[11px] leading-snug text-muted">
-              {ROLE_DESCRIPTIONS[role]}
-            </p>
-          </Field>
-          <Field label="Initial password" required>
-            <div className="relative">
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Name" required>
               <input
                 required
-                type={showPwd ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={8}
-                autoComplete="new-password"
-                className={`${inputClass} pr-10`}
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="off"
+                placeholder="e.g. Aisha Bello"
+                className={inputClass}
               />
-              <button
-                type="button"
-                onClick={() => setShowPwd((v) => !v)}
-                aria-label={showPwd ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-navy"
+            </Field>
+            <Field label="Email" required>
+              <input
+                required
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="off"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Role" required>
+              <select
+                required
+                value={role}
+                onChange={(e) => setRole(e.target.value as StaffCreatableRole)}
+                className={inputClass}
               >
-                {showPwd ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
-              </button>
+                <option value="STAFF">Staff (custom permissions)</option>
+                <option value="ADMIN">Admin (full access)</option>
+                <option value="SELLER">Seller (marketplace vendor)</option>
+              </select>
+              <p className="mt-1 font-sans text-[11px] leading-snug text-muted">
+                {ROLE_DESCRIPTIONS[role]}
+              </p>
+            </Field>
+            <Field label="Initial password" required>
+              <div className="relative">
+                <input
+                  required
+                  type={showPwd ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  minLength={8}
+                  autoComplete="new-password"
+                  className={`${inputClass} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd((v) => !v)}
+                  aria-label={showPwd ? 'Hide password' : 'Show password'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-navy"
+                >
+                  {showPwd ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
+                </button>
+              </div>
+            </Field>
+          </div>
+
+          {role === 'STAFF' && (
+            <div className="rounded-card border border-amber/40 bg-amber/5 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="font-raleway text-[11px] font-bold uppercase tracking-btn text-navy">
+                  Sections this person can access
+                </p>
+                <span className="font-sans text-[11px] text-muted">
+                  {permissions.size} selected
+                </span>
+              </div>
+              <p className="mb-4 font-sans text-[11px] text-muted">
+                Tick which admin sections they should see. They&apos;ll only see those
+                in their sidebar after signing in. Click a domain heading to toggle
+                its whole group.
+              </p>
+
+              <div className="flex flex-col gap-3">
+                {Object.entries(capsByDomain).map(([domain, caps]) => {
+                  const allOn = caps.every((c) => permissions.has(c));
+                  const someOn = !allOn && caps.some((c) => permissions.has(c));
+                  return (
+                    <fieldset key={domain} className="rounded-card border border-border bg-white p-3">
+                      <legend className="px-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleDomain(domain)}
+                          className="flex items-center gap-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:text-amber"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={allOn}
+                            ref={(el) => {
+                              if (el) el.indeterminate = someOn;
+                            }}
+                            readOnly
+                            className="h-3.5 w-3.5 cursor-pointer accent-navy"
+                          />
+                          {domain}
+                        </button>
+                      </legend>
+                      <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                        {caps.map((cap) => (
+                          <label
+                            key={cap}
+                            className="flex cursor-pointer items-start gap-2 rounded p-1 hover:bg-page"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={permissions.has(cap)}
+                              onChange={() => togglePermission(cap)}
+                              className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-navy"
+                            />
+                            <span className="font-sans text-xs text-charcoal">
+                              {CAPABILITY_LABELS[cap].label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  );
+                })}
+              </div>
             </div>
-          </Field>
+          )}
 
           {error && (
             <p className="rounded-input border border-danger/30 bg-danger/5 px-3 py-2 font-sans text-sm text-danger">

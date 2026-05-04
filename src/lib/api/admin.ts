@@ -445,13 +445,20 @@ export function adminUpdateCustomer(
 
 import type { Capability, StaffRole } from '@/lib/permissions';
 
-export type StaffCreatableRole = Extract<StaffRole, 'SELLER' | 'ADMIN'>;
+export type StaffCreatableRole = Extract<StaffRole, 'SELLER' | 'ADMIN' | 'STAFF'>;
 
 export interface StaffMember {
   id: string;
   email: string;
   name: string | null;
   role: StaffRole;
+  /// Per-user permissions (only meaningful when role=STAFF).
+  permissions: string[];
+  /// Effective capabilities the user has right now (role-default ∪ per-user
+  /// for STAFF, full set for ADMIN, role-default for SELLER, none for
+  /// CUSTOMER). Surfaced by the API to skip a redundant resolution
+  /// step on the client.
+  effectivePermissions: string[];
   createdAt: string;
 }
 
@@ -468,16 +475,40 @@ export function adminListStaff(): Promise<{ items: StaffMember[] }> {
   return apiFetchAuthed<{ items: StaffMember[] }>('/api/admin/staff');
 }
 
+export function adminGetStaff(id: string): Promise<StaffMember> {
+  return apiFetchAuthed<StaffMember>(`/api/admin/staff/${id}`);
+}
+
 export function adminCreateStaff(input: {
   email: string;
   name?: string;
   role: StaffCreatableRole;
   password: string;
+  permissions?: Capability[];
 }): Promise<StaffMember> {
   return apiFetchAuthed<StaffMember>('/api/admin/staff', {
     method: 'POST',
     body: JSON.stringify(input),
   });
+}
+
+export function adminUpdateStaff(
+  id: string,
+  input: {
+    name?: string;
+    role?: StaffCreatableRole;
+    permissions?: Capability[];
+    password?: string;
+  },
+): Promise<StaffMember> {
+  return apiFetchAuthed<StaffMember>(`/api/admin/staff/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminDeleteStaff(id: string): Promise<void> {
+  return apiFetchAuthed<void>(`/api/admin/staff/${id}`, { method: 'DELETE' });
 }
 
 export function adminGetPermissions(): Promise<PermissionsMatrix> {

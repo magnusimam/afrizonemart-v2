@@ -20,7 +20,9 @@ export function RequireAdmin({ children }: Props) {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const isAuthed = Boolean(user && accessToken);
-  const isAdmin = user?.role === 'ADMIN';
+  // ADMIN gets full access; STAFF gets in too — their effective
+  // permissions filter the sidebar to only what they were granted.
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'STAFF';
 
   useEffect(() => {
     if (useAuthStore.persist?.hasHydrated?.()) {

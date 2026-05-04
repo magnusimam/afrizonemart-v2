@@ -5,37 +5,79 @@
  */
 
 export type Capability =
-  | 'orders.read'
-  | 'orders.write'
-  | 'orders.refund'
+  // Catalog
   | 'products.read'
   | 'products.write'
   | 'categories.write'
   | 'reviews.moderate'
+  | 'custom-fields.write'
+  // Commerce
+  | 'orders.read'
+  | 'orders.write'
+  | 'orders.refund'
+  | 'coupons.write'
+  | 'shipping.write'
+  | 'payment-gateways.write'
+  // People
   | 'customers.read'
   | 'customers.write'
   | 'staff.manage'
+  // Marketing / CMS
+  | 'cms-pages.write'
+  | 'site-pages.write'
+  | 'blog.write'
+  | 'placements.write'
+  | 'feature-flags.write'
+  | 'business-rules.write'
+  // Notifications & integrations
+  | 'notifications.write'
+  | 'email-templates.write'
+  | 'webhooks.write'
+  // Operations
+  | 'reports.read'
+  | 'audit.read'
   | 'uploads.write'
-  | 'settings.write'
-  | 'reports.read';
+  | 'settings.write';
 
-export type StaffRole = 'CUSTOMER' | 'SELLER' | 'ADMIN';
+export type StaffRole = 'CUSTOMER' | 'SELLER' | 'ADMIN' | 'STAFF';
 
 export const CAPABILITY_LABELS: Record<Capability, { domain: string; label: string }> = {
-  'orders.read': { domain: 'Orders', label: 'View orders' },
-  'orders.write': { domain: 'Orders', label: 'Update orders & status' },
-  'orders.refund': { domain: 'Orders', label: 'Issue refunds' },
+  // Catalog
   'products.read': { domain: 'Catalog', label: 'View products' },
   'products.write': { domain: 'Catalog', label: 'Create / edit / delete products' },
   'categories.write': { domain: 'Catalog', label: 'Manage categories' },
   'reviews.moderate': { domain: 'Catalog', label: 'Moderate reviews' },
+  'custom-fields.write': { domain: 'Catalog', label: 'Manage product custom fields' },
+  // Commerce
+  'orders.read': { domain: 'Commerce', label: 'View orders' },
+  'orders.write': { domain: 'Commerce', label: 'Update orders & status' },
+  'orders.refund': { domain: 'Commerce', label: 'Issue refunds' },
+  'coupons.write': { domain: 'Commerce', label: 'Manage coupons & discounts' },
+  'shipping.write': { domain: 'Commerce', label: 'Configure shipping zones & rates' },
+  'payment-gateways.write': { domain: 'Commerce', label: 'Configure payment gateways' },
+  // People
   'customers.read': { domain: 'People', label: 'View customers' },
   'customers.write': { domain: 'People', label: 'Edit customer profiles' },
-  'staff.manage': { domain: 'People', label: 'Add / remove staff & change roles' },
-  'uploads.write': { domain: 'Media', label: 'Upload images & assets' },
-  'settings.write': { domain: 'Settings', label: 'Edit store settings' },
-  'reports.read': { domain: 'Reports', label: 'View sales & inventory reports' },
+  'staff.manage': { domain: 'People', label: 'Add / remove staff & change permissions' },
+  // Marketing / CMS
+  'cms-pages.write': { domain: 'Content', label: 'Edit legacy long-form CMS pages' },
+  'site-pages.write': { domain: 'Content', label: 'Edit landing pages in the site builder' },
+  'blog.write': { domain: 'Content', label: 'Write & publish blog posts' },
+  'placements.write': { domain: 'Content', label: 'Manage product placements' },
+  'feature-flags.write': { domain: 'Content', label: 'Toggle feature flags' },
+  'business-rules.write': { domain: 'Content', label: 'Edit business rules' },
+  // Integrations
+  'notifications.write': { domain: 'Integrations', label: 'Send & manage notifications' },
+  'email-templates.write': { domain: 'Integrations', label: 'Edit email templates' },
+  'webhooks.write': { domain: 'Integrations', label: 'Configure webhooks' },
+  // Operations
+  'reports.read': { domain: 'Operations', label: 'View sales & inventory reports' },
+  'audit.read': { domain: 'Operations', label: 'View admin audit log' },
+  'uploads.write': { domain: 'Operations', label: 'Upload images & assets' },
+  'settings.write': { domain: 'Operations', label: 'Edit store settings' },
 };
+
+export const ALL_CAPABILITIES: Capability[] = Object.keys(CAPABILITY_LABELS) as Capability[];
 
 export const ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
   CUSTOMER: 'Standard buyer. Can browse, place orders, leave reviews.',
@@ -43,4 +85,41 @@ export const ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
     'Vendor on the marketplace. Can manage their own products and view their own orders. Cannot touch other sellers or platform settings.',
   ADMIN:
     'Full platform access. Can manage everything — products, orders, customers, refunds, other staff. Use sparingly.',
+  STAFF:
+    'Per-user-permissions account. Each staff member only sees the admin sections you grant them. Used for interns, contractors, and scoped employees.',
 };
+
+/**
+ * Resolve a user's effective capability set. Same logic as the API.
+ * Used by the sidebar to filter items + by RequireAdmin to gate
+ * non-ADMIN access.
+ */
+export function effectiveCapabilities(
+  role: StaffRole,
+  userPermissions: string[] | null | undefined,
+): Set<Capability> {
+  if (role === 'ADMIN') return new Set(ALL_CAPABILITIES);
+  if (role === 'STAFF') {
+    const grants = (userPermissions ?? []).filter((p): p is Capability =>
+      Object.prototype.hasOwnProperty.call(CAPABILITY_LABELS, p),
+    );
+    return new Set(grants);
+  }
+  if (role === 'SELLER') {
+    return new Set<Capability>([
+      'orders.read',
+      'products.read',
+      'products.write',
+      'uploads.write',
+    ]);
+  }
+  return new Set<Capability>();
+}
+
+export function hasCapability(
+  role: StaffRole,
+  userPermissions: string[] | null | undefined,
+  capability: Capability,
+): boolean {
+  return effectiveCapabilities(role, userPermissions).has(capability);
+}

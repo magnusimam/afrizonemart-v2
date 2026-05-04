@@ -7,6 +7,10 @@ export interface AuthUser {
   email: string;
   name: string | null;
   role: string;
+  /// Effective capabilities — sidebar filter + per-section gate use this.
+  /// ADMIN gets every capability. STAFF gets per-user grants. SELLER gets
+  /// role defaults. CUSTOMER gets none.
+  permissions: string[];
   createdAt: string;
 }
 

@@ -30,37 +30,42 @@ import {
 } from 'lucide-react';
 import { logoutUser } from '@/lib/api/auth';
 import { useAuthStore } from '@/stores/authStore';
+import { effectiveCapabilities, type Capability, type StaffRole } from '@/lib/permissions';
 
 interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
   disabled?: boolean;
+  /// Capability that gates this item. Undefined = always visible to
+  /// any role admitted to the admin router (Dashboard fits this — it's
+  /// the landing page for everyone with admin access).
+  cap?: Capability;
 }
 
 const NAV: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: Home },
-  { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
-  { href: '/admin/products', label: 'Products', icon: Boxes },
-  { href: '/admin/categories', label: 'Categories', icon: Tags },
-  { href: '/admin/reviews', label: 'Reviews', icon: ClipboardList },
-  { href: '/admin/customers', label: 'Customers', icon: Users },
-  { href: '/admin/staff', label: 'Staff & Roles', icon: ShieldCheck },
-  { href: '/admin/coupons', label: 'Discounts', icon: PercentCircle },
-  { href: '/admin/shipping', label: 'Shipping', icon: Truck },
-  { href: '/admin/payment-gateways', label: 'Payment Gateways', icon: CreditCard },
-  { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/admin/webhooks', label: 'Webhooks', icon: Plug },
-  { href: '/admin/notifications', label: 'Notifications', icon: Mail },
-  { href: '/admin/email-templates', label: 'Email Templates', icon: MailOpen },
-  { href: '/admin/custom-fields', label: 'Custom Fields', icon: LayoutGrid },
-  { href: '/admin/feature-flags', label: 'Feature Flags', icon: Flag },
-  { href: '/admin/business-rules', label: 'Business Rules', icon: GitBranch },
-  { href: '/admin/pages', label: 'Pages (legacy)', icon: FileText },
-  { href: '/admin/site-pages', label: 'Site Builder', icon: Layout },
-  { href: '/admin/blog', label: 'Blog', icon: Newspaper },
-  { href: '/admin/audit', label: 'Audit Log', icon: FileClock },
-  { href: '/admin/settings', label: 'Settings', icon: Settings },
+  { href: '/admin/orders', label: 'Orders', icon: ShoppingBag, cap: 'orders.read' },
+  { href: '/admin/products', label: 'Products', icon: Boxes, cap: 'products.read' },
+  { href: '/admin/categories', label: 'Categories', icon: Tags, cap: 'categories.write' },
+  { href: '/admin/reviews', label: 'Reviews', icon: ClipboardList, cap: 'reviews.moderate' },
+  { href: '/admin/customers', label: 'Customers', icon: Users, cap: 'customers.read' },
+  { href: '/admin/staff', label: 'Staff & Roles', icon: ShieldCheck, cap: 'staff.manage' },
+  { href: '/admin/coupons', label: 'Discounts', icon: PercentCircle, cap: 'coupons.write' },
+  { href: '/admin/shipping', label: 'Shipping', icon: Truck, cap: 'shipping.write' },
+  { href: '/admin/payment-gateways', label: 'Payment Gateways', icon: CreditCard, cap: 'payment-gateways.write' },
+  { href: '/admin/reports', label: 'Reports', icon: BarChart3, cap: 'reports.read' },
+  { href: '/admin/webhooks', label: 'Webhooks', icon: Plug, cap: 'webhooks.write' },
+  { href: '/admin/notifications', label: 'Notifications', icon: Mail, cap: 'notifications.write' },
+  { href: '/admin/email-templates', label: 'Email Templates', icon: MailOpen, cap: 'email-templates.write' },
+  { href: '/admin/custom-fields', label: 'Custom Fields', icon: LayoutGrid, cap: 'custom-fields.write' },
+  { href: '/admin/feature-flags', label: 'Feature Flags', icon: Flag, cap: 'feature-flags.write' },
+  { href: '/admin/business-rules', label: 'Business Rules', icon: GitBranch, cap: 'business-rules.write' },
+  { href: '/admin/pages', label: 'Pages (legacy)', icon: FileText, cap: 'cms-pages.write' },
+  { href: '/admin/site-pages', label: 'Site Builder', icon: Layout, cap: 'site-pages.write' },
+  { href: '/admin/blog', label: 'Blog', icon: Newspaper, cap: 'blog.write' },
+  { href: '/admin/audit', label: 'Audit Log', icon: FileClock, cap: 'audit.read' },
+  { href: '/admin/settings', label: 'Settings', icon: Settings, cap: 'settings.write' },
 ];
 
 export function AdminSidebar() {
@@ -82,9 +87,21 @@ export function AdminSidebar() {
     router.push('/login');
   };
 
+  // Effective capability set this user has. ADMIN sees everything;
+  // STAFF only sees items whose `cap` they were granted. Items without
+  // a `cap` (Dashboard) are always visible.
+  const caps = effectiveCapabilities(
+    (user?.role ?? 'CUSTOMER') as StaffRole,
+    user?.permissions,
+  );
+  const visibleNav = NAV.filter((item) => !item.cap || caps.has(item.cap));
+
+  // Friendly first-name greeting; falls back to "Admin" when name is null.
+  const greeting = user?.name?.split(' ')[0] ?? 'there';
+
   return (
     <aside className="flex w-60 shrink-0 flex-col gap-1 border-r border-white/10 bg-navy py-6 text-white">
-      <div className="px-5 pb-6">
+      <div className="px-5 pb-4">
         <Link href="/admin" className="flex flex-col gap-0.5">
           <span className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
             Afrizonemart
@@ -95,8 +112,22 @@ export function AdminSidebar() {
         </Link>
       </div>
 
+      {/* Greeting strip — surfaces who's logged in + their role pill. */}
+      <div className="mx-3 mb-4 rounded-md border border-white/10 bg-white/5 px-3 py-2">
+        <p className="font-raleway text-[11px] font-semibold uppercase tracking-btn text-amber">
+          Hi, {greeting}
+        </p>
+        <p className="mt-0.5 font-sans text-xs text-white/70">
+          {user?.role === 'STAFF'
+            ? `${visibleNav.length} section${visibleNav.length === 1 ? '' : 's'} available to you`
+            : user?.role === 'ADMIN'
+              ? 'Full admin access'
+              : user?.email}
+        </p>
+      </div>
+
       <nav className="flex flex-1 flex-col gap-0.5 px-2">
-        {NAV.map(({ href, label, icon: Icon, disabled }) => {
+        {visibleNav.map(({ href, label, icon: Icon, disabled }) => {
           const active = pathname === href || (href !== '/admin' && pathname.startsWith(href));
           if (disabled) {
             return (
