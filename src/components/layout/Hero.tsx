@@ -2,12 +2,23 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { HeroSlider } from '@/components/layout/HeroSlider';
 
-export function Hero() {
+interface Slide {
+  src: string;
+  alt: string;
+}
+
+interface Props {
+  /// Optional override fed from /admin/content. Empty/undefined falls
+  /// back to HeroSlider's hardcoded default list.
+  slides?: Slide[];
+}
+
+export function Hero({ slides }: Props = {}) {
   return (
     <section className="w-full bg-white">
       <div className="mx-auto grid max-w-site gap-y-3 gap-x-4 px-4 py-3 md:grid-cols-12 md:gap-y-4 md:gap-x-10">
         <div className="md:col-span-9">
-          <HeroSlider />
+          <HeroSlider slides={slides} />
         </div>
 
         {/* On mobile the two cards sit SIDE BY SIDE under the slider

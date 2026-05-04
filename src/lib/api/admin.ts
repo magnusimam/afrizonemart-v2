@@ -1469,3 +1469,30 @@ export function adminUpdateBlogPost(
 export function adminDeleteBlogPost(id: string): Promise<void> {
   return apiFetchAuthed(`/api/admin/blog/${id}`, { method: 'DELETE' });
 }
+
+// ----- Site content (text + image overrides) -----
+
+import type { SlotDef } from '@/lib/site-content/registry';
+
+export function adminGetContentRegistry(): Promise<{ slots: SlotDef[] }> {
+  return apiFetchAuthed('/api/admin/content/registry');
+}
+
+export function adminGetContentOverrides(): Promise<{ overrides: Record<string, unknown> }> {
+  return apiFetchAuthed('/api/admin/content');
+}
+
+export interface ContentEntry {
+  key: string;
+  /// `null` clears the override → component default applies.
+  value: unknown;
+}
+
+export function adminUpdateContent(
+  entries: ContentEntry[],
+): Promise<{ updated: number; cleared: number; skipped: string[] }> {
+  return apiFetchAuthed('/api/admin/content', {
+    method: 'PUT',
+    body: JSON.stringify({ entries }),
+  });
+}
