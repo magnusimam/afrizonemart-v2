@@ -48,7 +48,7 @@ export function renderSection(section: ApiPageSection): React.ReactNode {
     case 'quotation-form':
       return <BuilderQuotationFormSection section={section} />;
     case 'country-shelf':
-      return <BuilderCountryShelfSection section={section} />;
+      return <BuilderCountryShelfSection />;
     case 'feature-cards':
       return <BuilderFeatureCardsSection section={section} />;
     case 'services-grid':

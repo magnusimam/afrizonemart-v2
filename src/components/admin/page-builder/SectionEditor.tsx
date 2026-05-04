@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { ImageUploader } from '@/components/admin/ImageUploader';
 import type { SectionType } from '@/lib/api/page-builder';
@@ -60,7 +59,7 @@ export function SectionEditor({ type, value, onChange }: Props) {
     default:
       return (
         <p className="font-sans text-sm text-muted">
-          No editor for section type "{type}" yet.
+          No editor for section type &quot;{type}&quot; yet.
         </p>
       );
   }

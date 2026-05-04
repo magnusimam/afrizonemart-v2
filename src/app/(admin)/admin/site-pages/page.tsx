@@ -123,7 +123,7 @@ export default function AdminSitePagesPage() {
           <p className="mt-3 font-sans text-xs text-muted">
             Slug becomes the URL: <code className="rounded bg-white px-1">/{`<slug>`}</code>.
             Use slashes for nesting (e.g. <code className="rounded bg-white px-1">shop/groceries</code>).
-            "home" controls the homepage.
+            &quot;home&quot; controls the homepage.
           </p>
         </div>
       )}
