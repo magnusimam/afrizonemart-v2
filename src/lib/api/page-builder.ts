@@ -232,13 +232,16 @@ export interface ApiPage {
  * Fetch the published section list for a page slug. Returns null when
  * the page doesn't exist or hasn't been published yet — the caller
  * decides whether to render a fallback or 404.
+ *
+ * Uses `cache: 'no-store'` so admin Publish/Unpublish takes effect on
+ * the next request. The API itself sets a 60s s-maxage so Fastly
+ * absorbs the bulk of repeat traffic; only the first request after
+ * the cache window expires actually re-resolves.
  */
 export async function fetchPage(slug: string): Promise<ApiPage | null> {
   try {
     const res = await fetch(`${API_BASE}/api/site/${slug}`, {
-      // Edge revalidate so the storefront refreshes within 60s of a
-      // publish. Aligns with the API's Cache-Control max-age.
-      next: { revalidate: 60 },
+      cache: 'no-store',
     });
     if (res.status === 404) return null;
     if (!res.ok) return null;
