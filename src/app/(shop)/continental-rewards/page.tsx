@@ -4,7 +4,6 @@ import { Check } from 'lucide-react';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { PlacementShelf } from '@/components/product/PlacementShelf';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
-import { PageRenderer } from '@/components/page-builder/PageRenderer';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -97,12 +96,6 @@ const TIERS: Tier[] = [
 ];
 
 export default function ContinentalRewardsPage() {
-  return (
-    <PageRenderer slug="continental-rewards" fallback={<ContinentalRewardsFallback />} />
-  );
-}
-
-function ContinentalRewardsFallback() {
   return (
     <>
       <main className="bg-page pb-12">

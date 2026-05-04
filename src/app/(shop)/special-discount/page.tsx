@@ -6,7 +6,6 @@ import { HeroLiveStats } from '@/components/sections/HeroLiveStats';
 import { ProductGridFromQuery } from '@/components/product/ProductGridFromQuery';
 import { PlacementShelf } from '@/components/product/PlacementShelf';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
-import { PageRenderer } from '@/components/page-builder/PageRenderer';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -77,11 +76,7 @@ const SHELVES_BOTTOM: Shelf[] = [
   },
 ];
 
-export default function SpecialDiscountPage() {
-  return <PageRenderer slug="special-discount" fallback={<SpecialDiscountFallback />} />;
-}
-
-function SpecialDiscountFallback() {
+export default function ChristmasMarketPage() {
   return (
     <>
       <main className="bg-page pb-16">
