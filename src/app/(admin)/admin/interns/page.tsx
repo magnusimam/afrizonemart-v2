@@ -2,18 +2,21 @@
 
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { ArrowRight, Check, Shuffle, X } from 'lucide-react';
+import { ArrowRight, Check, Coins, Download, Shuffle, X } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { toast } from '@/components/admin/Toast';
 import { HttpApiError } from '@/lib/api/client';
 import {
   adminBulkAssignInterns,
+  adminDownloadInternCsv,
+  adminGetInternPayRate,
   adminGetInternProgress,
   adminListSubmissions,
   adminListStaff,
   adminReassignProducts,
   adminReviewSubmission,
+  adminSetInternPayRate,
   type AdminSubmissionItem,
   type InternProgressItem,
   type StaffMember,
@@ -42,16 +45,26 @@ export default function AdminInternsPage() {
   const [reassignSource, setReassignSource] = useState<InternProgressItem | null>(null);
   const [reassignTargets, setReassignTargets] = useState<Set<string>>(new Set());
 
+  // Pay rate + CSV export filters.
+  const [payRate, setPayRate] = useState<number | null>(null);
+  const [payRateInput, setPayRateInput] = useState('');
+  const [exportFrom, setExportFrom] = useState('');
+  const [exportTo, setExportTo] = useState('');
+  const [exportInternId, setExportInternId] = useState('');
+
   const loadAll = () =>
     Promise.all([
       adminGetInternProgress(),
       adminListStaff(),
       adminListSubmissions({ status: 'PENDING_REVIEW' }),
+      adminGetInternPayRate(),
     ])
-      .then(([p, s, q]) => {
+      .then(([p, s, q, r]) => {
         setProgress(p.items);
         setStaff(s.items);
         setSubmissions(q.items);
+        setPayRate(r.rate);
+        setPayRateInput(String(r.rate));
       })
       .catch((e) => toast(e instanceof Error ? e.message : 'Failed to load', 'error'));
 
@@ -136,6 +149,43 @@ export default function AdminInternsPage() {
     }
   };
 
+  const handleSavePayRate = async () => {
+    const next = Number(payRateInput);
+    if (!Number.isFinite(next) || next < 0) {
+      toast('Pay rate must be a non-negative number', 'error');
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await adminSetInternPayRate(next);
+      setPayRate(r.rate);
+      setPayRateInput(String(r.rate));
+      toast(`Pay rate set to ₦${r.rate.toLocaleString('en-NG')} per approved product`);
+    } catch (e) {
+      toast(e instanceof HttpApiError ? e.message : 'Failed to save', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    setBusy(true);
+    try {
+      await adminDownloadInternCsv({
+        from: exportFrom ? new Date(exportFrom).toISOString() : undefined,
+        // To-date inclusive — bump to end-of-day so a same-day approval
+        // is captured.
+        to: exportTo ? new Date(exportTo + 'T23:59:59Z').toISOString() : undefined,
+        internId: exportInternId || undefined,
+      });
+      toast('CSV downloaded');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Export failed', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleReject = async () => {
     if (!pendingReject || !rejectReason.trim()) return;
     setBusy(true);
@@ -161,6 +211,106 @@ export default function AdminInternsPage() {
         title="Intern queue"
         subtitle="Assign image-update work, watch progress, approve submissions."
       />
+
+      {/* Pay rate + CSV export */}
+      <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-card border border-border bg-white p-5">
+          <p className="mb-2 flex items-center gap-2 font-raleway text-[11px] font-bold uppercase tracking-btn text-amber">
+            <Coins size={14} aria-hidden /> Pay rate per approved product
+          </p>
+          <p className="mb-3 font-sans text-sm text-muted">
+            New submissions snapshot this rate at submit time, so changing it later
+            doesn&apos;t shift what&apos;s already owed.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
+                Rate (NGN)
+              </span>
+              <input
+                type="number"
+                min={0}
+                step={50}
+                value={payRateInput}
+                onChange={(e) => setPayRateInput(e.target.value)}
+                className="w-40 rounded-input border border-border bg-white px-3 py-2 font-sans text-sm focus:border-navy focus:outline-none"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={handleSavePayRate}
+              disabled={busy || payRateInput === String(payRate ?? '')}
+              className="rounded-btn bg-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy disabled:opacity-50"
+            >
+              Save rate
+            </button>
+            {payRate !== null && (
+              <span className="font-sans text-xs text-muted">
+                Current: ₦{payRate.toLocaleString('en-NG')}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-card border border-border bg-white p-5">
+          <p className="mb-2 flex items-center gap-2 font-raleway text-[11px] font-bold uppercase tracking-btn text-amber">
+            <Download size={14} aria-hidden /> Payroll CSV export
+          </p>
+          <p className="mb-3 font-sans text-sm text-muted">
+            One row per approved submission within the date window. Includes a
+            per-intern totals header for finance.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
+                From
+              </span>
+              <input
+                type="date"
+                value={exportFrom}
+                onChange={(e) => setExportFrom(e.target.value)}
+                className="rounded-input border border-border bg-white px-3 py-2 font-sans text-sm focus:border-navy focus:outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
+                To
+              </span>
+              <input
+                type="date"
+                value={exportTo}
+                onChange={(e) => setExportTo(e.target.value)}
+                className="rounded-input border border-border bg-white px-3 py-2 font-sans text-sm focus:border-navy focus:outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
+                Intern (optional)
+              </span>
+              <select
+                value={exportInternId}
+                onChange={(e) => setExportInternId(e.target.value)}
+                className="rounded-input border border-border bg-white px-3 py-2 font-sans text-sm focus:border-navy focus:outline-none"
+              >
+                <option value="">All interns</option>
+                {(progress ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name ?? p.email}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={busy}
+              className="flex items-center gap-2 rounded-btn bg-amber px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-white disabled:opacity-50"
+            >
+              <Download size={14} aria-hidden /> Download CSV
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* Bulk assign panel */}
       <section className="mb-8 rounded-card border border-border bg-white p-5">

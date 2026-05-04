@@ -1629,3 +1629,53 @@ export function internSubmitImages(
     body: JSON.stringify(body),
   });
 }
+
+export function adminGetInternPayRate(): Promise<{ rate: number }> {
+  return apiFetchAuthed('/api/admin/intern/pay-rate');
+}
+
+export function adminSetInternPayRate(rate: number): Promise<{ rate: number }> {
+  return apiFetchAuthed('/api/admin/intern/pay-rate', {
+    method: 'PUT',
+    body: JSON.stringify({ rate }),
+  });
+}
+
+/// Triggers a browser download of the payroll CSV. Sends the Bearer
+/// token via authed fetch (a plain <a href> can't), buffers the body
+/// into a Blob, then synthesises a click on a hidden anchor.
+export async function adminDownloadInternCsv(filters: {
+  from?: string;
+  to?: string;
+  internId?: string;
+}): Promise<void> {
+  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  const sp = new URLSearchParams();
+  if (filters.from) sp.set('from', filters.from);
+  if (filters.to) sp.set('to', filters.to);
+  if (filters.internId) sp.set('internId', filters.internId);
+  const qs = sp.toString();
+  const url = `${base}/api/admin/intern/export.csv${qs ? `?${qs}` : ''}`;
+
+  // Pull the access token via the auth store; avoids a circular
+  // import by reading it lazily.
+  const { useAuthStore } = await import('@/stores/authStore');
+  const token = useAuthStore.getState().accessToken;
+  if (!token) throw new Error('Not signed in');
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Export failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = `intern-payroll-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
