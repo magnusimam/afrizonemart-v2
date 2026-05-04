@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Local gate before code leaves the laptop. Mirrors the GitHub
+# Actions CI checks so anything that would fail on the PR fails here
+# first. Takes ~30s; the price of safety after the page-builder mess.
+#
+# Skip with: `git push --no-verify` — only when you genuinely know what
+# you're doing (e.g. pushing a branch that's known-WIP for review).
+
+set -e
+
+echo "→ TypeScript"
+npx tsc --noEmit
+
+echo "→ Next.js lint"
+npx next lint
+
+echo "✓ Pre-push checks passed"
