@@ -3,9 +3,10 @@ import { notFound } from 'next/navigation';
 import { ChevronRight, Globe2, Home as HomeIcon } from 'lucide-react';
 import { FiltersSidebar } from '@/components/shop/FiltersSidebar';
 import { ShopToolbar } from '@/components/shop/ShopToolbar';
-import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
+import { ApiProductCard } from '@/components/product/ApiProductCard';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { Flag } from '@/components/common/Flag';
+import { fetchProducts } from '@/lib/api/products';
 import {
   COUNTRIES,
   COUNTRY_CODES,
@@ -35,31 +36,16 @@ const COUNTRY_HIGHLIGHTS: Partial<Record<CountryCode, string>> = {
   ML: 'Mudcloth (bogolan), Tuareg silver, and Saharan textiles.',
 };
 
-const COUNTRY_PRODUCTS = (count: number, origin: CountryCode) =>
-  Array.from({ length: count }, (_, i) => ({
-    id: `country-${origin}-${i + 1}`,
-    name: SAMPLE_NAMES[i % SAMPLE_NAMES.length],
-    price: 1200 + i * 1100,
-    comparePrice: i % 3 === 0 ? 2400 + i * 1300 : undefined,
-    discountPercent: i % 3 === 0 ? 15 + (i % 4) * 5 : undefined,
-    outOfStock: i % 13 === 0,
-    origin,
-  }));
-
-const SAMPLE_NAMES = [
-  'Premium Local Coffee 250g', 'Handwoven Tote Bag', 'Artisan Honey Jar',
-  'Cotton Print Dress', 'Hand-carved Wooden Bowl', 'Spiced Tea Pack',
-  'Beaded Bracelet Set', 'Leather Sandals', 'Hibiscus Drink 1L',
-  'Wax Print Headwrap', 'Nut Butter 200g', 'Hand Soap Bar',
-];
-
-export default function ShopByCountryPage({ params }: PageProps) {
+export default async function ShopByCountryPage({ params }: PageProps) {
   const country = getCountryBySlug(params.code);
   if (!country) notFound();
 
   const code = country.code as CountryCode;
   const highlight = COUNTRY_HIGHLIGHTS[code] ?? `Authentic products from ${country.name}.`;
-  const products = COUNTRY_PRODUCTS(16, code);
+  // Real products from the API — filtered by the ISO-2 origin column
+  // that the CSV importer + admin product form both write to.
+  const productsResponse = await fetchProducts({ origin: code, limit: 48 }).catch(() => null);
+  const products = productsResponse?.items ?? [];
   const otherCountries = COUNTRY_CODES.filter((c) => c !== code).slice(0, 8);
 
   return (
@@ -129,13 +115,25 @@ export default function ShopByCountryPage({ params }: PageProps) {
                 <ShopToolbar total={products.length} />
               </SafeBoundary>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
-                {products.map((p) => (
-                  <SafeBoundary key={p.id} name="country:card" fallback={null}>
-                    <ProductCardPlaceholder {...p} />
-                  </SafeBoundary>
-                ))}
-              </div>
+              {products.length === 0 ? (
+                <div className="rounded-card border border-border bg-white px-6 py-16 text-center">
+                  <p className="font-raleway text-lg font-bold text-navy">
+                    No products from {country.name} yet
+                  </p>
+                  <p className="mt-1 font-sans text-sm text-muted">
+                    Check back soon — we&apos;re constantly onboarding new makers
+                    from across the continent.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                  {products.map((p) => (
+                    <SafeBoundary key={p.id} name="country:card" fallback={null}>
+                      <ApiProductCard product={p} />
+                    </SafeBoundary>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
