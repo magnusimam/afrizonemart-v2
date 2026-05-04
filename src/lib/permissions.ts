@@ -8,6 +8,7 @@ export type Capability =
   // Catalog
   | 'products.read'
   | 'products.write'
+  | 'products.image-only'
   | 'categories.write'
   | 'reviews.moderate'
   | 'custom-fields.write'
@@ -45,6 +46,7 @@ export const CAPABILITY_LABELS: Record<Capability, { domain: string; label: stri
   // Catalog
   'products.read': { domain: 'Catalog', label: 'View products' },
   'products.write': { domain: 'Catalog', label: 'Create / edit / delete products' },
+  'products.image-only': { domain: 'Catalog', label: 'Upload product images (intern queue only)' },
   'categories.write': { domain: 'Catalog', label: 'Manage categories' },
   'reviews.moderate': { domain: 'Catalog', label: 'Moderate reviews' },
   'custom-fields.write': { domain: 'Catalog', label: 'Manage product custom fields' },

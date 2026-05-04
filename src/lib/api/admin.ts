@@ -1496,3 +1496,136 @@ export function adminUpdateContent(
     body: JSON.stringify({ entries }),
   });
 }
+
+// ----- Intern image-update workflow -----
+
+export interface InternProgressItem {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  assigned: number;
+  todo: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
+export function adminGetInternProgress(): Promise<{ items: InternProgressItem[] }> {
+  return apiFetchAuthed('/api/admin/intern/progress');
+}
+
+export interface AdminSubmissionItem {
+  id: string;
+  productId: string;
+  internId: string;
+  status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  frontImageUrl: string;
+  backImageUrl: string;
+  sideImageUrl: string;
+  additionalImages: string[];
+  rejectionReason: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  payRate: number;
+  createdAt: string;
+  updatedAt: string;
+  product: { id: string; slug: string; name: string; brand: string | null; images: string[] };
+  intern: { id: string; name: string | null; email: string };
+}
+
+export function adminListSubmissions(params: {
+  status?: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'ALL';
+  internId?: string;
+}): Promise<{ items: AdminSubmissionItem[] }> {
+  const sp = new URLSearchParams();
+  if (params.status) sp.set('status', params.status);
+  if (params.internId) sp.set('internId', params.internId);
+  const qs = sp.toString();
+  return apiFetchAuthed(`/api/admin/intern/submissions${qs ? `?${qs}` : ''}`);
+}
+
+export function adminReviewSubmission(
+  submissionId: string,
+  body: { action: 'approve' } | { action: 'reject'; reason: string },
+): Promise<AdminSubmissionItem> {
+  return apiFetchAuthed(`/api/admin/intern/submissions/${submissionId}/review`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminBulkAssignInterns(input: {
+  internIds: string[];
+  scope?: 'all-unimaged' | 'all-unassigned';
+  payRate?: number;
+}): Promise<{ assigned: number; perIntern: Record<string, number> }> {
+  return apiFetchAuthed('/api/admin/intern/bulk-assign', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminReassignProducts(input: {
+  productIds?: string[];
+  fromInternId?: string;
+  toInternIds: string[] | null;
+  mode?: 'unstarted' | 'all';
+}): Promise<{ moved: number; perIntern: Record<string, number>; returnedToPool: number }> {
+  return apiFetchAuthed('/api/admin/intern/reassign', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+// ----- Intern self endpoints -----
+
+export interface InternQueueItem {
+  id: string;
+  slug: string;
+  name: string;
+  brand: string | null;
+  category: { slug: string; name: string } | null;
+  currentImages: string[];
+  status: 'todo' | 'pending' | 'approved' | 'rejected';
+  latestSubmission: {
+    id: string;
+    status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+    frontImageUrl: string;
+    backImageUrl: string;
+    sideImageUrl: string;
+    additionalImages: string[];
+    rejectionReason: string | null;
+    reviewedAt: string | null;
+    createdAt: string;
+  } | null;
+}
+
+export function internGetMyQueue(): Promise<{
+  items: InternQueueItem[];
+  stats: { todo: number; pending: number; approved: number; rejected: number };
+}> {
+  return apiFetchAuthed('/api/intern/queue');
+}
+
+export function internClaimFromPool(count: number): Promise<{ claimed: number }> {
+  return apiFetchAuthed('/api/intern/claim', {
+    method: 'POST',
+    body: JSON.stringify({ count }),
+  });
+}
+
+export function internSubmitImages(
+  productId: string,
+  body: {
+    frontImageUrl: string;
+    backImageUrl: string;
+    sideImageUrl: string;
+    additionalImages?: string[];
+  },
+): Promise<{ id: string; status: string; createdAt: string }> {
+  return apiFetchAuthed(`/api/intern/products/${productId}/submit`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
