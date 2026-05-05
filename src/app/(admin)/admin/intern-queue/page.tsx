@@ -187,9 +187,14 @@ function ProductCard({
   setBusy: (v: boolean) => void;
 }) {
   const sub = item.latestSubmission;
+  const brandLabel = item.brand ?? item.name;
   const [front, setFront] = useState(sub?.frontImageUrl ?? '');
   const [back, setBack] = useState(sub?.backImageUrl ?? '');
   const [side, setSide] = useState(sub?.sideImageUrl ?? '');
+  const [brandImg, setBrandImg] = useState(sub?.brandImageUrl ?? '');
+  const [brandAlt, setBrandAlt] = useState(
+    sub?.brandImageAlt ?? `${brandLabel} — brand logo`,
+  );
   const [extras, setExtras] = useState<string[]>(sub?.additionalImages ?? []);
 
   // When a new product loads (after rejection edit), reset state to
@@ -199,11 +204,29 @@ function ProductCard({
     setFront(sub?.frontImageUrl ?? '');
     setBack(sub?.backImageUrl ?? '');
     setSide(sub?.sideImageUrl ?? '');
+    setBrandImg(sub?.brandImageUrl ?? '');
+    setBrandAlt(sub?.brandImageAlt ?? `${brandLabel} — brand logo`);
     setExtras(sub?.additionalImages ?? []);
-  }, [sub?.id, sub?.frontImageUrl, sub?.backImageUrl, sub?.sideImageUrl, sub?.additionalImages]);
+    // brandLabel is derived from item; refresh on item.id change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    sub?.id,
+    sub?.frontImageUrl,
+    sub?.backImageUrl,
+    sub?.sideImageUrl,
+    sub?.brandImageUrl,
+    sub?.brandImageAlt,
+    sub?.additionalImages,
+    item.id,
+  ]);
 
   const canSubmit =
-    item.status !== 'pending' && item.status !== 'approved' && front && back && side;
+    item.status !== 'pending' &&
+    item.status !== 'approved' &&
+    front &&
+    back &&
+    side &&
+    brandImg;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -213,6 +236,8 @@ function ProductCard({
         frontImageUrl: front,
         backImageUrl: back,
         sideImageUrl: side,
+        brandImageUrl: brandImg,
+        brandImageAlt: brandAlt.trim() || null,
         additionalImages: extras,
       });
       toast(`Submitted ${item.name} for review`);
@@ -268,10 +293,13 @@ function ProductCard({
             Submitted {sub ? new Date(sub.createdAt).toLocaleString() : ''}. Waiting on admin review — you&apos;ll see the result here.
           </p>
           {sub && (
-            <div className="mt-3 grid grid-cols-3 gap-3">
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <PreviewSlot label="Front" url={sub.frontImageUrl} />
               <PreviewSlot label="Back" url={sub.backImageUrl} />
               <PreviewSlot label="Side" url={sub.sideImageUrl} />
+              {sub.brandImageUrl && (
+                <PreviewSlot label="Brand" url={sub.brandImageUrl} />
+              )}
             </div>
           )}
         </div>
@@ -282,11 +310,41 @@ function ProductCard({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 lg:grid-cols-4">
           <UploadSlot label="Front" required value={front} onChange={setFront} />
           <UploadSlot label="Back" required value={back} onChange={setBack} />
           <UploadSlot label="Side" required value={side} onChange={setSide} />
-          <div className="md:col-span-3">
+          {/* Brand logo is structurally different (it's the company
+              mark, not a view of the product) but kept in the same
+              grid so the intern sees it as part of the same task. The
+              alt input is exposed because brand alts feed the
+              "About the brand" section copy. */}
+          <div className="flex flex-col gap-2">
+            <label className="flex flex-col gap-1.5">
+              <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-amber">
+                Brand logo *
+              </span>
+              <ImageUploader
+                value={brandImg}
+                onChange={(next) => setBrandImg(next ?? '')}
+                folder="products"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-raleway text-[9px] font-bold uppercase tracking-btn text-muted">
+                Alt text (SEO)
+              </span>
+              <input
+                type="text"
+                value={brandAlt}
+                onChange={(e) => setBrandAlt(e.target.value)}
+                placeholder={`${brandLabel} — brand logo`}
+                maxLength={200}
+                className="w-full rounded-input border border-border bg-white px-2 py-1.5 font-sans text-xs text-charcoal focus:border-navy focus:outline-none"
+              />
+            </label>
+          </div>
+          <div className="md:col-span-2 lg:col-span-4">
             <p className="mb-2 font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
               Optional extras
             </p>
@@ -311,7 +369,7 @@ function ProductCard({
               />
             </div>
           </div>
-          <div className="md:col-span-3 flex justify-end">
+          <div className="flex justify-end md:col-span-2 lg:col-span-4">
             <button
               type="button"
               onClick={handleSubmit}

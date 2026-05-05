@@ -1598,6 +1598,10 @@ export interface InternQueueItem {
     backImageUrl: string;
     sideImageUrl: string;
     additionalImages: string[];
+    /// Brand logo + alt; nullable for legacy submissions made before
+    /// the brand slot was added.
+    brandImageUrl: string | null;
+    brandImageAlt: string | null;
     rejectionReason: string | null;
     reviewedAt: string | null;
     createdAt: string;
@@ -1641,6 +1645,10 @@ export function internSubmitImages(
     frontImageUrl: string;
     backImageUrl: string;
     sideImageUrl: string;
+    /// Required by the API. UI nudges intern to fill it before they
+    /// can submit.
+    brandImageUrl: string;
+    brandImageAlt?: string | null;
     additionalImages?: string[];
   },
 ): Promise<{ id: string; status: string; createdAt: string }> {

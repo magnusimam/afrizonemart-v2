@@ -81,6 +81,10 @@ export interface ApiProduct {
   rating: number;
   reviewCount: number;
   images: string[];
+  /// Brand / company logo. Captured by the intern image-update flow.
+  /// Storefront's "About the brand" section uses it when present.
+  brandImageUrl?: string | null;
+  brandImageAlt?: string | null;
   attributes: ApiProductAttributes;
   categoryId: string | null;
   category: ApiCategory | null;
