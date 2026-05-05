@@ -77,12 +77,13 @@ You now have: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_B
    R2_BUCKET=afrizonemart-uploads
    R2_PUBLIC_URL_BASE=https://images.afrizonemart.com
 
-   # Squad — start with sandbox keys; swap to live when you're ready
-   SQUAD_SECRET_KEY=sandbox_sk_8357b716050653e0487aba6286641f8b944c009d34c0
+   # Squad — start with sandbox keys; swap to live when you're ready.
+   # Get the value from Squad dashboard or Vercel/Railway env vars.
+   SQUAD_SECRET_KEY=<sandbox_sk_...>
    SQUAD_ENVIRONMENT=sandbox
 
-   # Resend
-   RESEND_API_KEY=re_bFG1LiPL_NbuKYQWyUpjD5WR6KugBMRag
+   # Resend — get from https://resend.com/api-keys or Vercel env vars.
+   RESEND_API_KEY=<re_...>
    EMAIL_FROM=Afrizonemart <no-reply@afrizonemart.com>
    EMAIL_REPLY_TO=support@afrizonemart.com
    ```
