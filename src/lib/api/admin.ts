@@ -514,6 +514,13 @@ export function adminDeleteStaff(id: string): Promise<void> {
   return apiFetchAuthed<void>(`/api/admin/staff/${id}`, { method: 'DELETE' });
 }
 
+export function adminResendStaffInvite(id: string): Promise<{ ok: true }> {
+  return apiFetchAuthed<{ ok: true }>(`/api/admin/staff/${id}/resend-invite`, {
+    method: 'POST',
+    body: '{}',
+  });
+}
+
 export function adminGetPermissions(): Promise<PermissionsMatrix> {
   return apiFetchAuthed<PermissionsMatrix>('/api/admin/staff/permissions');
 }
