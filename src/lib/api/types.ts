@@ -81,6 +81,11 @@ export interface ApiProduct {
   rating: number;
   reviewCount: number;
   images: string[];
+  /// Parallel array of alt text — imageAlts[i] describes images[i].
+  /// Empty strings are normal (no alt set). Storefront uses intern-
+  /// curated alt when present and falls back to an auto-generated
+  /// SEO-rich string otherwise.
+  imageAlts?: string[];
   attributes: ApiProductAttributes;
   categoryId: string | null;
   category: ApiCategory | null;
