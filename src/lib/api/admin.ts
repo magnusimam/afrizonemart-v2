@@ -1608,6 +1608,23 @@ export function internGetMyQueue(): Promise<{
   return apiFetchAuthed('/api/intern/queue');
 }
 
+export function internGetMyStats(): Promise<{
+  stats: {
+    todo: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    assigned: number;
+  };
+  earnings: {
+    currentRateNgn: number;
+    earnedNgn: number;
+    pendingNgn: number;
+  };
+}> {
+  return apiFetchAuthed('/api/intern/me');
+}
+
 export function internClaimFromPool(count: number): Promise<{ claimed: number }> {
   return apiFetchAuthed('/api/intern/claim', {
     method: 'POST',
