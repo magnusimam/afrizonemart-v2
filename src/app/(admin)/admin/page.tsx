@@ -51,7 +51,7 @@ export default function AdminDashboardPage() {
 // =================================================================
 function AdminDashboard({ firstName }: { firstName: string }) {
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
@@ -101,7 +101,7 @@ function InternDashboard({
   const eyebrow = jobTitle ? `${jobTitle} · Dashboard` : 'Image team · Dashboard';
 
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
@@ -216,7 +216,7 @@ function StaffDashboard({
   const eyebrow = jobTitle ? `${jobTitle} · Dashboard` : 'Staff · Dashboard';
 
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">

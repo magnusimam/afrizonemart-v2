@@ -9,7 +9,7 @@ import { BlogPostForm } from '@/components/admin/BlogPostForm';
 export default function NewBlogPostPage() {
   const router = useRouter();
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <Link
         href="/admin/blog"
         className="mb-3 inline-flex items-center gap-1 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted hover:text-navy"

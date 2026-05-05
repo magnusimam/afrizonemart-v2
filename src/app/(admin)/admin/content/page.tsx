@@ -115,7 +115,7 @@ export default function AdminContentPage() {
   };
 
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <AdminPageHeader
         title="Site content"
         subtitle="Edit text + images shown on the storefront. Defaults stay in code; everything you set here overrides them."

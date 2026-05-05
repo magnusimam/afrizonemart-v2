@@ -284,7 +284,7 @@ export default function AdminProductsPage() {
   ];
 
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <AdminPageHeader
         title="Products"
         subtitle={data ? `${data.pagination.total.toLocaleString()} total` : 'Loading…'}
@@ -308,7 +308,7 @@ export default function AdminProductsPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative w-full sm:flex-1 sm:min-w-[220px]">
           <Search
             size={14}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"

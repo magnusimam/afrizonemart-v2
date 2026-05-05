@@ -187,14 +187,14 @@ export default function EditEmailTemplatePage() {
 
   if (!template) {
     return (
-      <div className="px-8 py-10">
+      <div className="px-4 py-6 md:px-8 md:py-10">
         <p className="font-sans text-sm text-muted">Loading template…</p>
       </div>
     );
   }
 
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <AdminPageHeader
         title={`Edit: ${template.name}`}
         subtitle={template.type}

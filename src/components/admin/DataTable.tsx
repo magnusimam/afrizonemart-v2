@@ -38,13 +38,13 @@ export function DataTable<T>({
   return (
     <div className="overflow-hidden rounded-card border border-border bg-white shadow-card">
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left font-sans text-sm">
+        <table className="min-w-full border-collapse text-left font-sans text-sm">
           <thead>
             <tr className="border-b border-border bg-page">
               {columns.map((c) => (
                 <th
                   key={c.key}
-                  className={`px-4 py-3 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted ${c.className ?? ''}`}
+                  className={`whitespace-nowrap px-4 py-3 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted ${c.className ?? ''}`}
                 >
                   {c.header}
                 </th>

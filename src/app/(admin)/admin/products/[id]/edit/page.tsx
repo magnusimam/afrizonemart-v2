@@ -75,7 +75,7 @@ export default function EditProductPage({ params }: PageProps) {
   };
 
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <Link
         href="/admin/products"
         className="mb-3 inline-flex items-center gap-1 font-raleway text-xs font-semibold uppercase tracking-btn text-muted hover:text-navy"
