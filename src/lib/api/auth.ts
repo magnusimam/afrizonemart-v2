@@ -89,6 +89,25 @@ export function registerUser(body: RegisterInput): Promise<AuthResult> {
   });
 }
 
+export interface SupplierRegisterInput {
+  email: string;
+  password: string;
+  name: string;
+  companyName: string;
+  contactPhone?: string;
+  country?: string;
+}
+
+/// Public sign-up for the supplier portal. Creates a SUPPLIER user
+/// + Supplier row at currentStage=1 and returns the same auth result
+/// as customer register so the storefront can sign them in immediately.
+export function registerSupplier(body: SupplierRegisterInput): Promise<AuthResult> {
+  return authFetch<AuthResult>('/api/auth/supplier/register', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export function loginUser(body: LoginInput): Promise<AuthResult> {
   return authFetch<AuthResult>('/api/auth/login', {
     method: 'POST',

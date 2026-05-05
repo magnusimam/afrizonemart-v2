@@ -40,7 +40,7 @@ export type Capability =
   | 'uploads.write'
   | 'settings.write';
 
-export type StaffRole = 'CUSTOMER' | 'SELLER' | 'ADMIN' | 'STAFF';
+export type StaffRole = 'CUSTOMER' | 'SELLER' | 'ADMIN' | 'STAFF' | 'SUPPLIER';
 
 export const CAPABILITY_LABELS: Record<Capability, { domain: string; label: string }> = {
   // Catalog
@@ -89,6 +89,8 @@ export const ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
     'Full platform access. Can manage everything — products, orders, customers, refunds, other staff. Use sparingly.',
   STAFF:
     'Per-user-permissions account. Each staff member only sees the admin sections you grant them. Used for interns, contractors, and scoped employees.',
+  SUPPLIER:
+    'Vendor going through the 10-stage supplier onboarding pipeline. Sees the Supplier Portal — not the admin console.',
 };
 
 /**
