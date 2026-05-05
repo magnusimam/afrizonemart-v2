@@ -31,9 +31,9 @@ export default function AdminLoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Already signed in as admin → go straight to the console.
+  // Already signed in as admin/staff → go straight to the console.
   useEffect(() => {
-    if (user && accessToken && user.role === 'ADMIN') {
+    if (user && accessToken && (user.role === 'ADMIN' || user.role === 'STAFF')) {
       const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
       router.replace(returnUrl && returnUrl.startsWith('/admin') ? returnUrl : '/admin');
     }
@@ -46,13 +46,9 @@ export default function AdminLoginPage() {
     try {
       const result: AuthResult = await loginUser({ email, password });
 
-      if (result.user.role !== 'ADMIN') {
-        // Throwing away the session that was just minted is intentional —
-        // a customer who lands here shouldn't end up half-authed with
-        // tokens lying around the store. They can sign in normally at
-        // /login.
+      if (result.user.role !== 'ADMIN' && result.user.role !== 'STAFF') {
         clearSession();
-        setError('This account is not an admin. Use the customer sign-in at /login.');
+        setError('This account is not a staff account. Use the customer sign-in at /login.');
         return;
       }
 
