@@ -452,6 +452,7 @@ export interface StaffMember {
   email: string;
   name: string | null;
   role: StaffRole;
+  jobTitle: string | null;
   /// Per-user permissions (only meaningful when role=STAFF).
   permissions: string[];
   /// Effective capabilities the user has right now (role-default ∪ per-user
@@ -482,6 +483,7 @@ export function adminGetStaff(id: string): Promise<StaffMember> {
 export function adminCreateStaff(input: {
   email: string;
   name?: string;
+  jobTitle?: string;
   role: StaffCreatableRole;
   password: string;
   permissions?: Capability[];
@@ -497,6 +499,7 @@ export function adminUpdateStaff(
   input: {
     name?: string;
     role?: StaffCreatableRole;
+    jobTitle?: string | null;
     permissions?: Capability[];
     password?: string;
   },

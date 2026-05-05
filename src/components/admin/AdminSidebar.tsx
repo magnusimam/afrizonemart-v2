@@ -115,17 +115,19 @@ export function AdminSidebar() {
         </Link>
       </div>
 
-      {/* Greeting strip — surfaces who's logged in + their role pill. */}
+      {/* Greeting strip — surfaces who's logged in + their title/role. */}
       <div className="mx-3 mb-4 rounded-md border border-white/10 bg-white/5 px-3 py-2">
         <p className="font-raleway text-[11px] font-semibold uppercase tracking-btn text-amber">
           Hi, {greeting}
         </p>
         <p className="mt-0.5 font-sans text-xs text-white/70">
-          {user?.role === 'STAFF'
-            ? `${visibleNav.length} section${visibleNav.length === 1 ? '' : 's'} available to you`
-            : user?.role === 'ADMIN'
-              ? 'Full admin access'
-              : user?.email}
+          {user?.jobTitle
+            ? user.jobTitle
+            : user?.role === 'STAFF'
+              ? `${visibleNav.length} section${visibleNav.length === 1 ? '' : 's'} available to you`
+              : user?.role === 'ADMIN'
+                ? 'Full admin access'
+                : user?.email}
         </p>
       </div>
 

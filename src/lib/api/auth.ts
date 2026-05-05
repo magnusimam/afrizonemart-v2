@@ -7,6 +7,9 @@ export interface AuthUser {
   email: string;
   name: string | null;
   role: string;
+  /// Free-form job title for staff. Cosmetic — used in the dashboard
+  /// greeting and admin staff list. Permissions still drive access.
+  jobTitle: string | null;
   /// Effective capabilities — sidebar filter + per-section gate use this.
   /// ADMIN gets every capability. STAFF gets per-user grants. SELLER gets
   /// role defaults. CUSTOMER gets none.

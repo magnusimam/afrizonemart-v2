@@ -28,6 +28,7 @@ export default function AdminDashboardPage() {
   const role = (user?.role ?? 'CUSTOMER') as StaffRole;
   const caps = effectiveCapabilities(role, user?.permissions);
   const firstName = user?.name?.split(' ')[0] ?? (role === 'ADMIN' ? 'Admin' : 'there');
+  const jobTitle = user?.jobTitle ?? null;
 
   // Routing logic — interns are STAFF with the products.image-only
   // capability, possibly without much else. Show them the earnings
@@ -40,9 +41,9 @@ export default function AdminDashboardPage() {
     return <AdminDashboard firstName={firstName} />;
   }
   if (isImageIntern) {
-    return <InternDashboard firstName={firstName} />;
+    return <InternDashboard firstName={firstName} jobTitle={jobTitle} />;
   }
-  return <StaffDashboard firstName={firstName} caps={caps} />;
+  return <StaffDashboard firstName={firstName} jobTitle={jobTitle} caps={caps} />;
 }
 
 // =================================================================
@@ -79,7 +80,13 @@ function AdminDashboard({ firstName }: { firstName: string }) {
 // =================================================================
 // INTERN dashboard — own progress + earnings
 // =================================================================
-function InternDashboard({ firstName }: { firstName: string }) {
+function InternDashboard({
+  firstName,
+  jobTitle,
+}: {
+  firstName: string;
+  jobTitle: string | null;
+}) {
   const [data, setData] = useState<Awaited<ReturnType<typeof internGetMyStats>> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,12 +96,16 @@ function InternDashboard({ firstName }: { firstName: string }) {
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load your stats'));
   }, []);
 
+  // Eyebrow line falls back to "Image team · Dashboard" when no
+  // explicit title is set, otherwise shows the admin-set title.
+  const eyebrow = jobTitle ? `${jobTitle} · Dashboard` : 'Image team · Dashboard';
+
   return (
     <div className="px-8 py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
-            Image team · Dashboard
+            {eyebrow}
           </p>
           <h1 className="font-raleway text-3xl font-bold text-navy">
             Hi, {firstName}
@@ -194,19 +205,22 @@ const STAFF_LINKS: Array<{ cap: Capability; href: string; label: string; descrip
 
 function StaffDashboard({
   firstName,
+  jobTitle,
   caps,
 }: {
   firstName: string;
+  jobTitle: string | null;
   caps: Set<Capability>;
 }) {
   const visibleLinks = STAFF_LINKS.filter((l) => caps.has(l.cap));
+  const eyebrow = jobTitle ? `${jobTitle} · Dashboard` : 'Staff · Dashboard';
 
   return (
     <div className="px-8 py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
-            Staff · Dashboard
+            {eyebrow}
           </p>
           <h1 className="font-raleway text-3xl font-bold text-navy">
             Hi, {firstName}

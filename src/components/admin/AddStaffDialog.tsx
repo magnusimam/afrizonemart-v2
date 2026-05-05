@@ -21,6 +21,7 @@ interface Props {
 export function AddStaffDialog({ open, onClose, onCreated }: Props) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
   const [role, setRole] = useState<StaffCreatableRole>('STAFF');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -43,6 +44,7 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
   const reset = () => {
     setEmail('');
     setName('');
+    setJobTitle('');
     setRole('STAFF');
     setPassword('');
     setShowPwd(false);
@@ -91,6 +93,7 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
       const created = await adminCreateStaff({
         email: email.trim(),
         name: name.trim() || undefined,
+        jobTitle: jobTitle.trim() || undefined,
         role,
         password,
         permissions: role === 'STAFF' ? Array.from(permissions) : undefined,
@@ -180,6 +183,36 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
               </select>
               <p className="mt-1 font-sans text-[11px] leading-snug text-muted">
                 {ROLE_DESCRIPTIONS[role]}
+              </p>
+            </Field>
+            <Field label="Job title">
+              <input
+                type="text"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                autoComplete="off"
+                placeholder="e.g. Intern, Customer Support Lead"
+                maxLength={80}
+                className={inputClass}
+              />
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {JOB_TITLE_SUGGESTIONS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setJobTitle(t)}
+                    className={`rounded-full border px-2 py-0.5 font-sans text-[10px] transition ${
+                      jobTitle === t
+                        ? 'border-navy bg-navy text-white'
+                        : 'border-border bg-white text-charcoal hover:border-navy hover:text-navy'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 font-sans text-[11px] leading-snug text-muted">
+                Cosmetic. Shown in the staff list and on their dashboard. Doesn&apos;t change permissions.
               </p>
             </Field>
             <Field label="Initial password" required>
@@ -301,6 +334,15 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
 
 const inputClass =
   'w-full rounded-input border border-border bg-white px-3 py-2 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none';
+
+const JOB_TITLE_SUGGESTIONS = [
+  'Intern',
+  'Catalog Operations',
+  'Customer Support',
+  'Content Editor',
+  'Operations Manager',
+  'Marketing',
+];
 
 function Field({
   label,
