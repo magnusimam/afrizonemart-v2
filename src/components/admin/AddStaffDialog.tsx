@@ -119,15 +119,15 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/40 px-4 py-6"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-charcoal/40 sm:items-center sm:px-4 sm:py-6"
       onClick={close}
     >
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
-        className="flex max-h-full w-full max-w-2xl flex-col rounded-card bg-white shadow-card-hover"
+        className="flex max-h-full w-full flex-col bg-white shadow-card-hover sm:max-w-2xl sm:rounded-card"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
+        <header className="flex items-start justify-between gap-4 border-b border-border px-4 py-3 sm:px-6 sm:py-4">
           <div>
             <h2 className="font-raleway text-lg font-bold text-navy">Add staff member</h2>
             <p className="mt-1 font-sans text-xs text-muted">
@@ -147,7 +147,7 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
           </button>
         </header>
 
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Name" required>
               <input
@@ -310,7 +310,7 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
           )}
         </div>
 
-        <footer className="flex justify-end gap-2 border-t border-border bg-page px-6 py-3">
+        <footer className="flex justify-end gap-2 border-t border-border bg-page px-4 py-3 sm:px-6">
           <button
             type="button"
             onClick={close}

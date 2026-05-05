@@ -206,7 +206,7 @@ export default function AdminInternsPage() {
   };
 
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <AdminPageHeader
         title="Intern queue"
         subtitle="Assign image-update work, watch progress, approve submissions."

@@ -108,7 +108,7 @@ export default function AdminEmailTemplatesPage() {
   ];
 
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <AdminPageHeader
         title="Email templates"
         subtitle="Edit subject + body of every transactional email. Inactive templates fall back to the hardcoded version shipped with the platform."

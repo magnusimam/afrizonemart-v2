@@ -140,7 +140,7 @@ export default function AdminBusinessRulesPage() {
   ];
 
   return (
-    <div className="px-8 py-10">
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <AdminPageHeader
         title="Business rules"
         subtitle="Author conditional logic without code. Each rule is matched against a context (cart, order…) and produces actions the host module honours."
