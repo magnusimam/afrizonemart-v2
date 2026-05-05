@@ -67,6 +67,15 @@ export default function AdminStaffPage() {
       ),
     },
     {
+      key: 'title',
+      header: 'Title',
+      render: (s) => (
+        <span className="font-sans text-xs text-charcoal">
+          {s.jobTitle ?? <span className="text-muted">—</span>}
+        </span>
+      ),
+    },
+    {
       key: 'joined',
       header: 'Added',
       render: (s) => (
