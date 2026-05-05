@@ -27,6 +27,7 @@ import {
   Tags,
   Truck,
   Users,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { logoutUser } from '@/lib/api/auth';
@@ -71,7 +72,13 @@ const NAV: NavItem[] = [
   { href: '/admin/settings', label: 'Settings', icon: Settings, cap: 'settings.write' },
 ];
 
-export function AdminSidebar() {
+interface AdminSidebarProps {
+  /// Whether the drawer is open on mobile. Ignored on md+ (always visible).
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -103,9 +110,38 @@ export function AdminSidebar() {
   const greeting = user?.name?.split(' ')[0] ?? 'there';
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col gap-1 border-r border-white/10 bg-navy py-6 text-white">
+    <>
+      {/* Mobile-only backdrop. Tappable to close. Pointer-events go off
+          when drawer is closed so it doesn't trap clicks on the page. */}
+      <div
+        aria-hidden
+        onClick={onMobileClose}
+        className={`fixed inset-0 z-30 bg-charcoal/60 transition-opacity md:hidden ${
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col gap-1 overflow-y-auto border-r border-white/10 bg-navy py-6 text-white transition-transform duration-200 md:static md:w-60 md:max-w-none md:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+      {/* Close button only shows on mobile while drawer is open. */}
+      <button
+        type="button"
+        onClick={onMobileClose}
+        aria-label="Close menu"
+        className="absolute right-2 top-2 rounded-md p-2 text-white/70 hover:bg-white/10 md:hidden"
+      >
+        <X size={18} aria-hidden />
+      </button>
+
       <div className="px-5 pb-4">
-        <Link href="/admin" className="flex flex-col gap-0.5">
+        <Link
+          href="/admin"
+          onClick={onMobileClose}
+          className="flex flex-col gap-0.5"
+        >
           <span className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
             Afrizonemart
           </span>
@@ -155,6 +191,7 @@ export function AdminSidebar() {
             <Link
               key={href}
               href={href}
+              onClick={onMobileClose}
               className={`flex items-center gap-3 rounded-md px-3 py-2 font-sans text-sm transition-colors ${
                 active
                   ? 'bg-amber font-semibold text-navy'
@@ -171,6 +208,7 @@ export function AdminSidebar() {
       <div className="mt-auto flex flex-col gap-2 px-3 pt-4">
         <Link
           href="/"
+          onClick={onMobileClose}
           className="flex items-center gap-2 rounded-md px-3 py-2 font-sans text-xs text-white/60 hover:bg-white/10 hover:text-white"
         >
           ← Back to storefront
@@ -194,5 +232,6 @@ export function AdminSidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }
