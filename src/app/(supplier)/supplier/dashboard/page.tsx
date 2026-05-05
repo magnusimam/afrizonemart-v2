@@ -4,11 +4,11 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowRight, Package } from 'lucide-react';
 import { SupplierStageProgressBar } from '@/components/supplier/SupplierStageProgressBar';
+import { PIQ_STAGE_NUMBER, SUPPLIER_STAGES } from '@/components/supplier/stages';
 import { supplierGetMe, type SupplierMe } from '@/lib/api/supplier';
 
-/// Supplier dashboard. The single page they land on after sign-in.
-/// Surfaces: where they are in the 10-stage pipeline + the next thing
-/// they need to do for that stage.
+/// Supplier dashboard. Surfaces: where they are in the 9-stage
+/// pipeline + the next thing they need to do for that stage.
 export default function SupplierDashboardPage() {
   const [me, setMe] = useState<SupplierMe | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +21,8 @@ export default function SupplierDashboardPage() {
 
   const currentStage = me?.currentStage ?? 1;
   const companyOrName = me?.companyName?.trim() || me?.name?.trim() || 'there';
+  const stageDef = SUPPLIER_STAGES.find((s) => s.number === currentStage);
+  const isAtPIQ = currentStage === PIQ_STAGE_NUMBER;
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-10">
@@ -48,26 +50,50 @@ export default function SupplierDashboardPage() {
         <SupplierStageProgressBar currentStage={currentStage} />
       </section>
 
-      {/* Next-step card — points to whatever the current stage needs */}
+      {/* Next-step card — copy depends on which stage they're at. PIQ is
+          the only stage with a built UI today; all other stages get a
+          placeholder pointing at the AZM Sourcing Unit until those flows
+          land. */}
       <section className="mb-6 rounded-card border border-amber/40 bg-amber/10 p-5 shadow-card">
         <p className="font-raleway text-[11px] font-bold uppercase tracking-btn text-amber">
-          Stage {currentStage} · Up next
+          Stage {currentStage} · {stageDef?.long ?? 'Up next'}
         </p>
-        <h2 className="mt-1 font-raleway text-lg font-bold text-navy">
-          Complete a Product Information Questionnaire (PIQ) for each product
-        </h2>
-        <p className="mt-1 font-sans text-sm text-charcoal">
-          Each product you want us to buy needs its own PIQ — pricing, MOQ,
-          lead time, regulatory docs. Submit at least one and our Merchandise
-          Sourcing Unit will review. Once approved, you advance to the next
-          stage.
-        </p>
-        <Link
-          href="/supplier/piqs"
-          className="mt-3 inline-flex items-center gap-2 rounded-btn bg-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
-        >
-          Start a new PIQ <ArrowRight size={14} aria-hidden />
-        </Link>
+        {isAtPIQ ? (
+          <>
+            <h2 className="mt-1 font-raleway text-lg font-bold text-navy">
+              Complete a Product Information Questionnaire (PIQ) for each product
+            </h2>
+            <p className="mt-1 font-sans text-sm text-charcoal">
+              Each product you want us to buy needs its own PIQ — pricing, MOQ,
+              lead time, regulatory docs. Submit at least one and our
+              Merchandise Sourcing Unit will review. Once approved, you advance
+              to the next stage.
+            </p>
+            <Link
+              href="/supplier/piqs"
+              className="mt-3 inline-flex items-center gap-2 rounded-btn bg-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
+            >
+              Start a new PIQ <ArrowRight size={14} aria-hidden />
+            </Link>
+          </>
+        ) : (
+          <>
+            <h2 className="mt-1 font-raleway text-lg font-bold text-navy">
+              {stageDef?.long ?? 'Continue your application'}
+            </h2>
+            <p className="mt-1 font-sans text-sm text-charcoal">
+              Our Merchandise Sourcing Unit will reach out by email with the
+              next steps for this stage. You can always email{' '}
+              <a
+                href="mailto:suppliers@afrizonemart.com"
+                className="font-bold text-navy underline hover:text-amber"
+              >
+                suppliers@afrizonemart.com
+              </a>{' '}
+              with questions in the meantime.
+            </p>
+          </>
+        )}
       </section>
 
       {/* At-a-glance tiles */}

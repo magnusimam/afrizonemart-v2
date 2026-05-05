@@ -149,7 +149,7 @@ export default function SupplierLandingPage() {
             How onboarding works
           </h2>
           <p className="mx-auto mt-2 max-w-2xl text-center font-sans text-sm text-muted md:text-base">
-            From first contact to your first purchase order — a clear 10-stage
+            From first interest to your first purchase order — a clear 9-stage
             journey our team walks you through.
           </p>
           <ol className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
