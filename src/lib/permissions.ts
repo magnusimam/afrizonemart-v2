@@ -105,7 +105,12 @@ export function effectiveCapabilities(
     const grants = (userPermissions ?? []).filter((p): p is Capability =>
       Object.prototype.hasOwnProperty.call(CAPABILITY_LABELS, p),
     );
-    return new Set(grants);
+    const set = new Set<Capability>(grants);
+    // Implicit grant — anyone with products.image-only needs uploads
+    // to fulfil that role. Mirrors the API resolver so the sidebar's
+    // optimistic gate matches what the server enforces.
+    if (set.has('products.image-only')) set.add('uploads.write');
+    return set;
   }
   if (role === 'SELLER') {
     return new Set<Capability>([
