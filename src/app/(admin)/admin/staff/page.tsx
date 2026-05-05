@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { ShieldCheck, UserPlus } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { AddStaffDialog } from '@/components/admin/AddStaffDialog';
+import { EditStaffDialog } from '@/components/admin/EditStaffDialog';
 import { Column, DataTable } from '@/components/admin/DataTable';
 import { PermissionsMatrix } from '@/components/admin/PermissionsMatrix';
 import { toast } from '@/components/admin/Toast';
@@ -19,6 +20,7 @@ export default function AdminStaffPage() {
   const [staff, setStaff] = useState<StaffMember[] | null>(null);
   const [matrix, setMatrix] = useState<Matrix | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<StaffMember | null>(null);
 
   const loadStaff = () =>
     adminListStaff()
@@ -87,12 +89,13 @@ export default function AdminStaffPage() {
       header: '',
       className: 'text-right',
       render: (s) => (
-        <Link
-          href={`/admin/customers/${s.id}`}
+        <button
+          type="button"
+          onClick={() => setEditing(s)}
           className="font-raleway text-[11px] font-bold uppercase tracking-btn text-navy hover:text-amber"
         >
-          Manage
-        </Link>
+          Edit
+        </button>
       ),
     },
   ];
@@ -164,6 +167,13 @@ export default function AdminStaffPage() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onCreated={() => void loadStaff()}
+      />
+
+      <EditStaffDialog
+        open={editing !== null}
+        member={editing}
+        onClose={() => setEditing(null)}
+        onChanged={() => void loadStaff()}
       />
     </div>
   );
