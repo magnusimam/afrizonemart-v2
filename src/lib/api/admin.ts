@@ -152,6 +152,31 @@ export function adminBulkUploadProducts(csv: string): Promise<BulkUploadResult> 
   });
 }
 
+// ----- Brands (per-brand logo management) -----
+
+export interface BrandSummary {
+  brand: string;
+  productCount: number;
+  brandImageUrl: string | null;
+  brandImageAlt: string | null;
+  productsWithLogo: number;
+}
+
+export function adminListBrands(): Promise<{ items: BrandSummary[] }> {
+  return apiFetchAuthed<{ items: BrandSummary[] }>('/api/admin/brands');
+}
+
+export function adminSetBrandLogo(input: {
+  brand: string;
+  brandImageUrl: string;
+  brandImageAlt?: string | null;
+}): Promise<{ affected: number }> {
+  return apiFetchAuthed<{ affected: number }>('/api/admin/brands/set-logo', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 // ----- Categories -----
 
 export interface AdminCategory extends ApiCategory {
