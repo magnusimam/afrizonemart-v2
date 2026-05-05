@@ -1,38 +1,24 @@
 name: CI
-
-# Runs on every PR targeting main + on pushes to main itself (the
-# second one keeps the badge accurate after merges). Mirrors the
-# pre-push hook locally so a green CI is the same gate you have on
-# your laptop.
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
-
 jobs:
   check:
-    name: Typecheck & lint
+    name: Typecheck and lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-
-      # Force devDependencies to install. The same Nixpacks
-      # `--omit=dev` pitfall that broke Railway would bite us in CI
-      # too — types/eslint live in devDeps.
       - name: Install dependencies
         run: npm ci
         env:
           NPM_CONFIG_PRODUCTION: 'false'
-
       - name: TypeScript
         run: npx tsc --noEmit
-
       - name: Next.js lint
         run: npx next lint
