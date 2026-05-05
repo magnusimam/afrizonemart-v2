@@ -62,6 +62,9 @@ export interface ProductDetail {
   aboutTitle: string;
   aboutBody: string;
   aboutImage: string;
+  /// Alt text for the about-brand image. Null when using the legacy
+  /// auto-fallback so the consumer can build something sensible.
+  aboutImageAlt: string | null;
   reviews: ProductReview[];
   // Raw attributes JSON — includes both legacy (bundles/features/specs) and
   // custom-field values (anything authored from /admin/custom-fields).
@@ -175,7 +178,10 @@ export async function loadProductDetail(
       images: imagesFromApi(api),
       aboutTitle: a.aboutTitle ?? api.name,
       aboutBody,
-      aboutImage: a.aboutImage ?? '/images/featured/for-her.jpg',
+      // Prefer the intern-curated brand logo when present; fall back
+      // to the legacy attribute, then the placeholder.
+      aboutImage: api.brandImageUrl || a.aboutImage || '/images/featured/for-her.jpg',
+      aboutImageAlt: api.brandImageAlt ?? null,
       reviews: (api.reviews ?? []).map(reviewFromApi),
       attributes: (api.attributes ?? {}) as unknown as Record<string, unknown>,
     };

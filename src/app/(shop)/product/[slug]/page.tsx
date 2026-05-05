@@ -209,6 +209,7 @@ export default async function ProductPage({ params }: PageProps) {
             title={product.aboutTitle}
             body={product.aboutBody}
             image={product.aboutImage}
+            imageAlt={product.aboutImageAlt}
             brand={product.brand}
           />
         </SafeBoundary>

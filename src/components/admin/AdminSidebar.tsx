@@ -55,6 +55,7 @@ const NAV: NavItem[] = [
   { href: '/admin/staff', label: 'Staff & Roles', icon: ShieldCheck, cap: 'staff.manage' },
   { href: '/admin/interns', label: 'Intern queue', icon: ImagePlus, cap: 'staff.manage' },
   { href: '/admin/intern-queue', label: 'My image queue', icon: ImagePlus, cap: 'products.image-only' },
+  { href: '/admin/brand-logos', label: 'Brand logos', icon: ImagePlus, cap: 'products.write' },
   { href: '/admin/coupons', label: 'Discounts', icon: PercentCircle, cap: 'coupons.write' },
   { href: '/admin/shipping', label: 'Shipping', icon: Truck, cap: 'shipping.write' },
   { href: '/admin/payment-gateways', label: 'Payment Gateways', icon: CreditCard, cap: 'payment-gateways.write' },

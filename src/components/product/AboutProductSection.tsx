@@ -4,6 +4,10 @@ interface AboutProductSectionProps {
   title: string;
   body: string;
   image: string;
+  /// Curated alt text for the brand image when available. Falls back
+  /// to "<brand> — brand logo" so screen readers and image search
+  /// always see something useful.
+  imageAlt?: string | null;
   brand: string;
 }
 
@@ -11,8 +15,10 @@ export function AboutProductSection({
   title,
   body,
   image,
+  imageAlt,
   brand,
 }: AboutProductSectionProps) {
+  const alt = imageAlt?.trim() || `${brand} — brand logo`;
   return (
     <section className="bg-page py-12 md:py-20">
       <div className="mx-auto grid max-w-site grid-cols-1 items-center gap-8 px-4 md:grid-cols-2 md:gap-16">
@@ -42,7 +48,7 @@ export function AboutProductSection({
         <div className="relative aspect-[4/5] overflow-hidden rounded-card shadow-card-hover md:aspect-square">
           <Image
             src={image}
-            alt={title}
+            alt={alt}
             width={1200}
             height={1200}
             className="h-full w-full object-cover"
