@@ -123,10 +123,17 @@ function imagesFromApi(api: ApiProduct): ProductImage[] {
   if (api.images.length === 0) {
     return [{ src: FALLBACK_IMAGE, alt: baseAlt }];
   }
-  return api.images.map((src, i) => ({
-    src,
-    alt: i === 0 ? baseAlt : `${baseAlt} — view ${i + 1}`,
-  }));
+  return api.images.map((src, i) => {
+    // Prefer intern-curated alt text when present — humans describe the
+    // specific image better than our generated string. Fall back to the
+    // auto-generated SEO string when the alt is missing/blank.
+    const curated = api.imageAlts?.[i]?.trim();
+    if (curated) return { src, alt: curated };
+    return {
+      src,
+      alt: i === 0 ? baseAlt : `${baseAlt} — view ${i + 1}`,
+    };
+  });
 }
 
 export async function loadProductDetail(

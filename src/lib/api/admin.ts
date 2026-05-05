@@ -1598,6 +1598,12 @@ export interface InternQueueItem {
     backImageUrl: string;
     sideImageUrl: string;
     additionalImages: string[];
+    /// Alt text per image — pre-fills the queue UI on rework so the
+    /// intern doesn't have to re-type their previous suggestions.
+    frontImageAlt: string | null;
+    backImageAlt: string | null;
+    sideImageAlt: string | null;
+    additionalImageAlts: string[];
     rejectionReason: string | null;
     reviewedAt: string | null;
     createdAt: string;
@@ -1642,6 +1648,13 @@ export function internSubmitImages(
     backImageUrl: string;
     sideImageUrl: string;
     additionalImages?: string[];
+    /// Alt text per image — optional but encouraged. The UI nudges
+    /// interns to fill these by pre-populating with "<product> —
+    /// front view" etc.; they can override.
+    frontImageAlt?: string | null;
+    backImageAlt?: string | null;
+    sideImageAlt?: string | null;
+    additionalImageAlts?: string[];
   },
 ): Promise<{ id: string; status: string; createdAt: string }> {
   return apiFetchAuthed(`/api/intern/products/${productId}/submit`, {

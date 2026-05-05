@@ -187,10 +187,18 @@ function ProductCard({
   setBusy: (v: boolean) => void;
 }) {
   const sub = item.latestSubmission;
+  // Pre-fill alts with a sensible suggestion the intern can edit. Good
+  // alt text for SEO is descriptive; "<product> — front view" beats
+  // "image1.jpg" by a mile and the intern can refine if needed.
+  const altSuggestion = (view: string) => `${item.name} — ${view} view`;
   const [front, setFront] = useState(sub?.frontImageUrl ?? '');
   const [back, setBack] = useState(sub?.backImageUrl ?? '');
   const [side, setSide] = useState(sub?.sideImageUrl ?? '');
   const [extras, setExtras] = useState<string[]>(sub?.additionalImages ?? []);
+  const [frontAlt, setFrontAlt] = useState(sub?.frontImageAlt ?? altSuggestion('front'));
+  const [backAlt, setBackAlt] = useState(sub?.backImageAlt ?? altSuggestion('back'));
+  const [sideAlt, setSideAlt] = useState(sub?.sideImageAlt ?? altSuggestion('side'));
+  const [extraAlts, setExtraAlts] = useState<string[]>(sub?.additionalImageAlts ?? []);
 
   // When a new product loads (after rejection edit), reset state to
   // whatever is on the latest submission. This keeps the form aligned
@@ -200,7 +208,24 @@ function ProductCard({
     setBack(sub?.backImageUrl ?? '');
     setSide(sub?.sideImageUrl ?? '');
     setExtras(sub?.additionalImages ?? []);
-  }, [sub?.id, sub?.frontImageUrl, sub?.backImageUrl, sub?.sideImageUrl, sub?.additionalImages]);
+    setFrontAlt(sub?.frontImageAlt ?? altSuggestion('front'));
+    setBackAlt(sub?.backImageAlt ?? altSuggestion('back'));
+    setSideAlt(sub?.sideImageAlt ?? altSuggestion('side'));
+    setExtraAlts(sub?.additionalImageAlts ?? []);
+    // altSuggestion captures item.name; safe re-read on item.id change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    sub?.id,
+    sub?.frontImageUrl,
+    sub?.backImageUrl,
+    sub?.sideImageUrl,
+    sub?.additionalImages,
+    sub?.frontImageAlt,
+    sub?.backImageAlt,
+    sub?.sideImageAlt,
+    sub?.additionalImageAlts,
+    item.id,
+  ]);
 
   const canSubmit =
     item.status !== 'pending' && item.status !== 'approved' && front && back && side;
@@ -214,6 +239,10 @@ function ProductCard({
         backImageUrl: back,
         sideImageUrl: side,
         additionalImages: extras,
+        frontImageAlt: frontAlt.trim() || null,
+        backImageAlt: backAlt.trim() || null,
+        sideImageAlt: sideAlt.trim() || null,
+        additionalImageAlts: extras.map((_, i) => extraAlts[i] ?? ''),
       });
       toast(`Submitted ${item.name} for review`);
       onSaved();
@@ -222,6 +251,15 @@ function ProductCard({
     } finally {
       setBusy(false);
     }
+  };
+
+  const setExtraAt = (i: number, alt: string) => {
+    setExtraAlts((prev) => {
+      const next = [...prev];
+      while (next.length <= i) next.push('');
+      next[i] = alt;
+      return next;
+    });
   };
 
   return (
@@ -283,30 +321,77 @@ function ProductCard({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
-          <UploadSlot label="Front" required value={front} onChange={setFront} />
-          <UploadSlot label="Back" required value={back} onChange={setBack} />
-          <UploadSlot label="Side" required value={side} onChange={setSide} />
+          <UploadSlot
+            label="Front"
+            required
+            value={front}
+            onChange={setFront}
+            alt={frontAlt}
+            onAltChange={setFrontAlt}
+          />
+          <UploadSlot
+            label="Back"
+            required
+            value={back}
+            onChange={setBack}
+            alt={backAlt}
+            onAltChange={setBackAlt}
+          />
+          <UploadSlot
+            label="Side"
+            required
+            value={side}
+            onChange={setSide}
+            alt={sideAlt}
+            onAltChange={setSideAlt}
+          />
           <div className="md:col-span-3">
             <p className="mb-2 font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
               Optional extras
             </p>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col gap-3">
               {extras.map((url, i) => (
-                <div key={i} className="relative">
-                  <PreviewSlot url={url} />
-                  <button
-                    type="button"
-                    onClick={() => setExtras(extras.filter((_, idx) => idx !== i))}
-                    aria-label="Remove"
-                    className="absolute -right-2 -top-2 rounded-full bg-danger p-1 text-white shadow"
-                  >
-                    <XCircle size={12} aria-hidden />
-                  </button>
+                <div
+                  key={i}
+                  className="flex items-start gap-3 rounded-card border border-border bg-page p-2"
+                >
+                  <div className="relative">
+                    <PreviewSlot url={url} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExtras(extras.filter((_, idx) => idx !== i));
+                        setExtraAlts(extraAlts.filter((_, idx) => idx !== i));
+                      }}
+                      aria-label="Remove"
+                      className="absolute -right-2 -top-2 rounded-full bg-danger p-1 text-white shadow"
+                    >
+                      <XCircle size={12} aria-hidden />
+                    </button>
+                  </div>
+                  <label className="flex flex-1 flex-col gap-1">
+                    <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
+                      Alt text (SEO)
+                    </span>
+                    <input
+                      type="text"
+                      value={extraAlts[i] ?? ''}
+                      onChange={(e) => setExtraAt(i, e.target.value)}
+                      placeholder={altSuggestion(`extra ${i + 1}`)}
+                      maxLength={200}
+                      className="w-full rounded-input border border-border bg-white px-2 py-1.5 font-sans text-xs text-charcoal focus:border-navy focus:outline-none"
+                    />
+                  </label>
                 </div>
               ))}
               <ImageUploader
                 value=""
-                onChange={(url) => url && setExtras([...extras, url])}
+                onChange={(url) => {
+                  if (url) {
+                    setExtras([...extras, url]);
+                    setExtraAlts([...extraAlts, '']);
+                  }
+                }}
                 folder="products"
               />
             </div>
@@ -361,24 +446,43 @@ function UploadSlot({
   required,
   value,
   onChange,
+  alt,
+  onAltChange,
 }: {
   label: string;
   required?: boolean;
   value: string;
   onChange: (url: string) => void;
+  alt: string;
+  onAltChange: (next: string) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
-        {label}
-        {required && <span className="ml-0.5 text-danger">*</span>}
-      </span>
-      <ImageUploader
-        value={value}
-        onChange={(next) => onChange(next ?? '')}
-        folder="products"
-      />
-    </label>
+    <div className="flex flex-col gap-2">
+      <label className="flex flex-col gap-1.5">
+        <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
+          {label}
+          {required && <span className="ml-0.5 text-danger">*</span>}
+        </span>
+        <ImageUploader
+          value={value}
+          onChange={(next) => onChange(next ?? '')}
+          folder="products"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="font-raleway text-[9px] font-bold uppercase tracking-btn text-muted">
+          Alt text (SEO)
+        </span>
+        <input
+          type="text"
+          value={alt}
+          onChange={(e) => onAltChange(e.target.value)}
+          maxLength={200}
+          placeholder={`Describe the ${label.toLowerCase()} of the product`}
+          className="w-full rounded-input border border-border bg-white px-2 py-1.5 font-sans text-xs text-charcoal focus:border-navy focus:outline-none"
+        />
+      </label>
+    </div>
   );
 }
 
