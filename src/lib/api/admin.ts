@@ -1548,9 +1548,12 @@ export interface AdminSubmissionItem {
   productId: string;
   internId: string;
   status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
-  frontImageUrl: string;
-  backImageUrl: string;
-  sideImageUrl: string;
+  // Front/back/side are individually optional — some products legitimately
+  // don't have all 3 angles. The submit endpoint requires at least one
+  // product image total (front/back/side/extras combined).
+  frontImageUrl: string | null;
+  backImageUrl: string | null;
+  sideImageUrl: string | null;
   additionalImages: string[];
   rejectionReason: string | null;
   reviewedById: string | null;
@@ -1619,9 +1622,12 @@ export interface InternQueueItem {
   latestSubmission: {
     id: string;
     status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
-    frontImageUrl: string;
-    backImageUrl: string;
-    sideImageUrl: string;
+    // Optional — some products don't have all 3 angles. At least one
+    // product image is required at submit time, but each slot is
+    // individually nullable.
+    frontImageUrl: string | null;
+    backImageUrl: string | null;
+    sideImageUrl: string | null;
     additionalImages: string[];
     /// Brand logo + alt; nullable for legacy submissions made before
     /// the brand slot was added.

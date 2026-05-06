@@ -461,9 +461,9 @@ export default function AdminInternsPage() {
                   </div>
                 </header>
                 <div className="grid grid-cols-3 gap-3 p-4">
-                  <PreviewSlot label="Front" url={sub.frontImageUrl} />
-                  <PreviewSlot label="Back" url={sub.backImageUrl} />
-                  <PreviewSlot label="Side" url={sub.sideImageUrl} />
+                  {sub.frontImageUrl && <PreviewSlot label="Front" url={sub.frontImageUrl} />}
+                  {sub.backImageUrl && <PreviewSlot label="Back" url={sub.backImageUrl} />}
+                  {sub.sideImageUrl && <PreviewSlot label="Side" url={sub.sideImageUrl} />}
                 </div>
                 {sub.additionalImages.length > 0 && (
                   <div className="border-t border-border p-4">

@@ -220,13 +220,17 @@ function ProductCard({
     item.id,
   ]);
 
+  // Front/back/side are individually optional — some products don't
+  // have all three angles (flat items, small bottles, etc.). Submit
+  // requires at least ONE product image (any of front/back/side or
+  // an extra) plus the brand logo.
+  const productImageCount =
+    (front ? 1 : 0) + (back ? 1 : 0) + (side ? 1 : 0) + extras.length;
   const canSubmit =
     item.status !== 'pending' &&
     item.status !== 'approved' &&
-    front &&
-    back &&
-    side &&
-    brandImg;
+    productImageCount >= 1 &&
+    !!brandImg;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -294,9 +298,9 @@ function ProductCard({
           </p>
           {sub && (
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <PreviewSlot label="Front" url={sub.frontImageUrl} />
-              <PreviewSlot label="Back" url={sub.backImageUrl} />
-              <PreviewSlot label="Side" url={sub.sideImageUrl} />
+              {sub.frontImageUrl && <PreviewSlot label="Front" url={sub.frontImageUrl} />}
+              {sub.backImageUrl && <PreviewSlot label="Back" url={sub.backImageUrl} />}
+              {sub.sideImageUrl && <PreviewSlot label="Side" url={sub.sideImageUrl} />}
               {sub.brandImageUrl && (
                 <PreviewSlot label="Brand" url={sub.brandImageUrl} />
               )}
@@ -311,9 +315,9 @@ function ProductCard({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 lg:grid-cols-4">
-          <UploadSlot label="Front" required value={front} onChange={setFront} />
-          <UploadSlot label="Back" required value={back} onChange={setBack} />
-          <UploadSlot label="Side" required value={side} onChange={setSide} />
+          <UploadSlot label="Front" value={front} onChange={setFront} />
+          <UploadSlot label="Back" value={back} onChange={setBack} />
+          <UploadSlot label="Side" value={side} onChange={setSide} />
           {/* Brand logo is structurally different (it's the company
               mark, not a view of the product) but kept in the same
               grid so the intern sees it as part of the same task. The
