@@ -37,10 +37,18 @@ export class UploadApiError extends Error {
  * Server picks a key, persists to whichever storage backend is
  * configured (local disk in dev, R2 in prod), and returns the public
  * URL. Reusable from any client (web admin, mobile, partner apps).
+ *
+ * Mirrors apiFetchAuthed's refresh-on-401 dance: when a 401 comes
+ * back we hit /api/auth/refresh once (via the httpOnly refresh cookie
+ * sent by `credentials: include`) and retry. Without this, an intern
+ * who's been clicking around for 15+ minutes hits "invalid or expired
+ * token" the first time they upload — even though their session is
+ * still valid via the refresh cookie.
  */
 export async function uploadImage(
   file: File,
   folder: UploadFolder = 'misc',
+  retryOn401 = true,
 ): Promise<UploadedAsset> {
   const accessToken = useAuthStore.getState().accessToken;
   const fd = new FormData();
@@ -52,6 +60,15 @@ export async function uploadImage(
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     body: fd,
   });
+
+  if (res.status === 401 && retryOn401) {
+    const newToken = await useAuthStore.getState().refresh();
+    if (newToken) {
+      // Pass false so a real second 401 (e.g. role revoked) doesn't
+      // ping-pong us forever.
+      return uploadImage(file, folder, false);
+    }
+  }
 
   if (!res.ok) {
     let envelope: UploadErrorEnvelope | undefined;
