@@ -9,6 +9,7 @@ import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { PhoneSignInForm } from '@/components/auth/PhoneSignInForm';
 import { AuthApiError, loginUser, type AuthResult } from '@/lib/api/auth';
 import { useAuthStore } from '@/stores/authStore';
+import { safeReturnUrl } from '@/lib/safe-redirect';
 
 type Method = 'email' | 'phone';
 
@@ -27,7 +28,10 @@ export default function LoginPage() {
     setSession(result);
     const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
     const fallback = result.user.role === 'ADMIN' ? '/admin' : '/account';
-    router.push(returnUrl && returnUrl.startsWith('/') ? returnUrl : fallback);
+    // Phase 11.3 (audit C3): safeReturnUrl rejects protocol-relative
+    // (`//evil.com`) and absolute off-origin URLs that the previous
+    // `startsWith('/')` check let through.
+    router.push(safeReturnUrl(returnUrl, fallback));
   };
 
   const handleSubmit = async (e: FormEvent) => {
