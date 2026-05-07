@@ -199,6 +199,7 @@ export interface RelatedProduct {
   comparePrice?: number;
   discountPercent?: number;
   origin?: string;
+  imageSrc?: string;
 }
 
 /**
@@ -241,6 +242,7 @@ export async function getRelatedProducts(
         comparePrice: p.comparePrice ?? undefined,
         discountPercent: p.discountPercent ?? undefined,
         origin: p.origin ?? undefined,
+        imageSrc: p.images?.[0],
       }));
   } catch {
     return [];

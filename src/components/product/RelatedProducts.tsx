@@ -23,11 +23,14 @@ export function RelatedProducts({ products }: RelatedProductsProps) {
             <ProductCardPlaceholder
               key={p.id}
               id={p.id}
+              slug={p.slug}
               name={p.name}
               price={p.price}
               comparePrice={p.comparePrice}
               discountPercent={p.discountPercent}
               origin={p.origin}
+              imageSrc={p.imageSrc}
+              imageAlt={p.name}
             />
           ))}
         </div>

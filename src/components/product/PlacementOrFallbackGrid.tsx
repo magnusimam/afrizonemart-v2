@@ -3,28 +3,31 @@
 import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
 import { ProductGridSkeleton } from '@/components/product/ProductCardSkeleton';
 import { ProductGridError } from '@/components/product/ProductGridError';
-import { useProducts } from '@/hooks/use-products';
+import { useProducts, useShelf } from '@/hooks/use-products';
 import type { ListProductsParams } from '@/lib/api/types';
 
 /**
- * Phase 10.7 — homepage-section grid that prefers admin-curated placements
- * but falls back to a query-driven default when nothing is placed.
+ * Phase 10.7 + 10.8 — homepage-section grid that prefers admin-curated
+ * placements (now with admin-controlled rows × cols via the Shelf row)
+ * but falls back to a query-driven default when no products are pinned.
  *
  * Behaviour:
- *  1. First query: `placement=<key>`. If it returns ≥ 1 item, render those.
- *  2. Otherwise fall through to the `fallbackQuery` (typically a category
- *     filter), so existing homepage shelves stay populated until admin
+ *  1. First load the Shelf config + curated products from
+ *     `GET /api/shelves/:key`. If `enabled = false`, render nothing.
+ *     If `items.length > 0`, render those (capped at rows × cols).
+ *  2. Otherwise fall through to `fallbackQuery` (typically a category
+ *     filter) so existing homepage shelves stay populated until admin
  *     starts pinning products.
  *
- * Two parallel queries are cheap (TanStack Query dedupes + caches), and
- * having both available means the swap from "auto" to "curated" happens
- * the moment admin saves a product placement — no deploy.
+ * The visual grid container lives in the parent section component
+ * (`ProductsSection`, `FavouritesSection`, …); we only emit cards.
  */
 type ButtonVariant = 'navy' | 'pink';
 
 interface Props {
   placement: string;
   fallbackQuery: ListProductsParams;
+  /** Default cap; overridden by `rows * cols` when the Shelf is configured. */
   limit?: number;
   skeletonCount?: number;
   delivery?: string;
@@ -42,25 +45,38 @@ export function PlacementOrFallbackGrid({
   buttonVariant,
   country,
 }: Props) {
-  const placed = useProducts({ placement, country, limit });
-  const placedCount = placed.data?.items.length ?? 0;
+  const placed = useShelf(placement, country);
+  const shelf = placed.data?.shelf;
+  const placedItems = placed.data?.items ?? [];
 
-  // Only fire fallback once placement has resolved AND turned up empty.
-  const useFallback = !placed.isLoading && placedCount === 0;
-  const fallback = useProducts(
-    { ...fallbackQuery, limit },
-  );
+  // Effective cap: shelf rows*cols wins when configured, else `limit`
+  // prop (so existing call sites that pass an explicit limit keep
+  // their current behaviour until the Shelf row gets edited).
+  const cap = shelf ? Math.max(1, shelf.rows * shelf.cols) : limit;
+
+  // Only fire the fallback once we know the shelf has zero curated
+  // items — otherwise we'd waste a query whenever the shelf is full.
+  const useFallback = !placed.isLoading && placedItems.length === 0;
+  const fallback = useProducts({ ...fallbackQuery, limit: cap });
 
   const isLoading = placed.isLoading || (useFallback && fallback.isLoading);
   const isError =
-    (!placed.isLoading && placed.isError && placedCount === 0 && fallback.isError) ||
+    (!placed.isLoading && placed.isError && placedItems.length === 0 && fallback.isError) ||
     (useFallback && fallback.isError);
   const error = (useFallback ? fallback.error : placed.error) ?? undefined;
 
-  const items =
-    placedCount > 0 ? placed.data!.items : useFallback ? fallback.data?.items ?? [] : [];
+  // Honour the admin "disabled" flag — render nothing so the section
+  // can be hidden temporarily without removing it from a page.
+  if (shelf && !shelf.enabled) return null;
 
-  const count = skeletonCount ?? limit;
+  const items =
+    placedItems.length > 0
+      ? placedItems.slice(0, cap)
+      : useFallback
+        ? fallback.data?.items.slice(0, cap) ?? []
+        : [];
+
+  const count = skeletonCount ?? cap;
 
   if (isLoading) return <ProductGridSkeleton count={count} />;
 
@@ -104,6 +120,8 @@ export function PlacementOrFallbackGrid({
             outOfStock={!p.inStock}
             buttonVariant={buttonVariant}
             delivery={delivery}
+            imageSrc={p.images?.[0]}
+            imageAlt={p.name}
           />
         );
       })}
