@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import DOMPurify from 'isomorphic-dompurify';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 
 /**
@@ -149,7 +150,9 @@ function BlockOne({ block }: { block: CmsBlock }) {
           <div
             className="prose prose-lg mx-auto max-w-prose px-4 text-charcoal"
             // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: block.html }}
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(block.html, { USE_PROFILES: { html: true } }),
+            }}
           />
         </section>
       );
