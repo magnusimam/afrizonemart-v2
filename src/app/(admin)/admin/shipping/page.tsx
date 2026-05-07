@@ -144,6 +144,7 @@ export default function AdminShippingPage() {
                     {z.countries.length === 0
                       ? 'Catch-all (any country)'
                       : z.countries.join(', ')}
+                    {z.cities.length > 0 && ` · cities: ${z.cities.join(', ')}`}
                   </span>
                   <div className="flex gap-1">
                     <button
@@ -230,6 +231,13 @@ export default function AdminShippingPage() {
                     </span>
                     <span className="font-sans text-[11px] text-muted">
                       {formatPriceNGN(r.priceAmount)}
+                      {r.minWeightKg != null || r.maxWeightKg != null
+                        ? ` · ${r.minWeightKg ?? 0}–${r.maxWeightKg ?? '∞'}kg`
+                        : ''}
+                      {' · '}
+                      {r.etaDaysMin === r.etaDaysMax
+                        ? `${r.etaDaysMin}d`
+                        : `${r.etaDaysMin}-${r.etaDaysMax}d`}
                       {r.freeAboveAmount
                         ? ` · free above ${formatPriceNGN(r.freeAboveAmount)}`
                         : ''}
@@ -325,6 +333,7 @@ function ZoneDialog({
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [countriesText, setCountriesText] = useState((initial?.countries ?? []).join(', '));
+  const [citiesText, setCitiesText] = useState((initial?.cities ?? []).join(', '));
   const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -337,16 +346,26 @@ function ZoneDialog({
       .split(',')
       .map((s) => s.trim().toUpperCase())
       .filter(Boolean);
+    const cities = citiesText
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     try {
       if (initial) {
         await adminUpdateShippingZone(initial.id, {
           name: name.trim(),
           countries,
+          cities,
           isDefault,
         });
         toast(`Saved ${name.trim()}`);
       } else {
-        await adminCreateShippingZone({ name: name.trim(), countries, isDefault });
+        await adminCreateShippingZone({
+          name: name.trim(),
+          countries,
+          cities,
+          isDefault,
+        });
         toast(`Created ${name.trim()}`);
       }
       await onSaved();
@@ -377,6 +396,17 @@ function ZoneDialog({
             onChange={(e) => setCountriesText(e.target.value)}
             className={input}
             placeholder="NG, GH, KE"
+          />
+        </Field>
+        <Field
+          label="Cities (optional)"
+          hint="Comma-separated city names to scope this zone to specific cities (e.g. Lagos, Abuja). Leave blank to cover the whole country."
+        >
+          <input
+            value={citiesText}
+            onChange={(e) => setCitiesText(e.target.value)}
+            className={input}
+            placeholder="Lagos, Abuja"
           />
         </Field>
         <label className="flex cursor-pointer items-center gap-2 rounded-input border border-border bg-page px-3 py-2.5 font-sans text-sm text-charcoal">
@@ -415,6 +445,14 @@ function RateDialog({
   const [freeAboveAmount, setFreeAboveAmount] = useState(
     initial?.freeAboveAmount != null ? String(initial.freeAboveAmount) : '',
   );
+  const [minWeightKg, setMinWeightKg] = useState(
+    initial?.minWeightKg != null ? String(initial.minWeightKg) : '',
+  );
+  const [maxWeightKg, setMaxWeightKg] = useState(
+    initial?.maxWeightKg != null ? String(initial.maxWeightKg) : '',
+  );
+  const [etaDaysMin, setEtaDaysMin] = useState(String(initial?.etaDaysMin ?? 3));
+  const [etaDaysMax, setEtaDaysMax] = useState(String(initial?.etaDaysMax ?? 7));
   const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -424,21 +462,21 @@ function RateDialog({
     setError(null);
     setBusy(true);
     try {
+      const payload = {
+        name: name.trim(),
+        priceAmount: Number(priceAmount) || 0,
+        freeAboveAmount: freeAboveAmount ? Number(freeAboveAmount) : null,
+        minWeightKg: minWeightKg ? Number(minWeightKg) : null,
+        maxWeightKg: maxWeightKg ? Number(maxWeightKg) : null,
+        etaDaysMin: Number(etaDaysMin) || 0,
+        etaDaysMax: Number(etaDaysMax) || 0,
+        isDefault,
+      };
       if (initial) {
-        await adminUpdateShippingRate(initial.id, {
-          name: name.trim(),
-          priceAmount: Number(priceAmount) || 0,
-          freeAboveAmount: freeAboveAmount ? Number(freeAboveAmount) : null,
-          isDefault,
-        });
+        await adminUpdateShippingRate(initial.id, payload);
         toast(`Saved ${name.trim()}`);
       } else {
-        await adminCreateShippingRate(zoneId, {
-          name: name.trim(),
-          priceAmount: Number(priceAmount) || 0,
-          freeAboveAmount: freeAboveAmount ? Number(freeAboveAmount) : null,
-          isDefault,
-        });
+        await adminCreateShippingRate(zoneId, payload);
         toast(`Created ${name.trim()}`);
       }
       await onSaved();
@@ -478,6 +516,60 @@ function RateDialog({
               min={0}
               value={freeAboveAmount}
               onChange={(e) => setFreeAboveAmount(e.target.value)}
+              className={input}
+            />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label="Min weight (kg)"
+            hint="Cart total must be at least this much. Blank = no lower bound."
+          >
+            <input
+              type="number"
+              min={0}
+              step="0.1"
+              value={minWeightKg}
+              onChange={(e) => setMinWeightKg(e.target.value)}
+              className={input}
+              placeholder="0"
+            />
+          </Field>
+          <Field
+            label="Max weight (kg)"
+            hint="Cart total must be at most this much. Blank = no upper bound."
+          >
+            <input
+              type="number"
+              min={0}
+              step="0.1"
+              value={maxWeightKg}
+              onChange={(e) => setMaxWeightKg(e.target.value)}
+              className={input}
+              placeholder="∞"
+            />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="ETA (days, min)" required>
+            <input
+              required
+              type="number"
+              min={0}
+              max={365}
+              value={etaDaysMin}
+              onChange={(e) => setEtaDaysMin(e.target.value)}
+              className={input}
+            />
+          </Field>
+          <Field label="ETA (days, max)" required>
+            <input
+              required
+              type="number"
+              min={0}
+              max={365}
+              value={etaDaysMax}
+              onChange={(e) => setEtaDaysMax(e.target.value)}
               className={input}
             />
           </Field>

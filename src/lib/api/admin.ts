@@ -47,6 +47,8 @@ export interface AdminProductInput {
   price: number;
   comparePrice?: number | null;
   origin?: string | null;
+  /// Phase 11 — shipping weight (kg). Drives the shipping quote.
+  weightKg?: number | null;
   inStock: boolean;
   rating: number;
   reviewCount: number;
@@ -612,6 +614,12 @@ export interface AdminShippingRate {
   name: string;
   priceAmount: number;
   freeAboveAmount: number | null;
+  /// Phase 11 — null = unbounded.
+  minWeightKg: number | null;
+  maxWeightKg: number | null;
+  /// Phase 11 — ETA range shown to customer.
+  etaDaysMin: number;
+  etaDaysMax: number;
   isDefault: boolean;
   sortOrder: number;
 }
@@ -620,21 +628,41 @@ export interface AdminShippingZone {
   id: string;
   name: string;
   countries: string[];
+  /// Phase 11 — empty = whole-country zone; non-empty = flagship-city
+  /// sub-zone (e.g. ["Lagos"]).
+  cities: string[];
   isDefault: boolean;
   sortOrder: number;
   rates: AdminShippingRate[];
+}
+
+export interface AdminShippingZoneInput {
+  name: string;
+  countries: string[];
+  cities?: string[];
+  isDefault: boolean;
+  sortOrder?: number;
+}
+
+export interface AdminShippingRateInput {
+  name: string;
+  priceAmount: number;
+  freeAboveAmount?: number | null;
+  minWeightKg?: number | null;
+  maxWeightKg?: number | null;
+  etaDaysMin?: number;
+  etaDaysMax?: number;
+  isDefault: boolean;
+  sortOrder?: number;
 }
 
 export function adminListShippingZones(): Promise<{ items: AdminShippingZone[] }> {
   return apiFetchAuthed<{ items: AdminShippingZone[] }>('/api/admin/shipping/zones');
 }
 
-export function adminCreateShippingZone(input: {
-  name: string;
-  countries: string[];
-  isDefault: boolean;
-  sortOrder?: number;
-}): Promise<AdminShippingZone> {
+export function adminCreateShippingZone(
+  input: AdminShippingZoneInput,
+): Promise<AdminShippingZone> {
   return apiFetchAuthed<AdminShippingZone>('/api/admin/shipping/zones', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -643,7 +671,7 @@ export function adminCreateShippingZone(input: {
 
 export function adminUpdateShippingZone(
   id: string,
-  input: Partial<{ name: string; countries: string[]; isDefault: boolean; sortOrder: number }>,
+  input: Partial<AdminShippingZoneInput>,
 ): Promise<AdminShippingZone> {
   return apiFetchAuthed<AdminShippingZone>(`/api/admin/shipping/zones/${id}`, {
     method: 'PATCH',
@@ -657,13 +685,7 @@ export function adminDeleteShippingZone(id: string): Promise<void> {
 
 export function adminCreateShippingRate(
   zoneId: string,
-  input: {
-    name: string;
-    priceAmount: number;
-    freeAboveAmount?: number | null;
-    isDefault: boolean;
-    sortOrder?: number;
-  },
+  input: AdminShippingRateInput,
 ): Promise<AdminShippingRate> {
   return apiFetchAuthed<AdminShippingRate>(
     `/api/admin/shipping/zones/${zoneId}/rates`,
@@ -673,13 +695,7 @@ export function adminCreateShippingRate(
 
 export function adminUpdateShippingRate(
   rateId: string,
-  input: Partial<{
-    name: string;
-    priceAmount: number;
-    freeAboveAmount: number | null;
-    isDefault: boolean;
-    sortOrder: number;
-  }>,
+  input: Partial<AdminShippingRateInput>,
 ): Promise<AdminShippingRate> {
   return apiFetchAuthed<AdminShippingRate>(`/api/admin/shipping/rates/${rateId}`, {
     method: 'PATCH',

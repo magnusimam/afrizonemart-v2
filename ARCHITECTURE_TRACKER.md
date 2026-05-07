@@ -46,6 +46,83 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+38. **[~] Shipping & delivery cost algorithm** _(queued 2026-05-07)_.
+
+    **Why**: existing `ShippingZone` + `ShippingRate` are flat-fee
+    per-country only. No weight axis, no sub-country geography
+    (Lagos and a remote Northern town pay the same), no carrier
+    integration. CTO wants a system where weight + destination
+    drive the price, with room for live carrier quotes (GIG, DHL,
+    Sendy, Kwik) later.
+
+    **Locked design choices**:
+    - Real `weightKg` per product (admin enters once at create time;
+      nullable so existing products don't break — fallback default
+      0.5 kg when missing).
+    - Country + flagship-city zones (Lagos first, others added as
+      logistics partners go live). `ShippingZone.cities String[]`
+      — empty = whole country, non-empty = sub-country zone.
+    - Single shipping rate per cart for v1 (split shipping per
+      supplier deferred to Phase 3).
+    - Carrier provider registry mirrors the payment-gateway pattern.
+      Manual provider ships in Phase 1; GIG → DHL → Sendy → Kwik
+      added in Phase 2 as separate provider files.
+
+    **Phase 1 — Manual zones × weight tiers (this push)**:
+    - **Schema**: `Product.weightKg Float?`,
+      `ShippingZone.cities String[]`,
+      `ShippingRate.{minWeightKg, maxWeightKg, etaDaysMin, etaDaysMax}`.
+      Each rate row is a *weight bracket* (e.g. "Lagos Standard
+      0-1kg ₦1,500", "Lagos Standard 1-5kg ₦2,500"). Cart's total
+      weight picks the bracket; multiple bracket sets per zone
+      cover Standard / Express tiers.
+    - **Provider interface** (`shipping/providers/types.ts`):
+      `quote(ctx) → ShippingQuote[]` where `ctx` is destination +
+      cart items. Drop-in shape for GIG/DHL/etc. later.
+    - **Manual provider** (`shipping/providers/manual.ts`): zone
+      lookup by `country + city`, then bracket lookup by total
+      weight, then `freeAboveAmount` override on subtotal. Always
+      returns at least one quote (catches all the way up to the
+      `isDefault` "Rest of world" zone). This is the floor that
+      always works.
+    - **Quote service** (`shipping/quote.service.ts`): walks active
+      providers in priority order, concatenates quotes. Phase 1
+      only has manual; the walk is the seam Phase 2 plugs into.
+    - **Public endpoint**: `POST /api/shipping/quote` —
+      `{ destination, items[] }` → `{ quotes[] }`.
+    - **Cart integration**: cart line items already carry
+      productId + qty. Compute total weight by joining product
+      weights server-side; expose `cart.weightKg` on the existing
+      cart response so checkout can show "Cart total: 3.2 kg".
+    - **Admin UI**:
+      - `/admin/shipping` form gains: country list, **city list**,
+        weight bracket inputs per rate row, ETA range (min/max days).
+      - `/admin/products` form gains a single `weightKg` input next
+        to price.
+    - **Order**: `Order.shippingRateId` already exists; selected
+      quote's rate id stays. Add `Order.shippingProvider` (string,
+      defaults to `'manual'`) so Phase 2 can attribute orders to
+      different carriers.
+
+    **Phase 2 — Carrier provider registry (deferred)**:
+    - `ShippingProviderConfig` table mirroring `PaymentGatewayConfig`
+      (provider, isActive, priority, credentials Json).
+    - One provider file per carrier: `gig-logistics.ts`, `dhl.ts`,
+      `sendy.ts`, `kwik.ts`. Each implements `quote(ctx)` against
+      the carrier's rate API.
+    - Quote service walks active providers; manual stays last as
+      the "always works" fallback when carrier APIs fail/timeout.
+    - Order rows tag the provider used so fulfilment knows which
+      carrier to actually book.
+
+    **Phase 3 — Split shipping per supplier (deferred)**:
+    - Move shipping from `Order` to a new `OrderShipment` (one row
+      per supplier in the order). Sum carrier quotes. Schema-level
+      change; gated on AZM actually fulfilling multi-supplier carts
+      as separate parcels.
+
+    Will mark `[x]` and log result on close.
+
 37. **[x] Shelf Manager (admin-controlled product shelves)** _(landed 2026-05-07)_.
 
     **Why**: CTO audit confirmed no shelf renders mock product data (every

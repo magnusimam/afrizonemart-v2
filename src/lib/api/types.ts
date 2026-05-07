@@ -77,6 +77,9 @@ export interface ApiProduct {
   description: string | null;
   ingredients: string | null;
   origin: string | null;
+  /// Phase 11 — shipping weight in kilograms. Null when admin
+  /// hasn't set it yet; quote engine treats null as 0.5 kg.
+  weightKg: number | null;
   inStock: boolean;
   rating: number;
   reviewCount: number;
