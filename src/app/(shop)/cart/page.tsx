@@ -32,7 +32,10 @@ export default function CartPage() {
   const clear = useCartStore((s) => s.clear);
   const totalQuantity = useCartStore(selectCartTotalQuantity);
   const totalAmount = useCartStore(selectCartTotalAmount);
-  const isAuthed = useAuthStore((s) => Boolean(s.user && s.accessToken));
+  // Phase 11.3 (audit C2): access token is in-memory only and may be
+  // briefly null on reload while the refresh cookie exchange runs.
+  // Trust the persisted user; apiFetchAuthed handles token minting.
+  const isAuthed = useAuthStore((s) => Boolean(s.user));
   const [serverCart, setServerCart] = useState<CartView | null>(null);
 
   useEffect(() => {

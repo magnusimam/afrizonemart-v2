@@ -103,7 +103,17 @@ auto-escapes; no fix needed.
 
 ---
 
-## [ ] C2 — Access token persisted in `localStorage`
+## [x] C2 — Access token persisted in `localStorage`
+
+**Fixed 2026-05-07**: `partialize` now persists only `user`, not
+`accessToken`. Access token lives in memory only. On rehydrate
+(`onRehydrateStorage`), if a user exists with no token, eagerly
+refresh from the httpOnly cookie. Concurrent callers share one
+in-flight `refresh()` promise (also closes M2). Route guards
+(`RequireAuth`, `RequireAdmin`) wait for the new `refreshing` flag
+to settle so a logged-in user isn't briefly bounced to /login on
+reload. `apiFetchAuthed` eagerly refreshes when user-but-no-token,
+saving a 401 round-trip.
 
 **Severity:** Critical
 
@@ -513,7 +523,12 @@ near-concurrent orders can both pass validation if the coupon's
 order-create transaction; re-validate after the lock; only
 increment + commit inside the transaction.
 
-## [ ] M2 — `apiFetchAuthed` concurrent-refresh race
+## [x] M2 — `apiFetchAuthed` concurrent-refresh race
+
+**Fixed 2026-05-07** (alongside C2): module-private
+`inflightRefresh` singleton in `authStore.ts`. Concurrent callers
+to `refresh()` share one in-flight promise; only the first call
+hits `/api/auth/refresh`.
 
 **Where:** `afrizonemart-v2/src/lib/api/client.ts:49-52`
 **What:** When two parallel requests both 401 simultaneously,

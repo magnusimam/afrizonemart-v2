@@ -18,8 +18,10 @@ export function RequireAdmin({ children }: Props) {
   const pathname = usePathname();
   const [hydrated, setHydrated] = useState(false);
   const user = useAuthStore((s) => s.user);
-  const accessToken = useAuthStore((s) => s.accessToken);
-  const isAuthed = Boolean(user && accessToken);
+  const refreshing = useAuthStore((s) => s.refreshing);
+  // Phase 11.3 (audit C2): trust the persisted `user`, wait for any
+  // in-flight token refresh to settle, then decide.
+  const isAuthed = Boolean(user);
   // ADMIN gets full access; STAFF gets in too — their effective
   // permissions filter the sidebar to only what they were granted.
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'STAFF';
@@ -34,7 +36,7 @@ export function RequireAdmin({ children }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || refreshing) return;
     if (!isAuthed) {
       // Send unauthenticated visitors to the dedicated admin sign-in
       // (not /login, which is customer-facing). This avoids leaking
@@ -44,9 +46,9 @@ export function RequireAdmin({ children }: Props) {
     } else if (!isAdmin) {
       router.replace('/account');
     }
-  }, [hydrated, isAuthed, isAdmin, pathname, router]);
+  }, [hydrated, refreshing, isAuthed, isAdmin, pathname, router]);
 
-  if (!hydrated || !isAuthed || !isAdmin) {
+  if (!hydrated || refreshing || !isAuthed || !isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-page font-sans text-sm text-muted">
         Loading admin…

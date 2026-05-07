@@ -28,13 +28,26 @@ interface AuthedFetchOptions extends RequestInit {
  * goes with it via credentials: include), then retries the original
  * request with the new token. If refresh itself fails, the store is
  * cleared and the 401 is surfaced to the caller.
+ *
+ * Phase 11.3 (audit C2): the access token now lives in memory only,
+ * so on first load there's a brief window where the user is logged
+ * in but no token is set. If we see a logged-in user with a missing
+ * token, we eagerly run refresh BEFORE making the request — same
+ * outcome as the 401-retry dance, but one round-trip instead of two.
  */
 export async function apiFetchAuthed<T>(
   path: string,
   options: AuthedFetchOptions = {},
 ): Promise<T> {
   const { retryOn401 = true, ...init } = options;
-  const accessToken = useAuthStore.getState().accessToken;
+  let accessToken = useAuthStore.getState().accessToken;
+
+  // No token but we have a user → mint one from the refresh cookie
+  // before sending. This is the post-reload path. The refresh()
+  // implementation deduplicates concurrent calls.
+  if (!accessToken && useAuthStore.getState().user) {
+    accessToken = (await useAuthStore.getState().refresh()) ?? null;
+  }
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
