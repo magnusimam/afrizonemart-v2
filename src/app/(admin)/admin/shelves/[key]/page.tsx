@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
@@ -9,6 +9,7 @@ import {
   ArrowUp,
   Check,
   ChevronLeft,
+  Globe,
   Save,
   Search,
   Trash2,
@@ -308,9 +309,12 @@ export default function AdminShelfDetailPage() {
                 Products on this shelf
               </h2>
               <p className="mt-0.5 font-sans text-xs text-muted">
-                Drag-free reorder via arrows. Products without country
-                chips appear globally; pick countries to constrain. Items
-                from different countries can sit on the same shelf.
+                Reorder with the up/down arrows. <strong>Mix countries
+                freely</strong> — by default each product is visible
+                everywhere; if you want one product to only show for
+                customers in certain countries, click those country
+                chips on its row. A single shelf can carry products
+                from any number of countries at once.
               </p>
             </header>
             {slots.length === 0 ? (
@@ -430,7 +434,18 @@ function SlotRow({
             className={inputClass}
           />
         </Field>
-        <Field label="Countries (empty = global)">
+        <Field
+          label={
+            slot.countries.length === 0 ? (
+              <span className="inline-flex items-center gap-1 text-success">
+                <Globe size={11} aria-hidden /> Visible in every country
+              </span>
+            ) : (
+              <span>Visible only in: {slot.countries.join(', ')}</span>
+            )
+          }
+          hint="Pick one or more countries to scope this product. Leave empty so customers in every country see it. You can mix global + country-scoped picks on the same shelf."
+        >
           <div className="flex flex-wrap gap-1">
             {COUNTRY_OPTIONS.map((c) => {
               const on = slot.countries.includes(c);
@@ -445,7 +460,7 @@ function SlotRow({
                         : [...slot.countries, c],
                     })
                   }
-                  className={`rounded-full border px-2 py-0.5 font-mono text-[11px] ${
+                  className={`rounded-full border px-2 py-0.5 font-mono text-[11px] transition ${
                     on
                       ? 'border-navy bg-navy text-white'
                       : 'border-border bg-white text-charcoal hover:border-navy'
@@ -500,20 +515,28 @@ function ProductPicker({
   const [q, setQ] = useState('');
   const [results, setResults] = useState<AdminProductListItem[]>([]);
   const [searching, setSearching] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const trimmed = q.trim();
 
-  // Debounce so we don't spam the API while typing.
+  // Debounce so we don't spam the API while typing. 150ms feels
+  // instant without firing for every individual keystroke.
   useEffect(() => {
     if (trimmed.length === 0) {
       setResults([]);
+      setSearching(false);
       return;
     }
     let cancelled = false;
     setSearching(true);
     const t = setTimeout(() => {
-      void adminListProducts({ q: trimmed, limit: 20 })
+      void adminListProducts({ q: trimmed, limit: 20, sort: 'newest' })
         .then((r) => {
-          if (!cancelled) setResults(r.items);
+          if (!cancelled) {
+            setResults(r.items);
+            setActiveIdx(0);
+          }
         })
         .catch(() => {
           if (!cancelled) setResults([]);
@@ -521,16 +544,59 @@ function ProductPicker({
         .finally(() => {
           if (!cancelled) setSearching(false);
         });
-    }, 200);
+    }, 150);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
   }, [trimmed]);
 
+  // Click-outside closes the dropdown.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const pickable = results.filter((p) => !usedIds.has(p.id));
+
+  const handleSelect = (p: AdminProductListItem) => {
+    onPick(p);
+    // Clear and refocus so they can keep adding without re-clicking.
+    setQ('');
+    setResults([]);
+    setOpen(false);
+  };
+
+  // Keyboard navigation — arrow keys + enter to add the highlighted
+  // product without leaving the keyboard.
+  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || pickable.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIdx((i) => Math.min(i + 1, pickable.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const p = pickable[activeIdx];
+      if (p) handleSelect(p);
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+    }
+  };
+
+  const showDropdown = open && trimmed.length > 0;
+
   return (
     <div className="flex flex-col gap-3 p-5">
-      <div className="relative">
+      <div ref={wrapRef} className="relative">
         <Search
           size={14}
           aria-hidden
@@ -538,82 +604,133 @@ function ProductPicker({
         />
         <input
           value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by product name or brand…"
+          onChange={(e) => {
+            setQ(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onKey}
+          placeholder="Type to search products by name, brand, or country…"
+          autoComplete="off"
           className="w-full rounded-input border border-border bg-white py-2 pl-9 pr-9 font-sans text-sm focus:border-navy focus:outline-none"
         />
         {q && (
           <button
             type="button"
-            onClick={() => setQ('')}
+            onClick={() => {
+              setQ('');
+              setResults([]);
+            }}
             aria-label="Clear search"
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted hover:text-navy"
           >
             <X size={14} aria-hidden />
           </button>
         )}
+
+        {/* Floating dropdown — pops up below the input as the editor
+            types. Keyboard-friendly (arrow keys + enter), and resets
+            after each pick so successive products can be added in a
+            single typing session. */}
+        {showDropdown && (
+          <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-card border border-border bg-white shadow-lg">
+            {searching && results.length === 0 ? (
+              <p className="px-4 py-3 font-sans text-sm text-muted">Searching…</p>
+            ) : results.length === 0 ? (
+              <p className="px-4 py-3 font-sans text-sm text-muted">
+                No products match &ldquo;{trimmed}&rdquo;.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {results.map((p) => {
+                  const used = usedIds.has(p.id);
+                  const pickableIdx = pickable.findIndex((x) => x.id === p.id);
+                  const active = !used && pickableIdx === activeIdx;
+                  const img = p.images?.[0];
+                  return (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        disabled={used}
+                        onMouseEnter={() => {
+                          if (!used && pickableIdx >= 0) setActiveIdx(pickableIdx);
+                        }}
+                        onClick={() => handleSelect(p)}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left transition ${
+                          used
+                            ? 'opacity-50'
+                            : active
+                              ? 'bg-amber/10'
+                              : 'hover:bg-page'
+                        }`}
+                      >
+                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border bg-page">
+                          {img && (
+                            <Image
+                              src={img}
+                              alt={p.name}
+                              fill
+                              sizes="48px"
+                              className="object-cover"
+                            />
+                          )}
+                        </div>
+                        <div className="flex flex-1 flex-col leading-tight">
+                          <span className="font-raleway text-sm font-bold text-navy">
+                            <Highlight text={p.name} term={trimmed} />
+                          </span>
+                          <span className="font-sans text-[11px] text-muted">
+                            {p.brand ? <Highlight text={p.brand} term={trimmed} /> : '—'}
+                            {p.origin ? <> · {p.origin}</> : null}
+                            {' · '}₦{p.price.toLocaleString('en-NG')}
+                          </span>
+                        </div>
+                        {used ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-btn text-success">
+                            <Check size={11} aria-hidden /> On shelf
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-navy px-2 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
+                            Add
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
-      {trimmed.length === 0 ? (
-        <p className="rounded-card border border-dashed border-border px-4 py-6 text-center font-sans text-xs text-muted">
-          Start typing to search the product catalog.
-        </p>
-      ) : searching ? (
-        <p className="font-sans text-sm text-muted">Searching…</p>
-      ) : results.length === 0 ? (
-        <p className="font-sans text-sm text-muted">
-          No products match &ldquo;{trimmed}&rdquo;.
-        </p>
-      ) : (
-        <ul className="max-h-96 divide-y divide-border overflow-y-auto rounded-card border border-border">
-          {results.map((p) => {
-            const used = usedIds.has(p.id);
-            const img = p.images?.[0];
-            return (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  disabled={used}
-                  onClick={() => onPick(p)}
-                  className={`flex w-full items-center gap-3 px-3 py-2 text-left transition ${
-                    used ? 'opacity-50' : 'hover:bg-page'
-                  }`}
-                >
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border bg-page">
-                    {img && (
-                      <Image
-                        src={img}
-                        alt={p.name}
-                        fill
-                        sizes="48px"
-                        className="object-cover"
-                      />
-                    )}
-                  </div>
-                  <div className="flex flex-1 flex-col leading-tight">
-                    <span className="font-raleway text-sm font-bold text-navy">
-                      {p.name}
-                    </span>
-                    <span className="font-sans text-[11px] text-muted">
-                      {p.brand ?? '—'} {p.origin ? ` · ${p.origin}` : ''}
-                    </span>
-                  </div>
-                  {used ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-btn text-success">
-                      <Check size={11} aria-hidden /> On shelf
-                    </span>
-                  ) : (
-                    <span className="rounded-full border border-navy px-2 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
-                      Add
-                    </span>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <p className="font-sans text-[11px] leading-snug text-muted">
+        Tip — type a few letters of the product name, brand, or
+        ingredient. Use ↑/↓ to highlight, Enter to add. Products
+        already on the shelf are dimmed.
+      </p>
     </div>
+  );
+}
+
+/// Highlights every occurrence of `term` inside `text` with an amber
+/// background so editors can visually confirm the match.
+function Highlight({ text, term }: { text: string; term: string }) {
+  if (!term) return <>{text}</>;
+  const safe = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${safe})`, 'gi'));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === term.toLowerCase() ? (
+          <mark key={i} className="rounded bg-amber/30 px-0.5 text-navy">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
   );
 }
 
@@ -622,7 +739,7 @@ function Field({
   hint,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   hint?: string;
   children: React.ReactNode;
 }) {
