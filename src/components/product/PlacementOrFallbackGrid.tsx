@@ -7,20 +7,19 @@ import { useProducts, useShelf } from '@/hooks/use-products';
 import type { ListProductsParams } from '@/lib/api/types';
 
 /**
- * Phase 10.7 + 10.8 — homepage-section grid that prefers admin-curated
- * placements (now with admin-controlled rows × cols via the Shelf row)
- * but falls back to a query-driven default when no products are pinned.
+ * Phase 10.7 + 10.8 — homepage-section grid that **mixes** admin-curated
+ * picks with a query-driven fallback.
  *
- * Behaviour:
- *  1. First load the Shelf config + curated products from
- *     `GET /api/shelves/:key`. If `enabled = false`, render nothing.
- *     If `items.length > 0`, render those (capped at rows × cols).
- *  2. Otherwise fall through to `fallbackQuery` (typically a category
- *     filter) so existing homepage shelves stay populated until admin
- *     starts pinning products.
+ * Render order:
+ *   1. Explicit picks from the Shelf (in admin-set order, scoped to the
+ *      requested country).
+ *   2. Fallback products that match `fallbackQuery`, excluding any
+ *      product already in the explicit pick list.
+ *   3. Capped at `rows × cols` (from the Shelf) or `limit` prop.
  *
- * The visual grid container lives in the parent section component
- * (`ProductsSection`, `FavouritesSection`, …); we only emit cards.
+ * This is the fix for "adding one product wiped my shelf": picks no
+ * longer replace the fallback — they layer on top of it. Adding the
+ * first pick pushes the fallback rows down rather than nuking them.
  */
 type ButtonVariant = 'navy' | 'pink';
 
@@ -49,32 +48,31 @@ export function PlacementOrFallbackGrid({
   const shelf = placed.data?.shelf;
   const placedItems = placed.data?.items ?? [];
 
-  // Effective cap: shelf rows*cols wins when configured, else `limit`
-  // prop (so existing call sites that pass an explicit limit keep
-  // their current behaviour until the Shelf row gets edited).
+  // Effective cap: admin-set rows × cols wins; falls back to the prop
+  // so existing call sites work even before the Shelf row is edited.
   const cap = shelf ? Math.max(1, shelf.rows * shelf.cols) : limit;
 
-  // Only fire the fallback once we know the shelf has zero curated
-  // items — otherwise we'd waste a query whenever the shelf is full.
-  const useFallback = !placed.isLoading && placedItems.length === 0;
+  // Always run the fallback query — the merge step uses it to fill any
+  // slots not already taken by explicit picks. We over-fetch slightly
+  // (cap items) so duplicate-filtering against the picks still leaves
+  // enough to fill the cap.
   const fallback = useProducts({ ...fallbackQuery, limit: cap });
 
-  const isLoading = placed.isLoading || (useFallback && fallback.isLoading);
-  const isError =
-    (!placed.isLoading && placed.isError && placedItems.length === 0 && fallback.isError) ||
-    (useFallback && fallback.isError);
-  const error = (useFallback ? fallback.error : placed.error) ?? undefined;
-
-  // Honour the admin "disabled" flag — render nothing so the section
-  // can be hidden temporarily without removing it from a page.
+  // Honour the admin "disabled" flag — render nothing.
   if (shelf && !shelf.enabled) return null;
 
-  const items =
-    placedItems.length > 0
-      ? placedItems.slice(0, cap)
-      : useFallback
-        ? fallback.data?.items.slice(0, cap) ?? []
-        : [];
+  const isLoading = placed.isLoading || fallback.isLoading;
+  const isError =
+    placed.isError && placedItems.length === 0 && fallback.isError;
+  const error = (fallback.error ?? placed.error) ?? undefined;
+
+  // Merge: picks first (in their saved order), then fallback rows
+  // filling the remaining slots, dropping any product already pinned.
+  const pickedIds = new Set(placedItems.map((p) => p.id));
+  const fallbackItems = (fallback.data?.items ?? []).filter(
+    (p) => !pickedIds.has(p.id),
+  );
+  const items = [...placedItems, ...fallbackItems].slice(0, cap);
 
   const count = skeletonCount ?? cap;
 

@@ -13,7 +13,7 @@ export function PurchaseBigSection() {
         <div className="mx-auto grid max-w-site grid-cols-2 gap-3 px-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 lg:grid-cols-6">
           <PlacementOrFallbackGrid
             placement="shelf_home_essentials"
-            fallbackQuery={{ category: 'interior-decor' }}
+            fallbackQuery={{ category: 'household', sort: 'newest' }}
             limit={6}
           />
         </div>

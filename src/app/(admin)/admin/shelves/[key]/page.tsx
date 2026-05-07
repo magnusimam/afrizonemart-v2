@@ -9,6 +9,7 @@ import {
   ArrowUp,
   Check,
   ChevronLeft,
+  Download,
   Globe,
   Save,
   Search,
@@ -25,8 +26,10 @@ import {
   adminUpdateShelf,
   type AdminProductListItem,
   type ShelfDetail,
+  type ShelfFallback,
   type ShelfSlot,
 } from '@/lib/api/admin';
+import { fetchProducts } from '@/lib/api/products';
 
 const COUNTRY_OPTIONS = [
   'NG', 'KE', 'ZA', 'GH', 'EG', 'MA', 'ET', 'TZ', 'UG', 'RW',
@@ -157,6 +160,63 @@ export default function AdminShelfDetailPage() {
 
   const update = (idx: number, patch: Partial<DraftSlot>) =>
     setSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+
+  const [filling, setFilling] = useState(false);
+  const handleQuickFill = async () => {
+    const fb = data?.defaultFallback;
+    if (!fb) return;
+    setFilling(true);
+    try {
+      // Pull enough products to fill the shelf to capacity. Over-fetch
+      // a bit so we still have rows after filtering out items already
+      // pinned (rare but possible if the editor partially curated).
+      const limit = Math.min(50, Math.max(rows * cols, 12));
+      const r = await fetchProducts({
+        category: fb.category,
+        origin: fb.origin,
+        onSale: fb.onSale,
+        sort: fb.sort ?? 'newest',
+        limit,
+      });
+      const used = new Set(slots.map((s) => s.productId));
+      const newSlots: DraftSlot[] = r.items
+        .filter((p) => !used.has(p.id))
+        .map((p) => ({
+          productId: p.id,
+          startsAt: null,
+          endsAt: null,
+          countries: [],
+          product: {
+            id: p.id,
+            slug: p.slug,
+            name: p.name,
+            brand: p.brand,
+            origin: p.origin,
+            images: p.images,
+            price: p.price,
+            inStock: p.inStock,
+          },
+        }));
+      if (newSlots.length === 0) {
+        toast(
+          'Fallback returned no new products — every match is already on the shelf.',
+          'info',
+        );
+        return;
+      }
+      setSlots((prev) => [...prev, ...newSlots]);
+      toast(
+        `Added ${newSlots.length} product${newSlots.length === 1 ? '' : 's'} from fallback. Click Save to persist.`,
+      );
+    } catch (e) {
+      toast(
+        e instanceof Error ? e.message : 'Failed to pull fallback',
+        'error',
+      );
+    } finally {
+      setFilling(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -336,18 +396,37 @@ export default function AdminShelfDetailPage() {
 
           {/* Slots editor */}
           <section className="rounded-card border border-border bg-white">
-            <header className="border-b border-border bg-page px-5 py-3">
-              <h2 className="font-raleway text-base font-bold text-navy">
-                Products on this shelf
-              </h2>
-              <p className="mt-0.5 font-sans text-xs text-muted">
-                Reorder with the up/down arrows. <strong>Mix countries
-                freely</strong> — by default each product is visible
-                everywhere; if you want one product to only show for
-                customers in certain countries, click those country
-                chips on its row. A single shelf can carry products
-                from any number of countries at once.
-              </p>
+            <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-page px-5 py-3">
+              <div className="flex flex-col gap-0.5">
+                <h2 className="font-raleway text-base font-bold text-navy">
+                  Products on this shelf
+                </h2>
+                <p className="font-sans text-xs leading-snug text-muted">
+                  Reorder with the up/down arrows. <strong>Mix countries
+                  freely</strong> — each product is global by default; click
+                  country chips on its row to scope it. A single shelf can
+                  carry products from any number of countries at once.
+                </p>
+                {data.defaultFallback && (
+                  <p className="mt-1 font-sans text-[11px] leading-snug text-muted">
+                    Storefront fallback: <FallbackDescriptor fb={data.defaultFallback} />
+                    . When picks are fewer than {rows * cols} the rest of
+                    the shelf auto-fills from this filter.
+                  </p>
+                )}
+              </div>
+              {data.defaultFallback && (
+                <button
+                  type="button"
+                  onClick={handleQuickFill}
+                  disabled={filling}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-btn border border-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-navy hover:bg-navy hover:text-white disabled:opacity-50"
+                  title="Pull the products that currently render via the fallback into editable slots"
+                >
+                  <Download size={12} aria-hidden />
+                  {filling ? 'Pulling…' : 'Pull from fallback'}
+                </button>
+              )}
             </header>
             {slots.length === 0 ? (
               <p className="px-5 py-8 text-center font-sans text-sm text-muted">
@@ -764,6 +843,19 @@ function Highlight({ text, term }: { text: string; term: string }) {
       )}
     </>
   );
+}
+
+/// Renders a one-line summary of what the fallback query is doing,
+/// e.g. "category=personal-care, sort=newest". Helps editors confirm
+/// the right products will get pulled before clicking the button.
+function FallbackDescriptor({ fb }: { fb: ShelfFallback }) {
+  const parts: string[] = [];
+  if (fb.category) parts.push(`category=${fb.category}`);
+  if (fb.origin) parts.push(`origin=${fb.origin}`);
+  if (fb.onSale !== undefined) parts.push(`onSale=${fb.onSale}`);
+  if (fb.sort) parts.push(`sort=${fb.sort}`);
+  if (parts.length === 0) return <span>(latest products)</span>;
+  return <span className="font-mono">{parts.join(', ')}</span>;
 }
 
 function Field({

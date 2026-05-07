@@ -1753,6 +1753,16 @@ export interface ShelfConfig {
   enabled: boolean;
 }
 
+/// Phase 10.8 — registered fallback for a shelf. Storefront uses it
+/// to fill empty slots when picks < cap; admin uses it to power the
+/// "Quick fill from fallback" button.
+export interface ShelfFallback {
+  category?: string;
+  origin?: string;
+  onSale?: boolean;
+  sort?: 'featured' | 'newest' | 'price-asc' | 'price-desc' | 'rating';
+}
+
 export interface ShelfListItem {
   key: string;
   label: string;
@@ -1760,6 +1770,7 @@ export interface ShelfListItem {
   group: string;
   shelf: ShelfConfig;
   productCount: number;
+  defaultFallback: ShelfFallback | null;
 }
 
 export interface ShelfProductSummary {
@@ -1784,6 +1795,7 @@ export interface ShelfSlot {
 
 export interface ShelfDetail {
   shelf: ShelfConfig;
+  defaultFallback: ShelfFallback | null;
   items: ShelfSlot[];
 }
 
