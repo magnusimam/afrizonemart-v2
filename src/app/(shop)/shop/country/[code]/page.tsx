@@ -16,7 +16,10 @@ import {
 
 interface PageProps {
   params: { code: string };
+  searchParams: { page?: string };
 }
+
+const PAGE_SIZE = 48;
 
 const COUNTRY_HIGHLIGHTS: Partial<Record<CountryCode, string>> = {
   NG: 'Home of Ankara fashion, Nollywood, and over 200 million tastemakers.',
@@ -36,16 +39,25 @@ const COUNTRY_HIGHLIGHTS: Partial<Record<CountryCode, string>> = {
   ML: 'Mudcloth (bogolan), Tuareg silver, and Saharan textiles.',
 };
 
-export default async function ShopByCountryPage({ params }: PageProps) {
+export default async function ShopByCountryPage({ params, searchParams }: PageProps) {
   const country = getCountryBySlug(params.code);
   if (!country) notFound();
 
   const code = country.code as CountryCode;
   const highlight = COUNTRY_HIGHLIGHTS[code] ?? `Authentic products from ${country.name}.`;
+
   // Real products from the API — filtered by the ISO-2 origin column
   // that the CSV importer + admin product form both write to.
-  const productsResponse = await fetchProducts({ origin: code, limit: 48 }).catch(() => null);
+  const requestedPage = Number.parseInt(searchParams.page ?? '1', 10);
+  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const productsResponse = await fetchProducts({
+    origin: code,
+    limit: PAGE_SIZE,
+    page,
+  }).catch(() => null);
   const products = productsResponse?.items ?? [];
+  const totalProducts = productsResponse?.pagination.total ?? 0;
+  const totalPages = productsResponse?.pagination.pages ?? 1;
   const otherCountries = COUNTRY_CODES.filter((c) => c !== code).slice(0, 8);
 
   return (
@@ -112,10 +124,10 @@ export default async function ShopByCountryPage({ params }: PageProps) {
 
             <div className="flex flex-col gap-4 lg:col-span-9 lg:gap-6">
               <SafeBoundary name="country:toolbar" fallback={null}>
-                <ShopToolbar total={products.length} />
+                <ShopToolbar total={totalProducts} />
               </SafeBoundary>
 
-              {products.length === 0 ? (
+              {totalProducts === 0 ? (
                 <div className="rounded-card border border-border bg-white px-6 py-16 text-center">
                   <p className="font-raleway text-lg font-bold text-navy">
                     No products from {country.name} yet
@@ -126,13 +138,53 @@ export default async function ShopByCountryPage({ params }: PageProps) {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
-                  {products.map((p) => (
-                    <SafeBoundary key={p.id} name="country:card" fallback={null}>
-                      <ApiProductCard product={p} />
-                    </SafeBoundary>
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                    {products.map((p) => (
+                      <SafeBoundary key={p.id} name="country:card" fallback={null}>
+                        <ApiProductCard product={p} />
+                      </SafeBoundary>
+                    ))}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <nav
+                      aria-label="Pagination"
+                      className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-white px-4 py-3 font-sans text-sm"
+                    >
+                      <span className="text-muted">
+                        Page {page} of {totalPages} · showing {products.length} of{' '}
+                        {totalProducts.toLocaleString()} products from {country.name}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {page > 1 ? (
+                          <Link
+                            href={`/shop/country/${country.slug}?page=${page - 1}`}
+                            className="rounded-btn border border-border bg-white px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-charcoal hover:border-navy hover:text-navy"
+                          >
+                            ← Previous
+                          </Link>
+                        ) : (
+                          <span className="rounded-btn border border-border bg-page px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                            ← Previous
+                          </span>
+                        )}
+                        {page < totalPages ? (
+                          <Link
+                            href={`/shop/country/${country.slug}?page=${page + 1}`}
+                            className="rounded-btn bg-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
+                          >
+                            Next →
+                          </Link>
+                        ) : (
+                          <span className="rounded-btn border border-border bg-page px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                            Next →
+                          </span>
+                        )}
+                      </div>
+                    </nav>
+                  )}
+                </>
               )}
             </div>
           </div>
