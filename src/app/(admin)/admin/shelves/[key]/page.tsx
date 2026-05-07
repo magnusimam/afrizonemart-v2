@@ -160,6 +160,9 @@ export default function AdminShelfDetailPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    // Snapshot the local list at the moment of save so the toast +
+    // refetch can compare what was sent vs what came back.
+    const sentCount = slots.length;
     try {
       await Promise.all([
         adminUpdateShelf(key, {
@@ -179,7 +182,36 @@ export default function AdminShelfDetailPage() {
           })),
         ),
       ]);
-      toast(`Saved — ${slots.length} product${slots.length === 1 ? '' : 's'}`);
+      // Refetch from the API and reconcile. If the user kept editing
+      // while the save was in flight (added/removed slots), we leave
+      // their local edits alone so nothing gets clobbered — they can
+      // save again. Otherwise we mirror the server state so the UI
+      // always matches what's actually persisted.
+      const fresh = await adminGetShelf(key);
+      setData(fresh);
+      const persistedCount = fresh.items.length;
+      const editedDuringSave = slots.length !== sentCount;
+      if (!editedDuringSave) {
+        setSlots(
+          fresh.items.map((s) => ({
+            productId: s.productId,
+            startsAt: s.startsAt,
+            endsAt: s.endsAt,
+            countries: s.countries,
+            product: s.product,
+          })),
+        );
+      }
+      if (persistedCount === sentCount) {
+        toast(
+          `Saved — ${persistedCount} product${persistedCount === 1 ? '' : 's'} on this shelf`,
+        );
+      } else {
+        toast(
+          `Save mismatch — sent ${sentCount}, server kept ${persistedCount}. Refresh to see the saved state.`,
+          'error',
+        );
+      }
     } catch (e) {
       toast(
         e instanceof HttpApiError ? e.message : 'Failed to save',
