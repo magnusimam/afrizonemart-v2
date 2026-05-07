@@ -55,6 +55,9 @@ export function ProductForm({
     initial.comparePrice != null ? String(initial.comparePrice) : '',
   );
   const [origin, setOrigin] = useState(initial.origin ?? '');
+  const [weightKg, setWeightKg] = useState(
+    initial.weightKg != null ? String(initial.weightKg) : '',
+  );
   const [inStock, setInStock] = useState(initial.inStock ?? true);
   const [categorySlug, setCategorySlug] = useState(initial.categorySlug ?? '');
   const [images, setImages] = useState<string[]>(initial.images ?? []);
@@ -111,6 +114,7 @@ export function ProductForm({
       price: Number(price) || 0,
       comparePrice: comparePrice.trim() ? Number(comparePrice) : null,
       origin: origin.trim() ? origin.trim().toUpperCase() : null,
+      weightKg: weightKg.trim() ? Number(weightKg) : null,
       inStock,
       rating: initial.rating ?? 0,
       reviewCount: initial.reviewCount ?? 0,
@@ -163,6 +167,20 @@ export function ProductForm({
                 onChange={(e) => setOrigin(e.target.value.toUpperCase())}
                 maxLength={2}
                 className={`${inputClass} uppercase`}
+              />
+            </Field>
+            <Field
+              label="Weight (kg)"
+              hint="Used by the shipping quote to pick the right rate. Leave blank to use the system default (0.5 kg)."
+            >
+              <input
+                type="number"
+                min={0}
+                step="0.1"
+                value={weightKg}
+                onChange={(e) => setWeightKg(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. 1.5"
               />
             </Field>
           </div>
