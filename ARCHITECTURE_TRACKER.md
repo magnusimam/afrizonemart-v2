@@ -46,6 +46,92 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+37. **[x] Shelf Manager (admin-controlled product shelves)** _(landed 2026-05-07)_.
+
+    **Why**: CTO audit confirmed no shelf renders mock product data (every
+    shelf is API-fed via the placement system), but two gaps remained:
+    (a) the **number of rows** rendered per shelf was hardcoded into each
+    component (`limit={6}`), so the admin couldn't change "show 1 row" vs
+    "show 3 rows" without a code edit; (b) curating a shelf required
+    opening each individual product and ticking the placement on the
+    product form — there was no single screen that lets an editor say
+    "these 12 products go on the For Her shelf in this order."
+
+    **Goal**: a `/admin/shelves` console where an editor picks a shelf
+    (homepage_featured, shelf_groceries, shelf_for_her, etc.), searches
+    the product catalog, drags the chosen products into an ordered list,
+    sets rows × columns, optionally constrains each pick to a country
+    subset (so a single shelf can deliberately mix products from
+    different countries), and saves. Followed by extending the
+    page-builder `product-grid` section with the same picker + a
+    `mode: 'placement' | 'manual' | 'filter'` so any new shelf on a CMS
+    page gets the same controls without touching code.
+
+    **Shipped (Phase B — admin shelf manager)**:
+    - **Schema**: new `Shelf` Prisma model
+      (`afrizonemart-api/prisma/schema.prisma:639-666`), one row per
+      placement key, with `title`, `subtitle`, `rows`, `cols`,
+      `enabled`. Migration at
+      `afrizonemart-api/prisma/migrations/20260507120000_shelves/`.
+      Per-product membership stays in `ProductPlacement`.
+    - **API — `shelves` module**
+      (`afrizonemart-api/src/modules/shelves/`): public
+      `GET /api/shelves/:key` returns `{ shelf, items }` with
+      country scoping; admin `GET /admin/shelves`,
+      `GET/PUT /admin/shelves/:key`,
+      `PUT /admin/shelves/:key/products` for batch save.
+    - **API — products endpoint**: `listProductsQuerySchema` now
+      accepts `ids` (CSV or repeated). Repository early-returns the
+      products in input order so manually-curated grids render in the
+      saved sequence.
+    - **Idempotent seeder** (`seedDefaultShelves`) runs on every API
+      boot — writes a `Shelf` row for each registry placement key with
+      `rows: 1, cols: 6, enabled: true` if missing.
+    - **Storefront**: `useShelf(key, country)` hook +
+      `lib/api/shelves.ts` client. `PlacementShelf` and
+      `PlacementOrFallbackGrid` now read `rows × cols`, `title`,
+      `subtitle`, and `enabled` from the shelf config; cap items to
+      `rows × cols`; render nothing when disabled. Existing call
+      sites keep working — props are honoured as fallback.
+    - **Admin UI**: `/admin/shelves` list grouped by registry group
+      with product counts and live/hidden badges; detail page at
+      `/admin/shelves/[key]` with title/subtitle/rows/cols/enabled
+      editor, product picker (debounced search against
+      `/api/admin/products`), reorder with up/down arrows, per-product
+      country chips, optional show-from / hide-after schedule. Saves
+      shelf settings + product list in parallel. Sidebar entry
+      "Shelves" added under `products.write` capability.
+
+    **Cross-country mixing**: shipped via the existing
+    `ProductPlacement.countries[]` field. A single shelf can carry a
+    Nigerian, a Kenyan, and a Ghanaian product simultaneously; per-row
+    country chips in the admin let an editor decide whether a given
+    pick is global (empty chips) or country-scoped.
+
+    **Empty-category rule**: confirmed by audit — every storefront
+    product container is API-fed (no hardcoded product arrays). If a
+    placement / category returns zero products, `PlacementShelf`
+    returns null and `PlacementOrFallbackGrid` renders the
+    "Nothing here yet — check back soon." line. No mock fallback.
+
+    **Phase A — page-builder `product-grid` section extension**:
+    deferred. The `Page`/`PageSection`/`PageRevision` Prisma models
+    exist (lines 902-1008) but no Express module, no storefront
+    renderer, and no `/admin/site-pages` UI. Only `cms/` (legacy
+    `CmsPage` + `PageBlocks.tsx`) is wired. Picking up Phase A
+    requires the page-builder system itself to land first.
+
+37. **[~] Shelf Manager phase A — page-builder product picker** _(deferred 2026-05-07)_.
+
+    Goal was to extend the page-builder `product-grid` section with
+    `mode: 'placement' | 'manual' | 'filter'`, `productIds[]`,
+    `rows`, `cols`, `countries[]`, and a product picker reused from
+    `/admin/shelves`. Blocked: the page-builder module
+    (`afrizonemart-api/src/modules/pages/`) and storefront
+    `PageRenderer`/section components don't exist on disk despite
+    being recorded as shipped on 2026-05-03 — only the schema models
+    are present. Reopen once the page-builder code lands.
+
 36. **[x] Page-builder CMS (Phase 1 + draft/publish + scheduling) and full Blog system** _(2026-05-03)_ — done.
 
     **Why**: CTO wanted a content management system so non-engineers

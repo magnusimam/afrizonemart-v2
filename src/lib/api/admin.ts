@@ -1738,3 +1738,98 @@ export async function adminDownloadInternCsv(filters: {
   a.remove();
   URL.revokeObjectURL(objectUrl);
 }
+
+// =================================================================
+// Phase 10.8 — Admin Shelves
+// =================================================================
+
+export interface ShelfConfig {
+  id?: string;
+  key: string;
+  title: string;
+  subtitle: string | null;
+  rows: number;
+  cols: number;
+  enabled: boolean;
+}
+
+export interface ShelfListItem {
+  key: string;
+  label: string;
+  description: string;
+  group: string;
+  shelf: ShelfConfig;
+  productCount: number;
+}
+
+export interface ShelfProductSummary {
+  id: string;
+  slug: string;
+  name: string;
+  brand: string | null;
+  origin: string | null;
+  images: string[];
+  price: number;
+  inStock: boolean;
+}
+
+export interface ShelfSlot {
+  productId: string;
+  sortOrder: number;
+  startsAt: string | null;
+  endsAt: string | null;
+  countries: string[];
+  product: ShelfProductSummary | null;
+}
+
+export interface ShelfDetail {
+  shelf: ShelfConfig;
+  items: ShelfSlot[];
+}
+
+export interface ShelfSlotInput {
+  productId: string;
+  sortOrder?: number;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  countries?: string[];
+}
+
+export function adminListShelves(): Promise<{
+  groups: Record<string, string>;
+  items: ShelfListItem[];
+}> {
+  return apiFetchAuthed('/api/admin/shelves');
+}
+
+export function adminGetShelf(key: string): Promise<ShelfDetail> {
+  return apiFetchAuthed<ShelfDetail>(
+    `/api/admin/shelves/${encodeURIComponent(key)}`,
+  );
+}
+
+export function adminUpdateShelf(
+  key: string,
+  input: Partial<Omit<ShelfConfig, 'key' | 'id'>>,
+): Promise<ShelfConfig> {
+  return apiFetchAuthed<ShelfConfig>(
+    `/api/admin/shelves/${encodeURIComponent(key)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function adminSetShelfProducts(
+  key: string,
+  items: ShelfSlotInput[],
+): Promise<{ count: number }> {
+  return apiFetchAuthed<{ count: number }>(
+    `/api/admin/shelves/${encodeURIComponent(key)}/products`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ items }),
+    },
+  );
+}

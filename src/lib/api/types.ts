@@ -125,5 +125,11 @@ export interface ListProductsParams {
   placement?: string;
   /** ISO-2 country used together with placement scoping. */
   country?: string;
+  /**
+   * Phase 10.8 — explicit product IDs. When set, the API returns only
+   * these products in this order; other filters except `inStock` are
+   * ignored. Used by manually-curated shelves and product-grid sections.
+   */
+  ids?: string[];
   sort?: 'featured' | 'newest' | 'price-asc' | 'price-desc' | 'rating';
 }

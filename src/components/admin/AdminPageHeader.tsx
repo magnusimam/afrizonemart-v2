@@ -1,6 +1,6 @@
 interface Props {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   action?: React.ReactNode;
 }
 
