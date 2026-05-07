@@ -1,4 +1,4 @@
-import { fetchProduct, ApiError } from '@/lib/api/products';
+import { fetchProduct, fetchProducts, ApiError } from '@/lib/api/products';
 import type { ApiProduct, ApiReview } from '@/lib/api/types';
 
 export interface ProductBundle {
@@ -201,14 +201,48 @@ export interface RelatedProduct {
   origin?: string;
 }
 
-export function getRelatedProducts(currentSlug: string): RelatedProduct[] {
-  const all: RelatedProduct[] = [
-    { id: 'r1', slug: 'tara-half-dual-powder', name: 'Tara Half-Dual Powder Palette', price: 4500, origin: 'EG' },
-    { id: 'r2', slug: 'bi-bi-doll-browpencil', name: 'Bi Bi Doll Browpencil', price: 800, origin: 'NG' },
-    { id: 'r3', slug: 'opera-silky-pressed', name: 'Opera Silky Pressed Powder', price: 3500, origin: 'KE' },
-    { id: 'r4', slug: 'tara-bronzer', name: 'Tara Bronzer', price: 3200, comparePrice: 4000, discountPercent: 20, origin: 'EG' },
-    { id: 'r5', slug: 'snow-foundation', name: 'Snow Total Coverage Foundation', price: 4800, origin: 'ZA' },
-    { id: 'r6', slug: 'fanda-lipstick', name: 'Fanda Lipstick', price: 1000, origin: 'NG' },
-  ];
-  return all.filter((p) => p.slug !== currentSlug);
+/**
+ * Fetch products related to the given slug. "Related" = same category,
+ * different product. Falls back to newest products if there's no
+ * category match. Returns empty when nothing's available — no fake
+ * fallback list. Caller (cart, product page) should hide the section
+ * when the array is empty.
+ */
+export async function getRelatedProducts(
+  currentSlug: string,
+  limit = 6,
+): Promise<RelatedProduct[]> {
+  // 1. Look up the current product to learn its category.
+  let currentCategorySlug: string | null = null;
+  if (currentSlug) {
+    try {
+      const cur = await fetchProduct(currentSlug);
+      currentCategorySlug = cur.category?.slug ?? null;
+    } catch {
+      // Product not found — fall through to a category-less fetch.
+    }
+  }
+
+  // 2. Pull a small set from the same category if known, else newest.
+  const params = currentCategorySlug
+    ? { category: currentCategorySlug, limit: limit + 1, sort: 'newest' as const }
+    : { limit: limit + 1, sort: 'newest' as const };
+
+  try {
+    const r = await fetchProducts(params);
+    return r.items
+      .filter((p) => p.slug !== currentSlug)
+      .slice(0, limit)
+      .map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        price: p.price,
+        comparePrice: p.comparePrice ?? undefined,
+        discountPercent: p.discountPercent ?? undefined,
+        origin: p.origin ?? undefined,
+      }));
+  } catch {
+    return [];
+  }
 }

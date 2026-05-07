@@ -12,7 +12,7 @@ import { RelatedProducts } from '@/components/product/RelatedProducts';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { fetchCart, type CartView } from '@/lib/api/cart';
-import { getRelatedProducts } from '@/lib/products';
+import { getRelatedProducts, type RelatedProduct } from '@/lib/products';
 import { useAuthStore } from '@/stores/authStore';
 import {
   selectCartTotalAmount,
@@ -55,7 +55,15 @@ export default function CartPage() {
   const subtotal = hydrated ? totalAmount : 0;
   const cartItems = hydrated ? items : [];
   const isEmpty = cartItems.length === 0;
-  const related = getRelatedProducts('');
+  const [related, setRelated] = useState<RelatedProduct[]>([]);
+
+  // Fetch real related products when cart hydrates. Anchor on the
+  // first cart item's slug so suggestions feel related to what's
+  // already in the cart; falls back to newest if no items.
+  const anchorSlug = cartItems[0]?.slug ?? '';
+  useEffect(() => {
+    void getRelatedProducts(anchorSlug, 6).then(setRelated);
+  }, [anchorSlug]);
 
   return (
     <>

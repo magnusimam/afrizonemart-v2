@@ -2,36 +2,33 @@ import Link from 'next/link';
 import { ChevronRight, Home as HomeIcon } from 'lucide-react';
 import { FiltersSidebar } from '@/components/shop/FiltersSidebar';
 import { ShopToolbar } from '@/components/shop/ShopToolbar';
-import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
+import { ApiProductCard } from '@/components/product/ApiProductCard';
 import { COUNTRY_CODES } from '@/lib/countries';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { fetchProducts } from '@/lib/api/products';
 
-const SAMPLE_NAMES = [
-  'Maya Himalaya Facial Scrub', 'Tara Bronzer', 'Fanda Lipstick',
-  'Glynn Day Bed Chaise Lounge', 'Tastic Long Grain Rice 5kg', 'Smoked CatFish 250g',
-  'CT 24 Wrist Watch', 'Maya Curly Hair Kit', 'Genuine White Leather Couch',
-  'Big Bites Lemon 60cl', 'Ground Fenugreek 1kg', 'Ann Chair 20',
-  'AvanGuard Freedom 2', 'Mayo Herbal Shampoo', 'We Naturals Moringa Powder',
-  'Two Piece Native', 'TV Stand 109', 'Recals Jacket Unisex',
-  'Bridie Day Bed', 'Five Crowns Sparkling Brut', 'Coffee Mate Rich Brown',
-  'Cway Nutri-Yo Yoghurt', 'Spectra Cocoa Powder', 'Trendy Shoes For Men',
-];
+const PAGE_SIZE = 48;
 
-const SAMPLE_PRODUCTS = Array.from({ length: 24 }, (_, i) => {
-  const origins = COUNTRY_CODES;
-  const origin = origins[i % origins.length];
-  return {
-    id: `s${i + 1}`,
-    name: SAMPLE_NAMES[i % SAMPLE_NAMES.length],
-    price: 1200 + i * 850 + (i % 3) * 1000,
-    comparePrice: i % 4 === 0 ? 2000 + i * 1100 : undefined,
-    discountPercent: i % 4 === 0 ? 15 + (i % 3) * 5 : undefined,
-    outOfStock: i % 11 === 0,
-    origin,
-  };
-});
+interface PageProps {
+  searchParams: { page?: string };
+}
 
-export default function ShopPage() {
+export default async function ShopPage({ searchParams }: PageProps) {
+  // Real products from the API. No fake fallback — if there's nothing
+  // in the catalog, the page renders an empty state. searchParams.page
+  // drives pagination; first-time visitors land on page 1.
+  const requestedPage = Number.parseInt(searchParams.page ?? '1', 10);
+  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+
+  const productsResponse = await fetchProducts({
+    limit: PAGE_SIZE,
+    page,
+    sort: 'newest',
+  }).catch(() => null);
+  const products = productsResponse?.items ?? [];
+  const totalProducts = productsResponse?.pagination.total ?? 0;
+  const totalPages = productsResponse?.pagination.pages ?? 1;
+
   return (
     <>
       <main className="bg-page pb-12">
@@ -73,39 +70,67 @@ export default function ShopPage() {
 
             <div className="flex flex-col gap-4 lg:col-span-9 lg:gap-6">
               <SafeBoundary name="shop:toolbar" fallback={null}>
-                <ShopToolbar total={SAMPLE_PRODUCTS.length} />
+                <ShopToolbar total={totalProducts} />
               </SafeBoundary>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-4">
-                {SAMPLE_PRODUCTS.map((p) => (
-                  <SafeBoundary key={p.id} name="shop:card" fallback={null}>
-                    <ProductCardPlaceholder {...p} />
-                  </SafeBoundary>
-                ))}
-              </div>
+              {totalProducts === 0 ? (
+                <div className="rounded-card border border-border bg-white px-6 py-16 text-center">
+                  <p className="font-raleway text-lg font-bold text-navy">
+                    No products yet
+                  </p>
+                  <p className="mt-1 font-sans text-sm text-muted">
+                    Our catalog is being built — check back soon.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-4">
+                    {products.map((p) => (
+                      <SafeBoundary key={p.id} name="shop:card" fallback={null}>
+                        <ApiProductCard product={p} />
+                      </SafeBoundary>
+                    ))}
+                  </div>
 
-              <nav aria-label="Pagination" className="flex items-center justify-center gap-1 pt-4">
-                <button className="rounded-input border border-border bg-white px-3 py-2 font-raleway text-xs font-bold text-navy hover:border-navy">
-                  ←
-                </button>
-                {[1, 2, 3, 4, 5].map((p) => (
-                  <button
-                    key={p}
-                    className={`h-9 w-9 rounded-input font-raleway text-xs font-bold ${
-                      p === 1 ? 'bg-navy text-white' : 'border border-border bg-white text-navy hover:border-navy'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-                <span className="px-2 font-sans text-xs text-muted">...</span>
-                <button className="h-9 w-9 rounded-input border border-border bg-white font-raleway text-xs font-bold text-navy hover:border-navy">
-                  12
-                </button>
-                <button className="rounded-input border border-border bg-white px-3 py-2 font-raleway text-xs font-bold text-navy hover:border-navy">
-                  →
-                </button>
-              </nav>
+                  {totalPages > 1 && (
+                    <nav
+                      aria-label="Pagination"
+                      className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-white px-4 py-3 font-sans text-sm"
+                    >
+                      <span className="text-muted">
+                        Page {page} of {totalPages} · showing {products.length} of{' '}
+                        {totalProducts.toLocaleString()} products
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {page > 1 ? (
+                          <Link
+                            href={`/shop?page=${page - 1}`}
+                            className="rounded-btn border border-border bg-white px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-charcoal hover:border-navy hover:text-navy"
+                          >
+                            ← Previous
+                          </Link>
+                        ) : (
+                          <span className="rounded-btn border border-border bg-page px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                            ← Previous
+                          </span>
+                        )}
+                        {page < totalPages ? (
+                          <Link
+                            href={`/shop?page=${page + 1}`}
+                            className="rounded-btn bg-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
+                          >
+                            Next →
+                          </Link>
+                        ) : (
+                          <span className="rounded-btn border border-border bg-page px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                            Next →
+                          </span>
+                        )}
+                      </div>
+                    </nav>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>

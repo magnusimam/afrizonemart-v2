@@ -63,7 +63,7 @@ export default async function ProductPage({ params }: PageProps) {
   ]);
   if (!product) notFound();
 
-  const related = getRelatedProducts(params.slug);
+  const related = await getRelatedProducts(params.slug);
   const customFieldDefs = customFieldsRes.items;
 
   // Schema.org structured data — Product JSON-LD for Google Shopping
