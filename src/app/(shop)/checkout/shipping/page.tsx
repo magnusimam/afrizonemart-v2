@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { ChevronRight, Home as HomeIcon } from 'lucide-react';
 import { AddressForm } from '@/components/checkout/AddressForm';
 import { CheckoutOrderSummary } from '@/components/checkout/CheckoutOrderSummary';
-import { DeliveryMethodSelector } from '@/components/checkout/DeliveryMethodSelector';
+import { LiveShippingQuoteSelector } from '@/components/checkout/LiveShippingQuoteSelector';
 import { NotificationPrefs } from '@/components/checkout/NotificationPrefs';
 import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
 import { useCheckoutStore, type ShippingAddress } from '@/stores/checkoutStore';
@@ -16,6 +16,7 @@ import {
   useCartStore,
 } from '@/stores/cartStore';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import type { ShippingQuote } from '@/lib/api/shipping';
 
 const steps: CheckoutStep[] = [
   { num: 1, label: 'Cart', status: 'done' },
@@ -30,10 +31,11 @@ export default function ShippingPage() {
   const totalAmount = useCartStore(selectCartTotalAmount);
 
   const storeShipping = useCheckoutStore((s) => s.shipping);
-  const deliveryMethod = useCheckoutStore((s) => s.deliveryMethod);
+  const selectedQuote = useCheckoutStore((s) => s.selectedQuote);
   const notify = useCheckoutStore((s) => s.notify);
   const setShipping = useCheckoutStore((s) => s.setShipping);
-  const setDeliveryMethod = useCheckoutStore((s) => s.setDeliveryMethod);
+  const setSelectedQuote = useCheckoutStore((s) => s.setSelectedQuote);
+  const setShippingRateId = useCheckoutStore((s) => s.setShippingRateId);
   const setNotify = useCheckoutStore((s) => s.setNotify);
 
   const [draft, setDraft] = useState<ShippingAddress | null>(null);
@@ -46,9 +48,30 @@ export default function ShippingPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft) return;
+    if (!selectedQuote) return;
     setShipping(draft);
     router.push('/checkout/payment');
   };
+
+  const handleQuoteChange = (q: ShippingQuote | null) => {
+    setSelectedQuote(q ?? undefined);
+    setShippingRateId(q?.rateId ?? undefined);
+  };
+
+  // Destination passed to the quote selector — comes from the form
+  // draft if the user is editing, otherwise the saved store value.
+  const destForQuotes = (() => {
+    const src = draft ?? storeShipping ?? null;
+    if (!src?.country) return null;
+    return {
+      country: src.country.toUpperCase(),
+      city: src.city || undefined,
+      state: src.region || undefined,
+      postcode: src.postalCode || undefined,
+      addressLine: [src.street, src.apartment].filter(Boolean).join(', ') || undefined,
+    };
+  })();
+  const cartItemsForQuote = items.map((i) => ({ productId: i.productId, qty: i.quantity }));
 
   const isEmpty = hydrated && items.length === 0;
 
@@ -119,7 +142,7 @@ export default function ShippingPage() {
 
                   <Section
                     title="Delivery Method"
-                    caption="Choose how fast and how you want it delivered."
+                    caption="Live rates based on your address and cart weight."
                   >
                     <SafeBoundary
                       name="checkout:delivery-method"
@@ -129,9 +152,12 @@ export default function ShippingPage() {
                         </p>
                       }
                     >
-                      <DeliveryMethodSelector
-                        value={deliveryMethod}
-                        onChange={setDeliveryMethod}
+                      <LiveShippingQuoteSelector
+                        destination={destForQuotes}
+                        items={cartItemsForQuote}
+                        selectedRateId={selectedQuote?.rateId ?? null}
+                        selectedProvider={selectedQuote?.provider ?? null}
+                        onChange={handleQuoteChange}
                       />
                     </SafeBoundary>
                   </Section>
@@ -154,7 +180,15 @@ export default function ShippingPage() {
                     </Link>
                     <button
                       type="submit"
-                      className="rounded-btn bg-navy px-6 py-3 text-center font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy sm:text-sm"
+                      disabled={!draft || !selectedQuote}
+                      className="rounded-btn bg-navy px-6 py-3 text-center font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                      title={
+                        !draft
+                          ? 'Fill in the address first'
+                          : !selectedQuote
+                            ? 'Pick a delivery method'
+                            : ''
+                      }
                     >
                       Continue to Payment →
                     </button>

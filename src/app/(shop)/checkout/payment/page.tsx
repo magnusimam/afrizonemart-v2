@@ -21,7 +21,6 @@ import { HttpApiError } from '@/lib/api/client';
 import { placeOrder, type PaymentMethodId as ApiPaymentMethod } from '@/lib/api/orders';
 import { initPayment } from '@/lib/api/payments';
 import { listPublicGateways } from '@/lib/api/admin';
-import { fetchShippingRates, type ShippingRate } from '@/lib/api/shipping';
 import { useCheckoutStore } from '@/stores/checkoutStore';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import {
@@ -58,6 +57,7 @@ export default function PaymentPage() {
 
   const shipping = useCheckoutStore((s) => s.shipping);
   const shippingRateId = useCheckoutStore((s) => s.shippingRateId);
+  const selectedQuote = useCheckoutStore((s) => s.selectedQuote);
   const storedPayment = useCheckoutStore((s) => s.paymentMethod);
   const setPaymentMethod = useCheckoutStore((s) => s.setPaymentMethod);
   const setOrderId = useCheckoutStore((s) => s.setOrderId);
@@ -69,7 +69,6 @@ export default function PaymentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serverCart, setServerCart] = useState<CartView | null>(null);
-  const [pickedRate, setPickedRate] = useState<ShippingRate | null>(null);
   const [activeGateways, setActiveGateways] = useState<string[]>([]);
 
   useEffect(() => {
@@ -98,26 +97,12 @@ export default function PaymentPage() {
     void fetchCart().then(setServerCart).catch(() => {});
   }, []);
 
-  // Resolve the selected shipping rate's details so we can show its
-  // price (with free-above behaviour) in the total.
-  useEffect(() => {
-    if (!shipping?.country || !shippingRateId) {
-      setPickedRate(null);
-      return;
-    }
-    void fetchShippingRates(shipping.country)
-      .then((r) => setPickedRate(r.rates.find((x) => x.id === shippingRateId) ?? null))
-      .catch(() => setPickedRate(null));
-  }, [shipping?.country, shippingRateId]);
-
+  // The selected quote already carries the resolved price + ETA from
+  // the shipping page (it ran the live engine). No extra fetch needed.
   const couponDiscount = serverCart?.couponDiscount ?? 0;
   const couponFreeShipping = serverCart?.couponFreeShipping ?? false;
   const subtotal = hydrated ? totalAmount : 0;
-  const baseShipping = (() => {
-    if (!pickedRate) return 0;
-    if (pickedRate.freeAboveAmount != null && subtotal >= pickedRate.freeAboveAmount) return 0;
-    return pickedRate.priceAmount;
-  })();
+  const baseShipping = selectedQuote?.amountNgn ?? 0;
   const shippingFee = couponFreeShipping ? 0 : baseShipping;
   const total = Math.max(0, subtotal - couponDiscount + shippingFee);
 
