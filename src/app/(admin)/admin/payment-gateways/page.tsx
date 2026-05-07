@@ -15,7 +15,14 @@ import {
   type ProviderDefinition,
 } from '@/lib/api/admin';
 
-const CURRENCIES = ['NGN', 'USD', 'GBP', 'EUR', 'KES', 'GHS', 'ZAR'];
+/// Sorted by African-first relevance, then global. Each provider's
+/// `supportedCurrencies` filters this list down to what's actually
+/// pickable for the chosen provider.
+const CURRENCIES = [
+  'NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF', 'ZMW',
+  'XAF', 'XOF',
+  'USD', 'EUR', 'GBP',
+];
 
 export default function AdminPaymentGatewaysPage() {
   const [providers, setProviders] = useState<ProviderDefinition[]>([]);
@@ -309,8 +316,14 @@ function GatewayFormDialog({
 
         <div>
           <span className="block font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">Currencies</span>
+          {provider && (
+            <p className="mt-0.5 font-sans text-[11px] text-muted">
+              {provider.displayName} supports {provider.supportedCurrencies.length} currencies.
+              Pick the ones you want this gateway instance to handle at checkout.
+            </p>
+          )}
           <div className="mt-1 flex flex-wrap gap-2">
-            {CURRENCIES.map((c) => {
+            {(provider ? CURRENCIES.filter((c) => provider.supportedCurrencies.includes(c)) : CURRENCIES).map((c) => {
               const enabled = currencies.includes(c);
               return (
                 <button
