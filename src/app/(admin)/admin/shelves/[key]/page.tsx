@@ -25,6 +25,7 @@ import {
   adminSetShelfProducts,
   adminUpdateShelf,
   type AdminProductListItem,
+  type ShelfCountryRow,
   type ShelfDetail,
   type ShelfFallback,
   type ShelfSlot,
@@ -78,6 +79,10 @@ export default function AdminShelfDetailPage() {
   // Slots draft (ordered list).
   const [slots, setSlots] = useState<DraftSlot[]>([]);
 
+  // Country-row rules draft. When non-empty, the storefront auto-fills
+  // the shelf from these rules and ignores explicit picks.
+  const [countryRows, setCountryRows] = useState<ShelfCountryRow[]>([]);
+
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -101,6 +106,7 @@ export default function AdminShelfDetailPage() {
             product: s.product,
           })),
         );
+        setCountryRows(detail.shelf.countryRows ?? []);
       } catch (e) {
         toast(
           e instanceof HttpApiError ? e.message : 'Failed to load shelf',
@@ -224,6 +230,13 @@ export default function AdminShelfDetailPage() {
     // refetch can compare what was sent vs what came back.
     const sentCount = slots.length;
     try {
+      // Country rules and explicit picks are independent storage:
+      // saving rules doesn't wipe picks (they just stop rendering on
+      // the storefront while rules are active). Sending an empty
+      // array clears rules and the shelf goes back to picks mode.
+      const cleanRows = countryRows
+        .filter((r) => r.count > 0)
+        .map((r) => ({ country: r.country, count: r.count }));
       await Promise.all([
         adminUpdateShelf(key, {
           title: title.trim() || (data?.shelf.title ?? key),
@@ -231,6 +244,7 @@ export default function AdminShelfDetailPage() {
           rows,
           cols,
           enabled,
+          countryRows: cleanRows.length > 0 ? cleanRows : null,
         }),
         adminSetShelfProducts(
           key,
@@ -249,6 +263,7 @@ export default function AdminShelfDetailPage() {
       // always matches what's actually persisted.
       const fresh = await adminGetShelf(key);
       setData(fresh);
+      setCountryRows(fresh.shelf.countryRows ?? []);
       const persistedCount = fresh.items.length;
       const editedDuringSave = slots.length !== sentCount;
       if (!editedDuringSave) {
@@ -394,12 +409,24 @@ export default function AdminShelfDetailPage() {
             </div>
           </section>
 
+          {/* Country rows editor */}
+          <CountryRowsEditor
+            rows={countryRows}
+            cap={cap}
+            onChange={setCountryRows}
+          />
+
           {/* Slots editor */}
           <section className="rounded-card border border-border bg-white">
             <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-page px-5 py-3">
               <div className="flex flex-col gap-0.5">
                 <h2 className="font-raleway text-base font-bold text-navy">
-                  Products on this shelf
+                  Products on this shelf{' '}
+                  {countryRows.filter((r) => r.count > 0).length > 0 && (
+                    <span className="ml-2 rounded-full bg-muted/20 px-2 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
+                      ignored — country rules are active
+                    </span>
+                  )}
                 </h2>
                 <p className="font-sans text-xs leading-snug text-muted">
                   Reorder with the up/down arrows. <strong>Mix countries
@@ -844,6 +871,193 @@ function Highlight({ text, term }: { text: string; term: string }) {
     </>
   );
 }
+
+/// Phase 10.8b — country-row auto-fill editor.
+///
+/// Lets the editor say "row 1 = N products from South Africa, row 2 =
+/// M products from Nigeria" without ever picking individual products.
+/// Storefront resolves the rules at render time so newly-added
+/// products in those countries appear automatically.
+///
+/// Empty list = picks mode (the slot editor below is what counts).
+/// Non-empty list = rules mode (slots are stored but ignored on the
+/// storefront until rules are cleared).
+function CountryRowsEditor({
+  rows,
+  cap,
+  onChange,
+}: {
+  rows: ShelfCountryRow[];
+  cap: number;
+  onChange: (next: ShelfCountryRow[]) => void;
+}) {
+  const totalCount = rows.reduce((acc, r) => acc + (r.count || 0), 0);
+  const overCap = totalCount > cap;
+  const active = rows.filter((r) => r.count > 0).length > 0;
+
+  const addRow = () => {
+    const defaultCount = Math.max(1, Math.min(6, cap - totalCount));
+    onChange([...rows, { country: null, count: defaultCount }]);
+  };
+  const update = (idx: number, patch: Partial<ShelfCountryRow>) =>
+    onChange(rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  const remove = (idx: number) => onChange(rows.filter((_, i) => i !== idx));
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = idx + dir;
+    if (next < 0 || next >= rows.length) return;
+    const arr = [...rows];
+    [arr[idx], arr[next]] = [arr[next], arr[idx]];
+    onChange(arr);
+  };
+
+  return (
+    <section
+      className={`rounded-card border bg-white ${
+        active ? 'border-amber' : 'border-border'
+      }`}
+    >
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-page px-5 py-3">
+        <div className="flex flex-col gap-0.5">
+          <h2 className="font-raleway text-base font-bold text-navy">
+            Auto-fill by country{' '}
+            {active && (
+              <span className="ml-2 rounded-full bg-amber/30 px-2 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
+                Active
+              </span>
+            )}
+          </h2>
+          <p className="font-sans text-xs leading-snug text-muted">
+            Fastest way to fill a shelf. Add rows like &ldquo;6 products from
+            South Africa&rdquo;, &ldquo;6 products from Nigeria&rdquo;. The
+            storefront resolves them in order and stays in sync as the
+            catalog grows. Leave empty to use manual picks below instead.
+          </p>
+          {active && (
+            <p
+              className={`mt-1 font-sans text-[11px] leading-snug ${
+                overCap ? 'text-danger' : 'text-success'
+              }`}
+            >
+              {totalCount} of {cap} slots filled by these rules.{' '}
+              {overCap && '— first ' + cap + ' will render; the rest are queued.'}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={addRow}
+          className="inline-flex shrink-0 items-center gap-2 rounded-btn border border-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-navy hover:bg-navy hover:text-white"
+        >
+          + Add country row
+        </button>
+      </header>
+
+      {rows.length === 0 ? (
+        <p className="px-5 py-6 text-center font-sans text-sm text-muted">
+          No country rules yet. Click &ldquo;Add country row&rdquo; to start —
+          or skip this and hand-pick products in the section below.
+        </p>
+      ) : (
+        <ol className="flex flex-col divide-y divide-border">
+          {rows.map((r, idx) => (
+            <li
+              key={idx}
+              className="flex flex-wrap items-center gap-3 px-5 py-3"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-navy font-raleway text-xs font-bold text-white">
+                {idx + 1}
+              </span>
+              <select
+                value={r.country ?? ''}
+                onChange={(e) =>
+                  update(idx, {
+                    country: e.target.value === '' ? null : e.target.value,
+                  })
+                }
+                className="rounded-input border border-border bg-white px-3 py-2 font-sans text-sm focus:border-navy focus:outline-none"
+              >
+                <option value="">Any country (catalog-wide)</option>
+                {COUNTRY_LABELS.map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {code} — {name}
+                  </option>
+                ))}
+              </select>
+              <span className="font-sans text-sm text-muted">×</span>
+              <input
+                type="number"
+                min={1}
+                max={cap}
+                value={r.count}
+                onChange={(e) =>
+                  update(idx, {
+                    count: Math.max(1, Math.min(cap, Number(e.target.value) || 1)),
+                  })
+                }
+                className="w-24 rounded-input border border-border bg-white px-3 py-2 font-sans text-sm focus:border-navy focus:outline-none"
+              />
+              <span className="font-sans text-sm text-muted">products</span>
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => move(idx, -1)}
+                  disabled={idx === 0}
+                  aria-label="Move up"
+                  className="rounded p-1 text-muted hover:bg-page hover:text-navy disabled:opacity-30"
+                >
+                  <ArrowUp size={14} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => move(idx, 1)}
+                  disabled={idx === rows.length - 1}
+                  aria-label="Move down"
+                  className="rounded p-1 text-muted hover:bg-page hover:text-navy disabled:opacity-30"
+                >
+                  <ArrowDown size={14} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(idx)}
+                  aria-label="Remove row"
+                  className="rounded p-1 text-muted hover:bg-danger/10 hover:text-danger"
+                >
+                  <Trash2 size={14} aria-hidden />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+/// Country code → display name. Same 21 codes used by the per-product
+/// chips, with friendlier names for the dropdown.
+const COUNTRY_LABELS: Array<[string, string]> = [
+  ['NG', 'Nigeria'],
+  ['ZA', 'South Africa'],
+  ['KE', 'Kenya'],
+  ['GH', 'Ghana'],
+  ['EG', 'Egypt'],
+  ['MA', 'Morocco'],
+  ['ET', 'Ethiopia'],
+  ['TZ', 'Tanzania'],
+  ['UG', 'Uganda'],
+  ['RW', 'Rwanda'],
+  ['ZW', 'Zimbabwe'],
+  ['CI', "Côte d'Ivoire"],
+  ['SN', 'Senegal'],
+  ['CM', 'Cameroon'],
+  ['ML', 'Mali'],
+  ['DZ', 'Algeria'],
+  ['TN', 'Tunisia'],
+  ['AO', 'Angola'],
+  ['BW', 'Botswana'],
+  ['NA', 'Namibia'],
+  ['MZ', 'Mozambique'],
+];
 
 /// Renders a one-line summary of what the fallback query is doing,
 /// e.g. "category=personal-care, sort=newest". Helps editors confirm
