@@ -62,6 +62,8 @@ export function ProductGridFromQuery({
             origin={p.origin ?? undefined}
             delivery={delivery}
             buttonVariant={buttonVariant}
+            imageSrc={p.images?.[0]}
+            imageAlt={p.name}
           />
         </SafeBoundary>
       ))}

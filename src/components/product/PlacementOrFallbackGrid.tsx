@@ -104,6 +104,8 @@ export function PlacementOrFallbackGrid({
             outOfStock={!p.inStock}
             buttonVariant={buttonVariant}
             delivery={delivery}
+            imageSrc={p.images?.[0]}
+            imageAlt={p.name}
           />
         );
       })}
