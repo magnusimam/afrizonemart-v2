@@ -2,38 +2,39 @@ import Link from 'next/link';
 import { ChevronRight, Home as HomeIcon, Search } from 'lucide-react';
 import { FiltersSidebar } from '@/components/shop/FiltersSidebar';
 import { ShopToolbar } from '@/components/shop/ShopToolbar';
-import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
-import { COUNTRY_CODES } from '@/lib/countries';
+import { ApiProductCard } from '@/components/product/ApiProductCard';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { fetchProducts } from '@/lib/api/products';
+
+const PAGE_SIZE = 48;
 
 interface PageProps {
-  searchParams: { q?: string };
+  searchParams: { q?: string; page?: string };
 }
 
-const SAMPLE = (q: string) =>
-  Array.from({ length: 12 }, (_, i) => ({
-    id: `q-${i + 1}`,
-    name: `${q.charAt(0).toUpperCase() + q.slice(1)} ${SUFFIXES[i % SUFFIXES.length]}`,
-    price: 1500 + i * 950,
-    comparePrice: i % 3 === 0 ? 2400 + i * 1100 : undefined,
-    discountPercent: i % 3 === 0 ? 15 + (i % 4) * 5 : undefined,
-    origin: COUNTRY_CODES[i % COUNTRY_CODES.length],
-  }));
-
-const SUFFIXES = [
-  '— Premium Edition', 'Pack of 6', 'Original', '1L Bottle', 'Family Size',
-  'Travel Size', 'Limited Stock', 'Pro', 'Classic', 'Edition 2', 'Bundle', 'Refill',
-];
-
 const SUGGESTIONS = [
-  'Beauty', 'Coffee', 'Ankara fabric', 'Smoked catfish', 'Olive oil',
-  'Mobile phone', 'Headphones', 'Skin care', 'Maya Naturals',
+  'Beauty',
+  'Coffee',
+  'Ankara fabric',
+  'Smoked catfish',
+  'Olive oil',
+  'Skin care',
 ];
 
-export default function SearchPage({ searchParams }: PageProps) {
+export default async function SearchPage({ searchParams }: PageProps) {
   const q = (searchParams.q ?? '').trim();
   const hasQuery = q.length > 0;
-  const results = hasQuery ? SAMPLE(q) : [];
+  const requestedPage = Number.parseInt(searchParams.page ?? '1', 10);
+  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+
+  // Real search via the API's `q` parameter — it scans product name,
+  // description, and brand. No fake fallback list.
+  const productsResponse = hasQuery
+    ? await fetchProducts({ q, limit: PAGE_SIZE, page }).catch(() => null)
+    : null;
+  const results = productsResponse?.items ?? [];
+  const totalResults = productsResponse?.pagination.total ?? 0;
+  const totalPages = productsResponse?.pagination.pages ?? 1;
 
   return (
     <>
@@ -85,7 +86,7 @@ export default function SearchPage({ searchParams }: PageProps) {
                   Results for &ldquo;{q}&rdquo;
                 </h1>
                 <p className="font-sans text-sm text-muted">
-                  {results.length} matching products across Africa
+                  {totalResults.toLocaleString()} matching products across Africa
                 </p>
               </div>
             ) : (
@@ -122,10 +123,10 @@ export default function SearchPage({ searchParams }: PageProps) {
 
               <div className="flex flex-col gap-4 lg:col-span-9 lg:gap-6">
                 <SafeBoundary name="search:toolbar" fallback={null}>
-                  <ShopToolbar total={results.length} />
+                  <ShopToolbar total={totalResults} />
                 </SafeBoundary>
 
-                {results.length === 0 ? (
+                {totalResults === 0 ? (
                   <div className="flex flex-col items-center gap-3 rounded-card border border-border bg-white p-12 text-center">
                     <Search size={36} className="text-border" aria-hidden />
                     <p className="font-raleway text-base font-bold text-navy">
@@ -138,17 +139,57 @@ export default function SearchPage({ searchParams }: PageProps) {
                       href="/shop"
                       className="rounded-btn bg-navy px-6 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
                     >
-                      Browse All Products
+                      Browse all products
                     </Link>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
-                    {results.map((p) => (
-                      <SafeBoundary key={p.id} name="search:card" fallback={null}>
-                        <ProductCardPlaceholder {...p} />
-                      </SafeBoundary>
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                      {results.map((p) => (
+                        <SafeBoundary key={p.id} name="search:card" fallback={null}>
+                          <ApiProductCard product={p} />
+                        </SafeBoundary>
+                      ))}
+                    </div>
+
+                    {totalPages > 1 && (
+                      <nav
+                        aria-label="Pagination"
+                        className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-white px-4 py-3 font-sans text-sm"
+                      >
+                        <span className="text-muted">
+                          Page {page} of {totalPages} · showing {results.length} of{' '}
+                          {totalResults.toLocaleString()} results
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {page > 1 ? (
+                            <Link
+                              href={`/search?q=${encodeURIComponent(q)}&page=${page - 1}`}
+                              className="rounded-btn border border-border bg-white px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-charcoal hover:border-navy hover:text-navy"
+                            >
+                              ← Previous
+                            </Link>
+                          ) : (
+                            <span className="rounded-btn border border-border bg-page px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                              ← Previous
+                            </span>
+                          )}
+                          {page < totalPages ? (
+                            <Link
+                              href={`/search?q=${encodeURIComponent(q)}&page=${page + 1}`}
+                              className="rounded-btn bg-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
+                            >
+                              Next →
+                            </Link>
+                          ) : (
+                            <span className="rounded-btn border border-border bg-page px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                              Next →
+                            </span>
+                          )}
+                        </div>
+                      </nav>
+                    )}
+                  </>
                 )}
               </div>
             </div>

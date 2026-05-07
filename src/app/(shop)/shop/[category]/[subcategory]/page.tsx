@@ -3,15 +3,18 @@ import { notFound } from 'next/navigation';
 import { ChevronRight, Home as HomeIcon } from 'lucide-react';
 import { FiltersSidebar } from '@/components/shop/FiltersSidebar';
 import { ShopToolbar } from '@/components/shop/ShopToolbar';
-import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
+import { ApiProductCard } from '@/components/product/ApiProductCard';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
-import { COUNTRY_CODES } from '@/lib/countries';
 import { listCategories } from '@/lib/api/categories';
+import { fetchProducts } from '@/lib/api/products';
 import { SITE_NAME, absUrl } from '@/lib/seo';
 import type { Metadata } from 'next';
 
+const PAGE_SIZE = 48;
+
 interface PageProps {
   params: { category: string; subcategory: string };
+  searchParams: { page?: string };
 }
 
 /** Resolve a (parent, child) pair from the API. Returns null if either
@@ -51,28 +54,25 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-const SAMPLE_NAMES = [
-  'Tara Bronzer', 'Fanda Lipstick', 'Maya Himalaya Facial Scrub',
-  'Snow Total Coverage Foundation', 'Bi Bi Doll Browpencil', 'Opera Silky Pressed Powder',
-  'ZeeZom Henna Hair Gloss', 'Luscious Black Soap', 'We Naturals Honey Detangler',
-];
-
-const SAMPLE_PRODUCTS = (count: number) =>
-  Array.from({ length: count }, (_, i) => ({
-    id: `sub-${i + 1}`,
-    name: SAMPLE_NAMES[i % SAMPLE_NAMES.length],
-    price: 800 + i * 1300,
-    comparePrice: i % 3 === 0 ? 1500 + i * 1500 : undefined,
-    discountPercent: i % 3 === 0 ? 20 + (i % 4) * 5 : undefined,
-    outOfStock: i % 14 === 0,
-    origin: COUNTRY_CODES[i % COUNTRY_CODES.length],
-  }));
-
-export default async function SubcategoryPage({ params }: PageProps) {
+export default async function SubcategoryPage({ params, searchParams }: PageProps) {
   const pair = await resolvePair(params.category, params.subcategory);
   if (!pair) notFound();
 
-  const products = SAMPLE_PRODUCTS(16);
+  const requestedPage = Number.parseInt(searchParams.page ?? '1', 10);
+  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+
+  // Real products from the API — filtered by the subcategory slug.
+  // The API's category filter walks the tree, so passing the child
+  // slug returns only that subcategory's products.
+  const productsResponse = await fetchProducts({
+    category: pair.child.slug,
+    limit: PAGE_SIZE,
+    page,
+    sort: 'newest',
+  }).catch(() => null);
+  const products = productsResponse?.items ?? [];
+  const totalProducts = productsResponse?.pagination.total ?? 0;
+  const totalPages = productsResponse?.pagination.pages ?? 1;
 
   return (
     <>
@@ -128,16 +128,67 @@ export default async function SubcategoryPage({ params }: PageProps) {
 
             <div className="flex flex-col gap-4 lg:col-span-9 lg:gap-6">
               <SafeBoundary name="subcategory:toolbar" fallback={null}>
-                <ShopToolbar total={products.length} />
+                <ShopToolbar total={totalProducts} />
               </SafeBoundary>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-4">
-                {products.map((p) => (
-                  <SafeBoundary key={p.id} name="subcategory:card" fallback={null}>
-                    <ProductCardPlaceholder {...p} />
-                  </SafeBoundary>
-                ))}
-              </div>
+              {totalProducts === 0 ? (
+                <div className="rounded-card border border-border bg-white px-6 py-16 text-center">
+                  <p className="font-raleway text-lg font-bold text-navy">
+                    No products in {pair.child.name} yet
+                  </p>
+                  <p className="mt-1 font-sans text-sm text-muted">
+                    Check back soon as we onboard new makers.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-4">
+                    {products.map((p) => (
+                      <SafeBoundary key={p.id} name="subcategory:card" fallback={null}>
+                        <ApiProductCard product={p} />
+                      </SafeBoundary>
+                    ))}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <nav
+                      aria-label="Pagination"
+                      className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-white px-4 py-3 font-sans text-sm"
+                    >
+                      <span className="text-muted">
+                        Page {page} of {totalPages} · showing {products.length} of{' '}
+                        {totalProducts.toLocaleString()} products
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {page > 1 ? (
+                          <Link
+                            href={`/shop/${pair.parent.slug}/${pair.child.slug}?page=${page - 1}`}
+                            className="rounded-btn border border-border bg-white px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-charcoal hover:border-navy hover:text-navy"
+                          >
+                            ← Previous
+                          </Link>
+                        ) : (
+                          <span className="rounded-btn border border-border bg-page px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                            ← Previous
+                          </span>
+                        )}
+                        {page < totalPages ? (
+                          <Link
+                            href={`/shop/${pair.parent.slug}/${pair.child.slug}?page=${page + 1}`}
+                            className="rounded-btn bg-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
+                          >
+                            Next →
+                          </Link>
+                        ) : (
+                          <span className="rounded-btn border border-border bg-page px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                            Next →
+                          </span>
+                        )}
+                      </div>
+                    </nav>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>

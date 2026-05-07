@@ -20,15 +20,29 @@ const SORT_OPTIONS = [
 
 type SortId = (typeof SORT_OPTIONS)[number]['id'];
 
+const PAGE_SIZE = 48;
+
 export default function DealsPage() {
   const [sort, setSort] = useState<SortId>('price-desc');
+  const [page, setPage] = useState(1);
+
+  // Reset to page 1 whenever the sort flips so users don't end up on
+  // page 7 of a different ordering.
+  const handleSortChange = (next: SortId) => {
+    setSort(next);
+    setPage(1);
+  };
+
   const { data, isLoading, isError, error, refetch } = useProducts({
     onSale: true,
-    limit: 48,
+    limit: PAGE_SIZE,
+    page,
     sort,
   });
 
   const items = data?.items ?? [];
+  const totalDeals = data?.pagination.total ?? 0;
+  const totalPages = data?.pagination.pages ?? 1;
   // Insert promo banners after every 12 cards.
   const groups: { cards: typeof items; banner?: 'made' | 'bnpl' }[] = [];
   for (let i = 0; i < items.length; i += 12) {
@@ -79,10 +93,10 @@ export default function DealsPage() {
             {!isLoading && !isError && (
               <div className="rounded-card border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
                 <span className="font-raleway text-2xl font-bold leading-none text-white md:text-3xl">
-                  {items.length}
+                  {totalDeals.toLocaleString()}
                 </span>
                 <span className="ml-2 font-sans text-xs text-white/70 md:text-sm">
-                  deal{items.length === 1 ? '' : 's'} live
+                  deal{totalDeals === 1 ? '' : 's'} live
                 </span>
               </div>
             )}
@@ -102,7 +116,7 @@ export default function DealsPage() {
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setSort(opt.id)}
+                  onClick={() => handleSortChange(opt.id)}
                   className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn transition-colors ${
                     active
                       ? 'border-navy bg-navy text-white'
@@ -186,6 +200,36 @@ export default function DealsPage() {
                 )}
               </div>
             ))}
+
+          {!isLoading && !isError && totalPages > 1 && (
+            <nav
+              aria-label="Pagination"
+              className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-white px-4 py-3 font-sans text-sm"
+            >
+              <span className="text-muted">
+                Page {page} of {totalPages} · showing {items.length} of{' '}
+                {totalDeals.toLocaleString()} deals
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="rounded-btn border border-border bg-white px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-charcoal hover:border-navy hover:text-navy disabled:cursor-not-allowed disabled:bg-page disabled:text-muted"
+                >
+                  ← Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="rounded-btn bg-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:bg-page disabled:text-muted"
+                >
+                  Next →
+                </button>
+              </div>
+            </nav>
+          )}
         </div>
 
         <SafeBoundary name="deals:trust" fallback={null}>
