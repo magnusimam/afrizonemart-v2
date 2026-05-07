@@ -18,8 +18,13 @@ export function RequireAuth({ children }: Props) {
   const pathname = usePathname();
   const [hydrated, setHydrated] = useState(false);
   const user = useAuthStore((s) => s.user);
-  const accessToken = useAuthStore((s) => s.accessToken);
-  const isAuthed = Boolean(user && accessToken);
+  const refreshing = useAuthStore((s) => s.refreshing);
+  // Phase 11.3 (audit C2): the access token lives in memory only and
+  // is minted from the refresh cookie on rehydrate. We trust the
+  // persisted `user` flag, then wait for any in-flight refresh to
+  // settle — `clear()` inside `refresh()` drops the user if refresh
+  // fails, which then triggers the redirect below.
+  const isAuthed = Boolean(user);
 
   useEffect(() => {
     if (useAuthStore.persist?.hasHydrated?.()) {
@@ -31,12 +36,12 @@ export function RequireAuth({ children }: Props) {
   }, []);
 
   useEffect(() => {
-    if (hydrated && !isAuthed) {
+    if (hydrated && !refreshing && !isAuthed) {
       router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
     }
-  }, [hydrated, isAuthed, pathname, router]);
+  }, [hydrated, refreshing, isAuthed, pathname, router]);
 
-  if (!hydrated || !isAuthed) {
+  if (!hydrated || refreshing || !isAuthed) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center font-sans text-sm text-muted">
         Loading…
