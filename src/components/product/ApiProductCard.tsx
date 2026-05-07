@@ -26,6 +26,7 @@ export function ApiProductCard({ product, buttonVariant, delivery }: Props) {
   return (
     <ProductCardPlaceholder
       id={product.id}
+      slug={product.slug}
       name={product.name}
       price={product.price}
       comparePrice={product.comparePrice ?? undefined}
@@ -34,6 +35,8 @@ export function ApiProductCard({ product, buttonVariant, delivery }: Props) {
       outOfStock={!product.inStock}
       buttonVariant={buttonVariant}
       delivery={delivery}
+      imageSrc={product.images?.[0]}
+      imageAlt={product.name}
     />
   );
 }

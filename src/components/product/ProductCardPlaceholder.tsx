@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Check, Heart, Package } from 'lucide-react';
@@ -21,6 +22,8 @@ interface ProductCardPlaceholderProps {
   discountPercent?: number;
   buttonVariant?: ButtonVariant;
   origin?: string;
+  imageSrc?: string;
+  imageAlt?: string;
 }
 
 const buttonClasses: Record<ButtonVariant, { base: string; oos: string }> = {
@@ -45,6 +48,8 @@ export function ProductCardPlaceholder({
   discountPercent,
   buttonVariant = 'navy',
   origin,
+  imageSrc,
+  imageAlt,
 }: ProductCardPlaceholderProps) {
   const [wished, setWished] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
@@ -98,8 +103,21 @@ export function ProductCardPlaceholder({
         </div>
       ) : null}
 
-      <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-page">
-        <Package size={48} strokeWidth={1.25} className="text-border" aria-hidden />
+      <Link
+        href={`/product/${productSlug}`}
+        className="relative flex aspect-square items-center justify-center overflow-hidden bg-page"
+      >
+        {imageSrc ? (
+          <Image
+            src={imageSrc}
+            alt={imageAlt ?? name}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <Package size={48} strokeWidth={1.25} className="text-border" aria-hidden />
+        )}
 
         {showDelivery && (
           <div
@@ -129,7 +147,7 @@ export function ProductCardPlaceholder({
             <span>Made in {country.name}</span>
           </div>
         )}
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col gap-2 p-2.5">
         <h3 className="line-clamp-2 min-h-[2.5em] font-raleway text-[11px] font-semibold leading-snug text-charcoal md:text-xs">
