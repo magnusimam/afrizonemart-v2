@@ -143,7 +143,17 @@ persist(..., {
 
 ---
 
-## [ ] C3 — Open redirect on `/login?returnUrl=//attacker.com`
+## [x] C3 — Open redirect on `/login?returnUrl=//attacker.com`
+
+**Fixed 2026-05-07**: new `lib/safe-redirect.ts` `safeReturnUrl()`
+helper uses `new URL(rawUrl, window.location.origin)` to verify the
+resolved URL's origin matches the current origin before passing to
+`router.push`. Rejects protocol-relative (`//evil.com`), absolute
+off-origin, backslash-tricks, and any malformed URL. Customer login
+uses fallback `/account` or `/admin`; admin login uses
+`requirePrefix: '/admin'` so a customer-page returnUrl is also
+rejected. Also relaxed admin-login "already signed in" check to
+match the C2 in-memory-token model.
 
 **Severity:** Critical
 

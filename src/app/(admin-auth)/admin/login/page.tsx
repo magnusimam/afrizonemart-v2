@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
 import { AuthApiError, loginUser, type AuthResult } from '@/lib/api/auth';
 import { useAuthStore } from '@/stores/authStore';
+import { safeReturnUrl } from '@/lib/safe-redirect';
 
 /**
  * Admin-only sign-in page. Sits outside the (admin) route group so the
@@ -23,7 +24,6 @@ export default function AdminLoginPage() {
   const setSession = useAuthStore((s) => s.setSession);
   const clearSession = useAuthStore((s) => s.clear);
   const user = useAuthStore((s) => s.user);
-  const accessToken = useAuthStore((s) => s.accessToken);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,11 +33,12 @@ export default function AdminLoginPage() {
 
   // Already signed in as admin/staff → go straight to the console.
   useEffect(() => {
-    if (user && accessToken && (user.role === 'ADMIN' || user.role === 'STAFF')) {
+    if (user && (user.role === 'ADMIN' || user.role === 'STAFF')) {
       const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
-      router.replace(returnUrl && returnUrl.startsWith('/admin') ? returnUrl : '/admin');
+      // Phase 11.3 (audit C3): safeReturnUrl + admin-only prefix.
+      router.replace(safeReturnUrl(returnUrl, '/admin', { requirePrefix: '/admin' }));
     }
-  }, [user, accessToken, router]);
+  }, [user, router]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -54,7 +55,7 @@ export default function AdminLoginPage() {
 
       setSession(result);
       const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
-      router.push(returnUrl && returnUrl.startsWith('/admin') ? returnUrl : '/admin');
+      router.push(safeReturnUrl(returnUrl, '/admin', { requirePrefix: '/admin' }));
     } catch (err) {
       setError(
         err instanceof AuthApiError
