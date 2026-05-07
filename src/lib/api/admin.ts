@@ -1743,6 +1743,12 @@ export async function adminDownloadInternCsv(filters: {
 // Phase 10.8 — Admin Shelves
 // =================================================================
 
+/// One country row in a rule-based shelf. `country: null` = any country.
+export interface ShelfCountryRow {
+  country: string | null;
+  count: number;
+}
+
 export interface ShelfConfig {
   id?: string;
   key: string;
@@ -1751,6 +1757,10 @@ export interface ShelfConfig {
   rows: number;
   cols: number;
   enabled: boolean;
+  /// Phase 10.8b — when set + non-empty, the shelf auto-fills from
+  /// these rules instead of using explicit picks. Each row contributes
+  /// `count` products from `country` (null = any country).
+  countryRows?: ShelfCountryRow[] | null;
 }
 
 /// Phase 10.8 — registered fallback for a shelf. Storefront uses it
