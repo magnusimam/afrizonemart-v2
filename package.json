@@ -2,6 +2,9 @@
   "name": "afrizonemart-v2",
   "version": "0.1.0",
   "private": true,
+  "overrides": {
+    "@exodus/bytes": "1.14.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

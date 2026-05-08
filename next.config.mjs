@@ -1,18 +1,30 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Hotfix 2026-05-08: every /product/<slug> page started 500'ing with
-  // ERR_REQUIRE_ESM. Root cause: Next.js's webpack was picking the wrong
-  // (CJS) entry for @sentry/nextjs's server bundle, which transitively
-  // `require()`s ESM-only OpenTelemetry modules via @prisma/instrumentation.
-  // Sentry's recommended fix is to mark these packages as external so
-  // Node's native module resolver handles the ESM/CJS dance via the
-  // package.json `exports` conditions.
+  // ERR_REQUIRE_ESM. Real root cause (after two false-flag hotfixes):
+  // `@exodus/bytes` got bumped to 1.15.0 which is ESM-only via the
+  // package's `exports` map. `html-encoding-sniffer` (transitive dep
+  // of jsdom → isomorphic-dompurify) does a CJS `require()` for
+  // `@exodus/bytes/encoding-lite.js` and Node refuses. The product
+  // detail page renders RICHTEXT custom fields via DOMPurify, which
+  // pulls jsdom on the server, which loads html-encoding-sniffer.
+  // Other pages don't trigger DOMPurify so they don't fail.
   //
-  // Don't remove this without re-testing /product/<any-slug> on a Vercel
-  // preview — breakage is silent at build time (only a warning) and
-  // explodes only at SSR runtime.
+  // Fix: mark the offending packages as external so Node's native
+  // module resolver handles them via the package.json `exports`
+  // conditions correctly (resolves `require` to a CJS variant when
+  // available). The Sentry/Prisma additions are kept defensively in
+  // case a similar issue surfaces there later.
+  //
+  // Don't remove this without re-testing /product/<any-slug> on a
+  // Vercel preview — breakage is silent at build time (only a warning)
+  // and explodes only at SSR runtime.
   experimental: {
     serverComponentsExternalPackages: [
+      'isomorphic-dompurify',
+      'jsdom',
+      'html-encoding-sniffer',
+      '@exodus/bytes',
       '@sentry/nextjs',
       '@sentry/node',
       '@prisma/instrumentation',
