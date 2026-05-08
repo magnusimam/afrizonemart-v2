@@ -14,7 +14,9 @@ import { CheckoutOrderSummary } from '@/components/checkout/CheckoutOrderSummary
 import { PaymentMethodForm } from '@/components/checkout/PaymentMethodForm';
 import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
 import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
+import { StaticPlaceOrderButton } from '@/components/checkout/StaticPlaceOrderButton';
 import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
+import { useFlag } from '@/lib/useFlag';
 import { formatPriceNGN } from '@/lib/format';
 import { type PaymentMethodId } from '@/lib/checkout-data';
 import { fetchCart, type CartView } from '@/lib/api/cart';
@@ -71,6 +73,15 @@ export default function PaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [serverCart, setServerCart] = useState<CartView | null>(null);
   const [activeGateways, setActiveGateways] = useState<string[]>([]);
+
+  /// Phase 11.4 — animated Place Order button kill-switch (Principle
+  /// #2). Default true so the animation ships visible; admin can flip
+  /// `animated_place_order_button` to false in /admin/feature-flags
+  /// for an instant kill if it misbehaves in prod (GSAP regression,
+  /// browser-specific 3D bug, etc.) without a redeploy. The fallback
+  /// is the same plain "Pay X" button this page used before the
+  /// animated upgrade.
+  const animationEnabled = useFlag('animated_place_order_button', true);
 
   useEffect(() => {
     void (async () => {
@@ -374,12 +385,42 @@ export default function PaymentPage() {
                   >
                     ← Back to Shipping
                   </Link>
-                  <PlaceOrderButton
-                    label={`Pay ${formatPriceNGN(total)}`}
-                    disabled={!selected || !agreed || submitting}
-                    onSubmit={submitOrder}
-                    onSuccess={handleOrderPlaced}
-                  />
+                  {animationEnabled ? (
+                    /* Animated truck button. Wrapped in SafeBoundary
+                     * (Rule B8) — if GSAP regresses, the CSS module
+                     * fails to load, or any other render-time error
+                     * happens, the boundary catches it, reports to
+                     * Sentry tagged `boundary:checkout:place-order`,
+                     * and renders the static button instead so the
+                     * customer can still complete checkout. */
+                    <SafeBoundary
+                      name="checkout:place-order"
+                      fallback={
+                        <StaticPlaceOrderButton
+                          label={`Pay ${formatPriceNGN(total)}`}
+                          disabled={!selected || !agreed || submitting}
+                          onSubmit={submitOrder}
+                          onSuccess={handleOrderPlaced}
+                        />
+                      }
+                    >
+                      <PlaceOrderButton
+                        label={`Pay ${formatPriceNGN(total)}`}
+                        disabled={!selected || !agreed || submitting}
+                        onSubmit={submitOrder}
+                        onSuccess={handleOrderPlaced}
+                      />
+                    </SafeBoundary>
+                  ) : (
+                    /* Admin flipped the kill-switch — same button the
+                     * page used before the animated upgrade. */
+                    <StaticPlaceOrderButton
+                      label={`Pay ${formatPriceNGN(total)}`}
+                      disabled={!selected || !agreed || submitting}
+                      onSubmit={submitOrder}
+                      onSuccess={handleOrderPlaced}
+                    />
+                  )}
                 </div>
               </div>
 

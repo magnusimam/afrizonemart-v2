@@ -79,6 +79,30 @@ gets ticked off here.
        hand-off both gated on truck-animation-complete +
        API-confirmed (race via `Promise.all`). `prefers-reduced-
        motion` skips the 3D entirely. Free GSAP core only.
+
+       **Resilience wiring** (per Magnus's pre-ship rules audit
+       2026-05-08):
+       - **Feature flag** (Principle #2). `useFlag(
+         'animated_place_order_button', true)` on the checkout
+         payment page. Default true so the animation ships visible.
+         Admin flips to false in `/admin/feature-flags` for an
+         instant kill — no redeploy needed.
+       - **Error-boundary fallback** (Rule B8). The animated
+         `<PlaceOrderButton>` is wrapped in a `<SafeBoundary
+         name="checkout:place-order">` whose fallback is
+         `<StaticPlaceOrderButton>` — the exact button this page
+         used to render before the animated upgrade. If GSAP throws
+         on render (regression, browser-specific 3D bug, CSS module
+         load failure), the boundary catches it, ships the trace to
+         Sentry tagged `boundary:checkout:place-order`, and renders
+         the static button so the customer can still complete
+         checkout.
+       - **Same `onSubmit` / `onSuccess` contract** for both the
+         animated and the static buttons — they are 1:1 swappable
+         from the checkout page's POV. Both honour the deferred-
+         redirect pattern (no `window.location.href` inside
+         `onSubmit`) so the kill-switch flip / boundary fallback
+         doesn't change the flow's correctness.
     2. **[ ] Cart-button dark variant** → `ProductInfo` PDP "Add to
        Cart". Dark surface match. Validates the GSAP-Club-free
        morph rewrite on one button before scaling.
