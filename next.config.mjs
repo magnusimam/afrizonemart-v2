@@ -1,5 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Hotfix 2026-05-08: every /product/<slug> page started 500'ing with
+  // ERR_REQUIRE_ESM. Root cause: Next.js's webpack was picking the wrong
+  // (CJS) entry for @sentry/nextjs's server bundle, which transitively
+  // `require()`s ESM-only OpenTelemetry modules via @prisma/instrumentation.
+  // Sentry's recommended fix is to mark these packages as external so
+  // Node's native module resolver handles the ESM/CJS dance via the
+  // package.json `exports` conditions.
+  //
+  // Don't remove this without re-testing /product/<any-slug> on a Vercel
+  // preview — breakage is silent at build time (only a warning) and
+  // explodes only at SSR runtime.
+  experimental: {
+    serverComponentsExternalPackages: [
+      '@sentry/nextjs',
+      '@sentry/node',
+      '@prisma/instrumentation',
+      '@opentelemetry/instrumentation',
+    ],
+  },
   images: {
     // Cloudflare's Bot Fight Mode blocks server-side fetches from
     // Next.js's image-optimizer (node-fetch UA). Until BFM is disabled
