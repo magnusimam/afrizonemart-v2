@@ -2,7 +2,12 @@
 
 import Script from 'next/script';
 import { useEffect, useRef, useState } from 'react';
-import { signInWithGoogle, AuthApiError, type AuthResult } from '@/lib/api/auth';
+import {
+  AuthApiError,
+  createGoogleChallenge,
+  signInWithGoogle,
+  type AuthResult,
+} from '@/lib/api/auth';
 
 /**
  * Google Identity Services (GIS) "One Tap" + branded button.
@@ -22,6 +27,7 @@ declare global {
             callback: (response: { credential: string }) => void;
             auto_select?: boolean;
             ux_mode?: 'popup' | 'redirect';
+            nonce?: string;
           }) => void;
           renderButton: (
             parent: HTMLElement,
@@ -57,39 +63,61 @@ export function GoogleSignInButton({ onSuccess, onError, text = 'continue_with' 
   useEffect(() => {
     if (!scriptReady || !clientId || !buttonRef.current) return;
     if (!window.google?.accounts?.id) return;
+    let cancelled = false;
 
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: async (response) => {
-        try {
-          setBusy(true);
-          const result = await signInWithGoogle(response.credential);
-          onSuccess(result);
-        } catch (err) {
-          const msg =
-            err instanceof AuthApiError
-              ? err.message
-              : 'Could not sign in with Google.';
-          onError?.(msg);
-        } finally {
-          setBusy(false);
-        }
-      },
-      ux_mode: 'popup',
-    });
+    // Phase 11.3 (audit H7): fetch a single-use nonce from the API
+    // before initializing GIS. We bind the popup credential to this
+    // nonce so a captured ID token is unreplayable — the server
+    // consumes the row atomically and rejects mismatches/replays.
+    (async () => {
+      let nonce: string;
+      try {
+        const challenge = await createGoogleChallenge();
+        nonce = challenge.nonce;
+      } catch {
+        onError?.('Could not start Google sign-in. Please try again.');
+        return;
+      }
+      if (cancelled || !window.google?.accounts?.id || !buttonRef.current) return;
 
-    // Render the styled button GIS owns (we don't draw it ourselves
-    // because the Google brand guide requires their pixel-perfect chip).
-    buttonRef.current.innerHTML = '';
-    window.google.accounts.id.renderButton(buttonRef.current, {
-      type: 'standard',
-      theme: 'outline',
-      size: 'large',
-      shape: 'rectangular',
-      text,
-      logo_alignment: 'left',
-      width: 320,
-    });
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        nonce,
+        callback: async (response) => {
+          try {
+            setBusy(true);
+            const result = await signInWithGoogle(response.credential, nonce);
+            onSuccess(result);
+          } catch (err) {
+            const msg =
+              err instanceof AuthApiError
+                ? err.message
+                : 'Could not sign in with Google.';
+            onError?.(msg);
+          } finally {
+            setBusy(false);
+          }
+        },
+        ux_mode: 'popup',
+      });
+
+      // Render the styled button GIS owns (we don't draw it ourselves
+      // because the Google brand guide requires their pixel-perfect chip).
+      buttonRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(buttonRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        shape: 'rectangular',
+        text,
+        logo_alignment: 'left',
+        width: 320,
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [scriptReady, clientId, text, onSuccess, onError]);
 
   if (!clientId) return null;

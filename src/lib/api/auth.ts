@@ -128,10 +128,24 @@ export function resetPassword(token: string, password: string): Promise<void> {
   });
 }
 
-export function signInWithGoogle(idToken: string): Promise<AuthResult> {
+export function signInWithGoogle(idToken: string, nonce: string): Promise<AuthResult> {
   return authFetch<AuthResult>('/api/auth/google', {
     method: 'POST',
-    body: JSON.stringify({ idToken }),
+    body: JSON.stringify({ idToken, nonce }),
+  });
+}
+
+/// Phase 11.3 (audit H7): server-issued single-use nonce for the
+/// GIS popup. Fetch one before calling
+/// `google.accounts.id.initialize({ nonce })` and post it back with
+/// the credential — the API consumes it atomically.
+export interface GoogleChallenge {
+  nonce: string;
+  expiresAt: string;
+}
+export function createGoogleChallenge(): Promise<GoogleChallenge> {
+  return authFetch<GoogleChallenge>('/api/auth/google/challenge', {
+    method: 'POST',
   });
 }
 
