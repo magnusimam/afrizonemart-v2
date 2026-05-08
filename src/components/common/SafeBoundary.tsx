@@ -1,7 +1,20 @@
 'use client';
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import * as Sentry from '@sentry/nextjs';
+
+/// Why no top-level `import * as Sentry from '@sentry/nextjs'`:
+///
+/// `@sentry/nextjs`'s server entry has a transitive `require()` into
+/// an ESM-only OpenTelemetry module via `@prisma/instrumentation`. Any
+/// Server Component that reaches a SafeBoundary in its tree (e.g. the
+/// product detail page wrapping `<ProductInfo>` in a boundary) makes
+/// Next.js's SSR pass walk that import chain, which throws
+/// `ERR_REQUIRE_ESM` and 500s the entire route. Confirmed in
+/// production 2026-05-08 — every `/product/<slug>` page started 500'ing
+/// after the deploy that touched any boundary-related code. **Never
+/// re-add a top-level Sentry import here.** Keep it lazy and inside
+/// `componentDidCatch` (client-only path) so the boundary's render +
+/// fallback never depends on Sentry being load-able.
 
 interface SafeBoundaryProps {
   /** Telemetry tag — shows up in Sentry as `boundary:<name>` so you can
@@ -42,13 +55,27 @@ export class SafeBoundary extends Component<SafeBoundaryProps, SafeBoundaryState
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    Sentry.withScope((scope) => {
-      scope.setTag('boundary', this.props.name);
-      scope.setContext('react', {
-        componentStack: info.componentStack,
+    // Lazy-load Sentry. componentDidCatch only fires client-side
+    // (errors during SSR bubble to the framework error.tsx, not here),
+    // so the dynamic import resolves cleanly via webpack's chunk
+    // splitting and bypasses the SSR ESM/CJS-resolution issue. If
+    // Sentry fails to load for any reason we still call onError, log
+    // in dev, and let the boundary render its fallback — Sentry
+    // capture is a side effect, not the boundary's job.
+    void import('@sentry/nextjs')
+      .then(({ withScope, captureException }) => {
+        withScope((scope) => {
+          scope.setTag('boundary', this.props.name);
+          scope.setContext('react', {
+            componentStack: info.componentStack,
+          });
+          captureException(error);
+        });
+      })
+      .catch(() => {
+        // Silent fall-through. Better to lose one Sentry report than
+        // to crash the boundary that was meant to keep us alive.
       });
-      Sentry.captureException(error);
-    });
     this.props.onError?.(error, info);
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
