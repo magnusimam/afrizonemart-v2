@@ -46,6 +46,49 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+40. **[x] Storefront — origin-currency display + "see in your currency" toggle** _(landed 2026-05-08)_.
+
+    **Why**: products from non-Nigerian origins (ZA, KE, GH, …) used
+    to display in NGN regardless of where they're sourced. The default
+    price line now shows the **origin country's** currency (a South
+    African product priced in ZAR, a Kenyan product in KES). Per-product
+    "See in {visitor-currency}" toggle reveals the converted equivalent
+    using the visitor's currency from the header switcher. Display-only
+    — checkout still charges NGN until a multi-currency gateway lands;
+    future option is to route non-NG orders to Squad USD (Magnus noted
+    Squad accepts USD cards / virtual cards).
+
+    **Shipped**:
+    - `lib/countries.ts`: `Country.currency` field added; all 21 ISO
+      codes mapped (NG→NGN, ZA→ZAR, KE→KES, GH→GHS, MA→MAD, ET→ETB,
+      TZ→TZS, UG→UGX, RW→RWF, EG→EGP, DZ→DZD, TN→TND, AO→AOA, BW→BWP,
+      NA→NAD, MZ→MZN, CM→XAF, CI/SN/ML→XOF, ZW→USD per Zimbabwe's
+      multi-currency regime). New helper `currencyForCountryCode(code)`
+      returns the currency or null.
+    - `components/product/DisplayPrice.tsx`: rewritten with two modes.
+      Origin-currency mode (when `originCountry` prop is set + currency
+      has FX rates): primary line in origin currency, "See in
+      {VISITOR_CURRENCY}" toggle button that opens to "≈ {converted}"
+      with a (hide) link. Visitor-currency mode (legacy, when
+      `originCountry` omitted): unchanged. Compact mode for dense card
+      layouts shows only the origin amount with the NGN canonical in
+      `title=`.
+    - `originCountry={product.origin}` threaded through:
+      `ProductCardPlaceholder` (price + compare-price), `ProductInfo`
+      (main price, compare line, subtotal label, Add-to-Cart button
+      label), and `BundleSelector` (per-bundle price + compare).
+      `BundleSelector` migrated off `formatPriceNGN` to `DisplayPrice`
+      so its bundle prices stay consistent with the rest of the page.
+    - **Cart / checkout / account / admin unchanged** — `originCountry`
+      is not threaded into those surfaces, so legacy
+      visitor-currency-with-NGN-fallback behaviour is preserved. Cart
+      remains committed-NGN until the multi-currency gateway lands.
+
+    No schema or migration. FX module's existing `/api/fx/rates`
+    endpoint already covers all 21 currencies (or close enough — any
+    code missing from the snapshot falls back cleanly to legacy mode
+    via the rate-availability check).
+
 39. **[x] Admin products — country filter** _(landed 2026-05-08)_.
 
     **Why**: admin product list already had search + category + stock
