@@ -46,6 +46,34 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+39. **[x] Admin products — country filter** _(landed 2026-05-08)_.
+
+    **Why**: admin product list already had search + category + stock
+    filters but no way to scope by origin. CTO wants to filter the
+    catalog by country so an editor curating Nigerian products
+    doesn't have to scroll past every Kenyan/Ghanaian item.
+
+    **Shipped**:
+    - **API** — `adminListQuerySchema` (`products/admin.schema.ts:46-67`)
+      gained optional `origin: z.string().length(2).optional().transform
+      (v => v?.toUpperCase())` (case-insensitive). `adminListProducts`
+      (`products/admin.service.ts:24-65`) threads it as
+      `where.origin = query.origin`. `Product.origin` already had an
+      `@@index([origin])` so no migration / extra index needed.
+    - **Storefront client** — `AdminProductListParams.origin?: string`
+      added to `lib/api/admin.ts`; `toQs` serialises it.
+    - **Storefront page** — new country `<select>` in
+      `/admin/products` next to category + stock. Options come from
+      `COUNTRIES` in `lib/countries.ts` (21 codes covering African +
+      global launch markets), sorted alphabetically with flags.
+      `page` resets to 1 on change; the data-load effect's dep
+      array includes `country`.
+
+    Note: the existing category filter was already wired; this push
+    only added the country dimension. Empty result still falls
+    through to the existing "No products match these filters."
+    empty state.
+
 38. **[~] Shipping & delivery cost algorithm** _(queued 2026-05-07)_.
 
     **Why**: existing `ShippingZone` + `ShippingRate` are flat-fee
