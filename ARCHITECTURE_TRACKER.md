@@ -46,6 +46,46 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+41. **[~] Animated checkout/cart buttons** _(queued 2026-05-08)_.
+
+    **Why**: lift the perceived polish of the two highest-conversion
+    interactions on the site — the **Place Order** button (terminal
+    commit at end of checkout) and the **Add to Cart** button on
+    product cards + product detail. CTO sourced three GSAP-based
+    designs (one truck/road animation + two cart-with-shirt variants).
+
+    **Constraints**:
+    - **No GSAP Club** — don't ship `MorphSVGPlugin` (paid). Cart
+      button's morph step gets rewritten with free alternatives
+      (Framer Motion variants OR plain CSS keyframes — pick whichever
+      gives acceptable visual fidelity).
+    - **Re-skin to brand palette** — navy `#0D1F4E` + amber `#F5A623`
+      throughout. Source uses indigo/purple/green; CSS custom
+      properties in the source make this a one-line override per
+      token.
+    - **Respect `prefers-reduced-motion`** — fall through to the
+      success state with no animation for users who opted out.
+    - **State alignment** — animation never finishes BEFORE the API
+      confirms. Place Order uses `await placeOrder()` + animation
+      timeline run concurrently; redirect happens only after both
+      resolve. On error the button resets visually.
+
+    **Stages** (ship order locked by Magnus):
+    1. **[x] Truck button** → `/checkout/payment` Place Order CTA
+       (landed 2026-05-08). New `PlaceOrderButton` component +
+       CSS module; faithful port of the GSAP timeline reskinned to
+       navy + amber; redirect deferred to `onSuccess` so the
+       animation can complete before nav. Cart-clearing + gateway
+       hand-off both gated on truck-animation-complete +
+       API-confirmed (race via `Promise.all`). `prefers-reduced-
+       motion` skips the 3D entirely. Free GSAP core only.
+    2. **[ ] Cart-button dark variant** → `ProductInfo` PDP "Add to
+       Cart". Dark surface match. Validates the GSAP-Club-free
+       morph rewrite on one button before scaling.
+    3. **[ ] Cart-button light variant** → `ProductCardPlaceholder`
+       shelf "Add to Cart". Highest blast radius; ship after dark
+       variant proves stable on PDP.
+
 40. **[x] Storefront — origin-currency display + "see in your currency" toggle** _(landed 2026-05-08)_.
 
     **Why**: products from non-Nigerian origins (ZA, KE, GH, …) used

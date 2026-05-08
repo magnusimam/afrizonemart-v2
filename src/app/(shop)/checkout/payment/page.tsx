@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BadgeCheck,
   ChevronRight,
@@ -13,6 +13,7 @@ import {
 import { CheckoutOrderSummary } from '@/components/checkout/CheckoutOrderSummary';
 import { PaymentMethodForm } from '@/components/checkout/PaymentMethodForm';
 import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
+import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
 import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
 import { formatPriceNGN } from '@/lib/format';
 import { type PaymentMethodId } from '@/lib/checkout-data';
@@ -111,9 +112,22 @@ export default function PaymentPage() {
     setPaymentMethod(id);
   };
 
-  const handlePay = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selected || !agreed || !shipping) return;
+  // Where to send the customer once the truck animation finishes.
+  // Stashed during the API call (which runs concurrently with the
+  // animation) so `onSuccess` only has to do the redirect itself.
+  // A ref (not state) — the value never drives a render, and using a
+  // ref sidesteps any timing risk between state-flushing and the
+  // post-animation onSuccess callback.
+  const redirectRef = useRef<
+    | { kind: 'gateway'; url: string }
+    | { kind: 'success' }
+    | null
+  >(null);
+
+  const submitOrder = async (): Promise<void> => {
+    if (!selected || !agreed || !shipping) {
+      throw new Error('Please confirm your shipping, payment method, and the terms.');
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -139,24 +153,43 @@ export default function PaymentPage() {
 
       if (needsGateway) {
         const init = await initPayment(order.id);
-        // Hand off to the gateway-hosted (or stub) checkout page. It
-        // POSTs the webhook + redirects back to /checkout/success.
-        clearCart();
-        window.location.href = init.checkoutUrl;
-        return;
+        redirectRef.current = { kind: 'gateway', url: init.checkoutUrl };
+      } else {
+        redirectRef.current = { kind: 'success' };
       }
-
-      clearCart();
-      router.push('/checkout/success');
     } catch (err) {
+      // Surface error inline; PlaceOrderButton resets to idle on reject.
       setError(
         err instanceof HttpApiError
           ? err.message
           : 'Could not place your order. Please try again.',
       );
+      throw err;
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleOrderPlaced = () => {
+    // Fired AFTER the truck animation completes AND the API has
+    // confirmed the order. Clear the cart and redirect to whatever
+    // the server told us we needed (gateway-hosted page or our own
+    // /checkout/success).
+    const target = redirectRef.current;
+    if (!target) return;
+    clearCart();
+    if (target.kind === 'gateway') {
+      window.location.href = target.url;
+    } else {
+      router.push('/checkout/success');
+    }
+  };
+
+  // No-op submit handler so an Enter-key in any form input doesn't
+  // trigger a default browser navigation. The PlaceOrderButton owns
+  // the actual click behaviour (it's `type="button"`).
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
   };
 
   return (
@@ -211,7 +244,7 @@ export default function PaymentPage() {
               </SafeBoundary>
             </div>
 
-            <form onSubmit={handlePay} className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
+            <form onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
               <div className="flex flex-col gap-6 lg:col-span-8 lg:gap-8">
                 <Section title="Payment Method" caption="Pick how you want to pay.">
                   <SafeBoundary
@@ -341,13 +374,12 @@ export default function PaymentPage() {
                   >
                     ← Back to Shipping
                   </Link>
-                  <button
-                    type="submit"
+                  <PlaceOrderButton
+                    label={`Pay ${formatPriceNGN(total)}`}
                     disabled={!selected || !agreed || submitting}
-                    className="rounded-btn bg-navy px-6 py-4 text-center font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-50 md:text-base"
-                  >
-                    {submitting ? 'Placing order…' : `Pay ${formatPriceNGN(total)}`}
-                  </button>
+                    onSubmit={submitOrder}
+                    onSuccess={handleOrderPlaced}
+                  />
                 </div>
               </div>
 
