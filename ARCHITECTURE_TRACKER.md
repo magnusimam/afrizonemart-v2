@@ -44,6 +44,32 @@ The four workstreams below are committed for the current push, in order.
 Each one updates its proper Principle / Rule / Phase home as it lands and
 gets ticked off here.
 
+### 🛡️ Pre-merge / pre-deploy resilience checklist (locked 2026-05-08)
+
+After the 2026-05-08 incident — three failed hotfixes chasing a
+truncated stack trace — these are the steps every storefront PR
+must pass before merge. **Don't merge a storefront PR without
+running through this list.**
+
+1. **`npm run typecheck`** + **`npm run lint`** locally — type-safe and ESLint clean.
+2. **`npm run smoke:prod`** (against current prod) — confirms baseline before deploy.
+3. After Vercel preview lands, **`npm run smoke <preview-url>`** against the preview — fails on any 5xx. Catches the SSR runtime failures that build-success can hide.
+4. **Watch the build log** for the warning "Critical dependency: the request of a dependency is an expression" — paired with an import trace ending in `@sentry/*`, `@prisma/*`, or any OpenTelemetry package. That combo predicts an `ERR_REQUIRE_ESM` runtime crash; investigate before merging.
+5. **`package-lock.json` review** — if a PR's diff includes large package-lock changes you didn't expect (i.e., transitive deps moved beyond what your direct dependency change required), inspect the new versions for ESM-only flips before merging. The 2026-05-08 incident started with a silent semver bump of `@exodus/bytes` to its first ESM-only release during an unrelated `npm install`.
+6. **For animated / experimental UI** — confirm all three resilience layers are wired (per `feedback_animated_features_resilience.md`):
+    - `useFlag('<key>', defaultValue)` with a registry entry in `afrizonemart-api/src/modules/feature-flags/registry.ts`
+    - `<SafeBoundary>` wrap with a plain-fallback component
+    - The plain-fallback component is 1:1 swappable from prop contract
+7. **For new shared client components** — never statically import `@sentry/nextjs` (per `feedback_no_eager_sentry_in_client_components.md`). Lazy-load inside `componentDidCatch` or the function that needs it.
+8. **After merge + Vercel auto-deploy** — `npm run smoke:prod` once more. A second clean pass closes the loop.
+
+If any of these fail, **don't merge**. Fix in the PR or revert.
+
+When GitHub Actions billing is unblocked, steps 2 + 3 + 8 wire into
+CI as automated PR checks. Until then, they're manual.
+
+---
+
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
 41. **[~] Animated checkout/cart buttons** _(queued 2026-05-08)_.
