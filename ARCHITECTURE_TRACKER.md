@@ -46,6 +46,70 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+41. **[~] Animated checkout/cart buttons** _(queued 2026-05-08)_.
+
+    **Why**: lift the perceived polish of the two highest-conversion
+    interactions on the site — the **Place Order** button (terminal
+    commit at end of checkout) and the **Add to Cart** button on
+    product cards + product detail. CTO sourced three GSAP-based
+    designs (one truck/road animation + two cart-with-shirt variants).
+
+    **Constraints**:
+    - **No GSAP Club** — don't ship `MorphSVGPlugin` (paid). Cart
+      button's morph step gets rewritten with free alternatives
+      (Framer Motion variants OR plain CSS keyframes — pick whichever
+      gives acceptable visual fidelity).
+    - **Re-skin to brand palette** — navy `#0D1F4E` + amber `#F5A623`
+      throughout. Source uses indigo/purple/green; CSS custom
+      properties in the source make this a one-line override per
+      token.
+    - **Respect `prefers-reduced-motion`** — fall through to the
+      success state with no animation for users who opted out.
+    - **State alignment** — animation never finishes BEFORE the API
+      confirms. Place Order uses `await placeOrder()` + animation
+      timeline run concurrently; redirect happens only after both
+      resolve. On error the button resets visually.
+
+    **Stages** (ship order locked by Magnus):
+    1. **[x] Truck button** → `/checkout/payment` Place Order CTA
+       (landed 2026-05-08). New `PlaceOrderButton` component +
+       CSS module; faithful port of the GSAP timeline reskinned to
+       navy + amber; redirect deferred to `onSuccess` so the
+       animation can complete before nav. Cart-clearing + gateway
+       hand-off both gated on truck-animation-complete +
+       API-confirmed (race via `Promise.all`). `prefers-reduced-
+       motion` skips the 3D entirely. Free GSAP core only.
+
+       **Resilience wiring** (per Magnus's pre-ship rules audit
+       2026-05-08):
+       - **Feature flag** (Principle #2). `useFlag(
+         'animated_place_order_button', true)` on the checkout
+         payment page. Default true so the animation ships visible.
+         Admin flips to false in `/admin/feature-flags` for an
+         instant kill — no redeploy needed.
+       - **Error-boundary fallback** (Rule B8). The animated
+         `<PlaceOrderButton>` is wrapped in a `<SafeBoundary
+         name="checkout:place-order">` whose fallback is
+         `<StaticPlaceOrderButton>` — the exact button this page
+         used to render before the animated upgrade. If GSAP throws
+         on render (regression, browser-specific 3D bug, CSS module
+         load failure), the boundary catches it, ships the trace to
+         Sentry tagged `boundary:checkout:place-order`, and renders
+         the static button so the customer can still complete
+         checkout.
+       - **Same `onSubmit` / `onSuccess` contract** for both the
+         animated and the static buttons — they are 1:1 swappable
+         from the checkout page's POV. Both honour the deferred-
+         redirect pattern (no `window.location.href` inside
+         `onSubmit`) so the kill-switch flip / boundary fallback
+         doesn't change the flow's correctness.
+    2. **[ ] Cart-button dark variant** → `ProductInfo` PDP "Add to
+       Cart". Dark surface match. Validates the GSAP-Club-free
+       morph rewrite on one button before scaling.
+    3. **[ ] Cart-button light variant** → `ProductCardPlaceholder`
+       shelf "Add to Cart". Highest blast radius; ship after dark
+       variant proves stable on PDP.
+
 40. **[x] Storefront — origin-currency display + "see in your currency" toggle** _(landed 2026-05-08)_.
 
     **Why**: products from non-Nigerian origins (ZA, KE, GH, …) used
