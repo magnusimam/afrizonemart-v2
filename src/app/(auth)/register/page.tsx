@@ -8,6 +8,7 @@ import { AuthCard } from '@/components/auth/AuthCard';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { COUNTRIES, COUNTRY_CODES, getCountry } from '@/lib/countries';
 import { AuthApiError, registerUser, type AuthResult } from '@/lib/api/auth';
+import { PASSWORD_RULE_HINT, validatePasswordStrength } from '@/lib/auth/password';
 import { useAuthStore } from '@/stores/authStore';
 
 export default function RegisterPage() {
@@ -29,6 +30,16 @@ export default function RegisterPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Phase 11.3 (audit M6): client-side mirror of the server's
+    // password-strength rule. Saves a round-trip and shows the rule
+    // inline before submit. Server still re-validates as the gate.
+    const strengthError = validatePasswordStrength(password);
+    if (strengthError) {
+      setError(strengthError);
+      return;
+    }
+
     setSubmitting(true);
 
     // country/phone are captured locally but not yet persisted server-side —
@@ -163,6 +174,7 @@ export default function RegisterPage() {
               minLength={8}
               className={`${inputClass} pr-10`}
               autoComplete="new-password"
+              aria-describedby="password-rule"
             />
             <button
               type="button"
@@ -173,6 +185,9 @@ export default function RegisterPage() {
               {showPwd ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
             </button>
           </div>
+          <p id="password-rule" className="mt-1 font-sans text-xs text-muted">
+            {PASSWORD_RULE_HINT}
+          </p>
         </Field>
 
         <label className="flex items-start gap-2 font-sans text-xs leading-relaxed text-charcoal">
