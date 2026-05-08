@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { scrubSentryEvent } from '@/lib/sentry-scrub';
 
 /**
  * Sentry on the Next.js server runtime (Node). Catches errors from
@@ -11,5 +12,9 @@ if (dsn) {
     dsn,
     environment: process.env.NEXT_PUBLIC_ENV ?? 'production',
     tracesSampleRate: 0.1,
+    sendDefaultPii: false,
+    beforeSend(event) {
+      return scrubSentryEvent(event);
+    },
   });
 }

@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { scrubSentryEvent } from '@/lib/sentry-scrub';
 
 /**
  * Sentry on the Edge runtime — minimal config for middleware errors.
@@ -10,5 +11,9 @@ if (dsn) {
     dsn,
     environment: process.env.NEXT_PUBLIC_ENV ?? 'production',
     tracesSampleRate: 0.1,
+    sendDefaultPii: false,
+    beforeSend(event) {
+      return scrubSentryEvent(event);
+    },
   });
 }

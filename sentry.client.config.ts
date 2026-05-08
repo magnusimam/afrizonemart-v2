@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { scrubSentryEvent } from '@/lib/sentry-scrub';
 
 /**
  * Frontend Sentry — initialised on the browser. Activates only when
@@ -16,10 +17,14 @@ if (dsn) {
     tracesSampleRate: 0.1,
     replaysSessionSampleRate: 0.0,
     replaysOnErrorSampleRate: 1.0,
+    sendDefaultPii: false,
     integrations: [
       Sentry.replayIntegration({
-        maskAllText: false,
-        blockAllMedia: false,
+        // Phase 11.3 (audit M3): mask everything in session replays
+        // by default. Without it, every replay captures form inputs
+        // (passwords, card numbers) and chat-style PII.
+        maskAllText: true,
+        blockAllMedia: true,
       }),
     ],
     // Trim noisy errors that aren't actionable
@@ -28,5 +33,8 @@ if (dsn) {
       'Non-Error promise rejection captured',
       'Failed to fetch',
     ],
+    beforeSend(event) {
+      return scrubSentryEvent(event);
+    },
   });
 }
