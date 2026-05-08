@@ -13,6 +13,8 @@ export interface AdminProductListParams {
   limit?: number;
   q?: string;
   category?: string;
+  /// 2-letter ISO country code; matches `Product.origin` server-side.
+  origin?: string;
   inStock?: boolean;
   sort?: 'newest' | 'oldest' | 'name-asc' | 'price-desc';
 }
@@ -71,6 +73,7 @@ function toQs(params: AdminProductListParams): string {
   if (params.limit) sp.set('limit', String(params.limit));
   if (params.q) sp.set('q', params.q);
   if (params.category) sp.set('category', params.category);
+  if (params.origin) sp.set('origin', params.origin);
   if (params.inStock !== undefined) sp.set('inStock', String(params.inStock));
   if (params.sort) sp.set('sort', params.sort);
   const qs = sp.toString();

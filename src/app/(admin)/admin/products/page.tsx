@@ -30,12 +30,14 @@ import {
   type AdminProductListItem,
 } from '@/lib/api/admin';
 import { formatPriceNGN } from '@/lib/format';
+import { COUNTRIES } from '@/lib/countries';
 
 export default function AdminProductsPage() {
   const [page, setPage] = useState(1);
   const [q, setQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
   const [category, setCategory] = useState<string>('');
+  const [country, setCountry] = useState<string>('');
   const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'out'>('all');
   const [data, setData] = useState<{
     items: AdminProductListItem[];
@@ -60,7 +62,7 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQ, category, stockFilter]);
+  }, [debouncedQ, category, country, stockFilter]);
 
   useEffect(() => {
     void adminListCategories().then((r) => setCategories(r.items)).catch(() => {});
@@ -76,6 +78,7 @@ export default function AdminProductsPage() {
           limit: 25,
           q: debouncedQ || undefined,
           category: category || undefined,
+          origin: country || undefined,
           inStock: stockFilter === 'all' ? undefined : stockFilter === 'in',
         });
         if (!cancelled) setData(r);
@@ -88,7 +91,7 @@ export default function AdminProductsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, debouncedQ, category, stockFilter, reloadToken]);
+  }, [page, debouncedQ, category, country, stockFilter, reloadToken]);
 
   const handleDelete = async () => {
     if (!pendingDelete) return;
@@ -333,6 +336,22 @@ export default function AdminProductsPage() {
               {c.name}
             </option>
           ))}
+        </select>
+        <select
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+          className="rounded-input border border-border bg-white px-3 py-2 font-sans text-sm text-charcoal focus:border-navy focus:outline-none"
+          aria-label="Filter by country of origin"
+        >
+          <option value="">All countries</option>
+          {Object.values(COUNTRIES)
+            .slice()
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.flag} {c.name}
+              </option>
+            ))}
         </select>
         <select
           value={stockFilter}
