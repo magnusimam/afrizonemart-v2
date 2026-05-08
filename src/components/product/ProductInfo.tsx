@@ -135,11 +135,13 @@ export function ProductInfo({ product }: ProductInfoProps) {
       <div className="flex flex-wrap items-baseline gap-3">
         <DisplayPrice
           amountNgn={product.price}
+          originCountry={product.origin}
           className="font-raleway text-3xl font-bold text-navy md:text-4xl"
         />
         {product.comparePrice ? (
           <DisplayPrice
             amountNgn={product.comparePrice}
+            originCountry={product.origin}
             compact
             className="font-sans text-lg text-muted line-through"
           />
@@ -201,6 +203,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
         bundles={bundles}
         selectedIndex={bundleIndex}
         onSelect={setBundleIndex}
+        originCountry={product.origin}
       />
 
       <div className="flex flex-col gap-3">
@@ -211,6 +214,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
             Subtotal:{' '}
             <DisplayPrice
               amountNgn={totalPrice}
+              originCountry={product.origin}
               compact
               className="font-raleway font-bold text-navy"
             />
@@ -224,7 +228,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
           className="flex w-full items-center justify-center gap-2 rounded-btn bg-navy py-4 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ShoppingCart size={18} aria-hidden />
-          Add to Cart — <DisplayPrice amountNgn={totalPrice} compact />
+          Add to Cart — <DisplayPrice amountNgn={totalPrice} originCountry={product.origin} compact />
         </button>
 
         <button

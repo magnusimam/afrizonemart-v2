@@ -164,12 +164,14 @@ export function ProductCardPlaceholder({
             {comparePrice ? (
               <DisplayPrice
                 amountNgn={comparePrice}
+                originCountry={origin}
                 compact
                 className="font-sans text-[10px] text-muted line-through md:text-xs"
               />
             ) : null}
             <DisplayPrice
               amountNgn={price}
+              originCountry={origin}
               compact
               className="font-raleway text-sm font-bold text-navy md:text-base"
             />

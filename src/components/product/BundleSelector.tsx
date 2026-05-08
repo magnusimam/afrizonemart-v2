@@ -1,16 +1,20 @@
 'use client';
 
 import { Star, Truck } from 'lucide-react';
-import { formatPriceNGN } from '@/lib/format';
+import { DisplayPrice } from '@/components/product/DisplayPrice';
 import type { ProductBundle } from '@/lib/products';
 
 interface BundleSelectorProps {
   bundles: ProductBundle[];
   selectedIndex: number;
   onSelect: (index: number) => void;
+  /// Origin country code, threaded through to DisplayPrice so the
+  /// per-bundle price line uses the same origin-currency as the rest
+  /// of the product detail page.
+  originCountry?: string | null;
 }
 
-export function BundleSelector({ bundles, selectedIndex, onSelect }: BundleSelectorProps) {
+export function BundleSelector({ bundles, selectedIndex, onSelect, originCountry }: BundleSelectorProps) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -72,13 +76,19 @@ export function BundleSelector({ bundles, selectedIndex, onSelect }: BundleSelec
               </div>
 
               <div className="flex flex-col items-end">
-                <span className="font-raleway text-lg font-bold text-navy">
-                  {formatPriceNGN(b.price)}
-                </span>
+                <DisplayPrice
+                  amountNgn={b.price}
+                  originCountry={originCountry}
+                  compact
+                  className="font-raleway text-lg font-bold text-navy"
+                />
                 {b.comparePrice > b.price && (
-                  <span className="font-sans text-xs text-muted line-through">
-                    {formatPriceNGN(b.comparePrice)}
-                  </span>
+                  <DisplayPrice
+                    amountNgn={b.comparePrice}
+                    originCountry={originCountry}
+                    compact
+                    className="font-sans text-xs text-muted line-through"
+                  />
                 )}
               </div>
             </button>
