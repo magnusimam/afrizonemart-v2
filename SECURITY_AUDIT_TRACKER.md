@@ -51,8 +51,9 @@ If you have one focused day, ship in this order — each step is
 That sequence closes the worst account-takeover and payment-fraud
 paths in a day.
 
-H3 (replay protection), H8 (magic-byte sniff), H9 (credential
-encryption) each warrant their own focused PR after.
+H3 ✅ (replay protection — 2026-05-08), H8 ✅ (magic-byte sniff —
+2026-05-07), H9 (credential encryption — still open) each warranted
+their own focused PR after the day-1 sequence.
 
 **H11 (Next.js upgrade)** is the biggest item — schedule a separate
 window because Next 16 has breaking changes in caching, middleware,
@@ -181,7 +182,33 @@ Stricter alternative: allowlist `['/', '/account', '/cart', '/checkout/...']`.
 
 # 🟠 HIGH (this week / next 2 weeks)
 
-## [ ] H1 — STAFF role gate, but no per-capability check on admin endpoints
+## [x] H1 — STAFF role gate, but no per-capability check on admin endpoints
+
+**Fixed 2026-05-07**: every admin sub-router in
+`afrizonemart-api/src/modules/admin/routes.ts` is now wrapped with
+`requireCapability(...)` matching the audit's per-domain mapping
+(products.write, coupons.write, shipping.write, etc.). The
+middleware already existed (`require-capability.ts`) and was used
+on `/api/intern/*`; H1 was about wiring it on the admin tree too.
+ADMIN bypasses every check by design; STAFF must hold the listed
+capability in `User.permissions[]`. Frontend sidebar's capability
+filter now mirrors enforcement, not the other way around.
+
+**Re-verified 2026-05-08** + **closed read-vs-write gaps**: The
+parent composer correctly gates every sub-router, and the audit's
+mapping is fully applied. But two sub-routers were gated on a
+`*.read` capability (the most permissive in their domain) without
+inline tighter checks on their mutating endpoints — meaning a
+STAFF granted read-only could still write. Fixed:
+- `orders/admin.routes.ts` — `PATCH /:id/status` and
+  `POST /:id/notes` now require `orders.write`; `POST /:id/refunds`
+  requires `orders.refund`. Composer gate stays at `orders.read`
+  for the listing/detail GETs.
+- `customers/admin.routes.ts` — `PATCH /:id` now requires
+  `customers.write`. Composer gate stays at `customers.read`.
+
+Other read-gated sub-routers (`/reports`, `/audit-log`) are
+read-only by design and don't need narrowing.
 
 **Severity:** High
 
@@ -233,7 +260,11 @@ Single source of truth: pull the capability list from the same
 
 ---
 
-## [ ] H2 — Webhook signatures compared with `===` (timing leak)
+## [x] H2 — Webhook signatures compared with `===` (timing leak)
+
+**Fixed 2026-05-07**: both gateways now use `crypto.timingSafeEqual`
+on equal-length Buffer copies, with a length-equality short-circuit
+to avoid `RangeError` when sigs are wrong length.
 
 **Severity:** High
 
@@ -261,7 +292,25 @@ if (a.length !== b.length || !timingSafeEqual(a, b)) {
 
 ---
 
-## [ ] H3 — No webhook replay protection
+## [x] H3 — No webhook replay protection
+
+**Fixed 2026-05-08**: `InboundWebhookEvent` model + migration
+(`20260507220000_inbound_webhook_replay_guard`) shipped on 2026-05-07
+but went unwired. Now:
+- `payments/controller.ts` SHA-256 hashes the raw webhook body and
+  pairs it with the winning gateway's id (`gw.id`) — IGNORED
+  outcomes don't poison the dedup table.
+- `payments/service.ts` `applyWebhookOutcome` accepts an optional
+  `WebhookReplayGuard` and `tx.inboundWebhookEvent.create()`s **inside**
+  the same `$transaction` that mutates Payment+Order. P2002 from the
+  `(provider, bodyHash)` unique index rolls the whole tx back and the
+  service returns `{ acknowledged: true, reason: 'Replay (already
+  processed)' }` with an audit row (`payment.webhook_replay_blocked`).
+- Identical concurrent replays both lose the race after the first
+  commit; the gateway sees a 200 either way (idempotent).
+- Verify-flow callers (`verifyPayment`, `checkOrderPayment`) skip
+  the guard — they're polling the gateway directly, not processing
+  a captured POST.
 
 **Severity:** High
 
@@ -297,7 +346,14 @@ INSERT first inside the transaction; treat unique-violation as
 
 ---
 
-## [ ] H4 — Webhook handlers don't verify amount / currency match
+## [x] H4 — Webhook handlers don't verify amount / currency match
+
+**Fixed 2026-05-07**: extended `WebhookOutcome` with optional
+`verified: { amount, currency }` carrying normalized major-units
+amount + uppercase ISO currency. Both gateways populate it
+(Squad divides kobo by 100; Flutterwave passes through). Service
+`applyWebhookOutcome` rejects + audits when claimed amount differs
+by > 1 unit or currency differs from `Order.total` / `Order.currency`.
 
 **Severity:** High
 
@@ -329,7 +385,18 @@ if (!Number.isFinite(claimedAmount)
 
 ---
 
-## [ ] H5 — SSRF in admin-registered webhook URLs
+## [x] H5 — SSRF in admin-registered webhook URLs
+
+**Fixed 2026-05-07**: new `lib/url-safety.ts` with two-stage check:
+- **Sync** `isUrlSchemeAndHostnameSafe()` — runs in zod refinement
+  at admin-save time. Blocks non-http(s) schemes, literal private
+  IPs (127/10/172.16-31/192.168/169.254/0.0.0.0), localhost, and
+  internal DNS suffixes (`*.internal`, `*.local`).
+- **Async** `assertUrlIsPublic()` — runs in the dispatcher right
+  before fetch. Resolves DNS, rejects when any A/AAAA record falls
+  in a blocked range. Catches the case where a domain resolves
+  publicly at registration but flips to internal later.
+IPv6 covered: `::1`, `fc00::/7`, `fe80::/10`, `::ffff:` IPv4-mapped.
 
 **Severity:** High
 
@@ -354,7 +421,19 @@ Use `dns.lookup()` + check resolved IP, not just hostname text.
 
 ---
 
-## [ ] H6 — JWT verify without explicit `algorithms`
+## [x] H6 — JWT verify without explicit `algorithms`
+
+**Fixed 2026-05-07**: `auth/jwt.ts` exports a single `VERIFY_OPTIONS`
++ `SIGN_BASE` shared by `signAccessToken`, `signRefreshToken`,
+`verifyRefreshToken`, and `middleware/auth.ts:userFromToken`. All
+sign with `algorithm: HS256`, `issuer/audience: 'afrizonemart'`;
+all verify with the matching constraints. Single source of truth
+prevents drift.
+
+**One-time impact**: tokens minted before this deploy lack
+`iss/aud` claims and will be rejected. Active users get logged out
+once and need to re-login. Refresh tokens age over 30 days; access
+tokens over 15 minutes.
 
 **Severity:** High
 
@@ -385,7 +464,30 @@ jwt.verify(token, env.JWT_SECRET, {
 
 ---
 
-## [ ] H7 — No OAuth state / nonce on Google sign-in
+## [x] H7 — No OAuth state / nonce on Google sign-in
+
+**Fixed 2026-05-08**: server-issued single-use nonce challenge, plus
+`azp` validation.
+- New `GoogleAuthChallenge` Prisma model + migration
+  `20260508120000_google_auth_challenge` — `nonce String @unique`,
+  `expiresAt`, `consumedAt?`. 10-minute TTL.
+- `auth/google.service.ts` `createGoogleChallenge()` issues a
+  `randomBytes(32).hex` nonce. `signInWithGoogle(idToken, nonce)`
+  starts with an atomic `updateMany({ where: { nonce, consumedAt:
+  null, expiresAt: { gt: now } }, data: { consumedAt: now } })` —
+  `count !== 1` rejects as invalid/expired/replay. After
+  `verifyIdToken`, the service also checks `payload.nonce === nonce`
+  and `payload.azp === GOOGLE_CLIENT_ID` (when present).
+- New `POST /api/auth/google/challenge` route. `POST /api/auth/google`
+  now requires `{ idToken, nonce }`.
+- Frontend `GoogleSignInButton.tsx` fetches a challenge before
+  initializing GIS, passes it as the `nonce` field on
+  `google.accounts.id.initialize`, and POSTs both back. `lib/api/auth.ts`
+  exposes `createGoogleChallenge()` and the updated
+  `signInWithGoogle(idToken, nonce)`.
+- A captured ID token cannot be re-posted: its nonce row is consumed
+  on first use; a fresh sign-in attempt has a fresh nonce that
+  doesn't match the captured token's claim.
 
 **Severity:** High
 
@@ -407,7 +509,16 @@ claim matches. Also verify `azp` (authorized party) ===
 
 ---
 
-## [ ] H8 — Multer accepts client-declared MIME, no magic-byte sniff
+## [x] H8 — Multer accepts client-declared MIME, no magic-byte sniff
+
+**Fixed 2026-05-07**: new `uploads/sniff.ts` magic-byte detector for
+the 5 allowed image formats (JPEG, PNG, WebP, AVIF, GIF). 40 lines,
+no new deps. `uploadImage()` now sniffs first, validates sniffed
+MIME against the allowlist, and uses the sniffed value for both
+the storage `Content-Type` and the file extension — the client
+header is no longer trusted. Combined with `noSniff: true` in
+helmet (H10), an HTML payload disguised as `image/png` is rejected
+upstream and never reaches storage.
 
 **Severity:** High
 
@@ -429,7 +540,28 @@ on R2 objects (via `PutObjectCommand` `ContentType`).
 
 ---
 
-## [ ] H9 — Payment gateway credentials stored plaintext in Postgres
+## [x] H9 — Payment gateway credentials stored plaintext in Postgres
+
+**Fixed 2026-05-08**: AES-256-GCM at-rest encryption for
+`PaymentGatewayConfig.credentials`.
+- New `lib/crypto-secret.ts` with `encryptSecret`/`decryptSecret`/
+  `encryptCredentials`/`decryptCredentials`. Tagged envelope format
+  `{ _enc: 'v1', iv, tag, ct }` (versioned for future rotation).
+- New `SECRETS_KEY` env var (optional, hex 64-char canonical or
+  passphrase ≥32 chars SHA-256'd to derive the AES key). Required
+  in production via runtime check; dev fallback derives from
+  `JWT_SECRET` so existing local setups keep working.
+- `payments/admin.controller.ts` `createGatewayConfigHandler` /
+  `updateGatewayConfigHandler` encrypt credential values on write;
+  `redact()` decrypts before masking so the "last 4" sanity check
+  the admin form shows still works post-cutover.
+- `payments/service.ts` `loadActiveConfigs` (via callers
+  `activeGateway`/`activeGateways`/`gatewayById`) decrypts before
+  handing credentials to `buildGateway`.
+- **Non-destructive cutover**: legacy plaintext rows pass through
+  unchanged on read. Any admin save re-encrypts that row's
+  credentials map (decrypt-merge-encrypt). No one-shot script;
+  rows migrate as admins touch them.
 
 **Severity:** High
 
@@ -458,7 +590,14 @@ Manager / HashiCorp Vault) instead of Postgres.
 
 ---
 
-## [ ] H10 — Helmet missing CSP, HSTS, frameGuard, referrerPolicy
+## [x] H10 — Helmet missing CSP, HSTS, frameGuard, referrerPolicy
+
+**Fixed 2026-05-07**: full helmet config in `server.ts` —
+HSTS (1y + includeSubDomains + preload), frameguard `deny`,
+referrerPolicy `strict-origin-when-cross-origin`, noSniff,
+minimal CSP (`default-src 'none'`, `img-src 'self' data:`,
+`frame-ancestors 'none'`). `crossOriginResourcePolicy` stays
+`cross-origin` so storefront can load uploaded images.
 
 **Severity:** High
 
@@ -522,7 +661,24 @@ preview, smoke-test. Do not bundle with other security fixes.
 
 # 🟡 MEDIUM (this month)
 
-## [ ] M1 — Coupon race at order placement
+## [x] M1 — Coupon race at order placement
+
+**Fixed 2026-05-08**: pessimistic row lock + re-validation inside
+the order-create transaction.
+- `orders/service.ts` `placeOrder`: when the cart has a coupon,
+  the existing `prisma.$transaction` block now starts the coupon
+  branch with `SELECT id FROM "Coupon" WHERE id = $1 FOR UPDATE`
+  (parameterised via Prisma tagged template). The lock serialises
+  contending transactions on the Coupon row.
+- After the lock acquires, re-fetches the coupon and re-checks
+  `maxUses` (against `usageCount`) and `maxUsesPerCustomer`
+  (against a `couponRedemption.count` taken inside the same tx).
+  Either rejection throws an `HttpError.badRequest` with the same
+  customer-friendly message as the cart-time gate, rolling the tx
+  back so no partial redemption row or increment is committed.
+- The pre-tx `evaluateCoupon` stays as the cart-time UX gate
+  (early rejection on expiry/min-subtotal/etc.) — the lock is
+  the second-line defence at place-order.
 
 **Where:** `afrizonemart-api/src/modules/coupons/evaluator.ts:48-56`
 **What:** Coupons validate `maxUses` / `maxUsesPerCustomer` at
@@ -549,7 +705,25 @@ stale token or write to a half-updated store.
 Concurrent callers `await` the same promise; only the first call
 hits `/api/auth/refresh`.
 
-## [ ] M3 — Sentry not stripping headers / cookies / body fields
+## [x] M3 — Sentry not stripping headers / cookies / body fields
+
+**Fixed 2026-05-08**: `beforeSend` PII scrubber on every Sentry init
+(API + storefront client/server/edge).
+- `afrizonemart-api/src/infra/sentry.ts` — inline scrubber. Redacts
+  Authorization / Cookie / webhook-signature headers, deletes
+  `event.request.cookies`, redacts password / token / secret /
+  card body fields, recurses into `extra` and `contexts`. Adds
+  `sendDefaultPii: false`.
+- `afrizonemart-v2/src/lib/sentry-scrub.ts` — shared helper with
+  the same key list. Imported by `sentry.client.config.ts`,
+  `sentry.server.config.ts`, `sentry.edge.config.ts`. Each config
+  now has `sendDefaultPii: false` and `beforeSend(event) ⇒
+  scrubSentryEvent(event)`.
+- Replay integration on the client also tightened: `maskAllText:
+  true`, `blockAllMedia: true` so session replays don't capture
+  password fields, card numbers, or screenshots of dashboards.
+- Single source for the redaction key list per repo. Adding a new
+  sensitive field is one-line in each scrubber.
 
 **Where:** `afrizonemart-api/src/infra/sentry.ts`
 **What:** No `beforeSend` hook. Captured exceptions can include
@@ -574,7 +748,15 @@ beforeSend(event) {
 },
 ```
 
-## [ ] M4 — Zod `flatten().fieldErrors` returned to clients
+## [x] M4 — Zod `flatten().fieldErrors` returned to clients
+
+**Fixed 2026-05-08**: `error-handler.ts` ZodError branch now logs
+the detailed `fieldErrors` via `logger.warn('http.validation_error',
+…)` and only echoes them to the client when `!isProduction`. Prod
+clients get the generic `'Invalid request payload'` top-level
+message without the schema shape. Confirmed no storefront code reads
+the `details.fieldErrors` payload — UI consumes only `error.message`,
+so no UX regression.
 
 **Where:** `afrizonemart-api/src/middleware/error-handler.ts:66`
 **What:** Detailed validation errors with full field paths
@@ -583,7 +765,16 @@ payloads.
 **Fix:** In production return generic `{ error: 'Invalid input' }`
 to the client; keep detailed `fieldErrors` in server logs only.
 
-## [ ] M5 — Stub gateway can be picked as fallback in prod
+## [x] M5 — Stub gateway can be picked as fallback in prod
+
+**Fixed 2026-05-08**: `assertStubAllowed(reason)` helper in
+`payments/service.ts` throws when `NODE_ENV === 'production'`
+and `ALLOW_STUB_GATEWAY` is not "1". Called at every site that
+would otherwise return the stub: `activeGateway()`,
+`activeGateways()`, `gatewayById()`. Logs an error before throwing
+so misconfiguration shows up in Sentry, not just as a 500. New
+env `ALLOW_STUB_GATEWAY` (default off) gives staging-on-prod-NODE_ENV
+parity tests an explicit escape hatch.
 
 **Where:** `afrizonemart-api/src/modules/payments/service.ts:57-78`
 **What:** If all real `PaymentGatewayConfig` rows are inactive or
@@ -594,7 +785,26 @@ without paying.
 when no real gateway is active. Stub becomes opt-in via a flag
 like `ALLOW_STUB_GATEWAY=1`.
 
-## [ ] M6 — No password complexity requirements
+## [x] M6 — No password complexity requirements
+
+**Fixed 2026-05-08**: server zod refinement + client mirror.
+- `auth/auth.schema.ts` — new `passwordField` zod schema with the
+  refine: must contain at least one digit / uppercase / symbol.
+  `password`, `12345678`, `qwertyabc` all reject. Applied to both
+  `registerBodySchema` and `resetPasswordBodySchema`. The 8-char
+  floor + 128-char ceiling stay (the upper bound prevents
+  bcrypt-cost amplification on long inputs).
+- `afrizonemart-v2/src/lib/auth/password.ts` — shared
+  `validatePasswordStrength(password)` mirror + `PASSWORD_RULE_HINT`
+  string. Same rule, surfaces inline before submit.
+- `register/page.tsx` and `reset-password/page.tsx` call the
+  validator on submit and show the rule in helper text /
+  subtitle. Server is still the authoritative gate; client is
+  only there for UX.
+- Conservative-by-design: a single non-lowercase character class
+  is enough. Blocks the trivial dictionary words without the
+  "must have all of digit AND symbol AND upper" friction users
+  hate.
 
 **Where:** `afrizonemart-api/src/modules/auth/auth.schema.ts:15-18`
 **What:** Only `min(8)`. Users can register with `password`,
@@ -602,7 +812,30 @@ like `ALLOW_STUB_GATEWAY=1`.
 **Fix:** Add zxcvbn min-strength check (server + client),
 require ≥ 8 chars + at least one of digit/symbol/upper.
 
-## [ ] M7 — No per-account login lockout
+## [x] M7 — No per-account login lockout
+
+**Fixed 2026-05-08**: per-account counters on the User row, no
+extra table.
+- Schema: `User.failedLoginAttempts Int @default(0)`,
+  `User.lastFailedLoginAt DateTime?`, `User.lockedUntil DateTime?`.
+  Migration `20260508130000_login_lockout`.
+- `auth/service.ts` `login()`:
+  1. Reject up-front when `lockedUntil > now` with a friendly
+     "try again in N minutes" message.
+  2. On bcrypt mismatch: increment counter (or reset to 1 if last
+     failure was outside the 15-minute window). At 5 within the
+     window, set `lockedUntil = now + 15 min` and log
+     `auth.login.account_locked`.
+  3. On success: clear counter + lockedUntil so a few earlier-in-
+     the-day typos don't compound for someone who eventually
+     remembered their password.
+- Chose the User-column approach over a separate `LoginAttempt`
+  table because it's one update per attempt instead of one insert
+  + one count, and the rolling-window logic is just two columns.
+- **Deferred (not blocking):** the audit also suggested emailing
+  the user when locked. Skipped for v1 — adds notification
+  templates + provider work; can revisit when we add other
+  security-event emails (new device, password changed).
 
 **Where:** `afrizonemart-api/src/modules/auth/service.ts:111-128`
 **What:** IP-only rate limiting; doesn't protect a specific
@@ -611,7 +844,19 @@ many users — collateral lockout).
 **Fix:** Soft-lock account after 5 failures in 15 minutes; email
 the user. Tracked in a `LoginAttempt` table or in-memory LRU.
 
-## [ ] M8 — Refresh-cookie path `/api/auth` is fragile
+## [x] M8 — Refresh-cookie path `/api/auth` is fragile
+
+**Fixed 2026-05-08**: `refreshCookieOptions()` in `auth/controller.ts`
+now sets `path: '/api'`. Only `/api/auth/refresh` reads the cookie
+today, but the wider scope removes the silent-breakage trap on
+future refactors. The cookie still doesn't reach `/`, `/static/*`,
+or any non-API path, so the blast-radius increase is zero.
+
+**Heads-up for the next deploy:** existing logged-in users have a
+cookie pinned to the old `/api/auth` path. Browsers will keep
+sending the old cookie until it expires (max 60 days). Both old and
+new will be acceptable on `/api/auth/refresh`, so this is forwards-
+compatible — no users get logged out.
 
 **Where:** `afrizonemart-api/src/modules/auth/controller.ts:34`
 **What:** Cookie scoped to `/api/auth`. Future endpoints outside
@@ -619,7 +864,14 @@ that path won't get the cookie. Functionally fine today; the
 risk is silent breakage on future refactors.
 **Fix:** Widen to `/api`.
 
-## [ ] M9 — `next.config.mjs` allows `**.r2.dev` wildcard
+## [x] M9 — `next.config.mjs` allows `**.r2.dev` wildcard
+
+**Fixed 2026-05-08**: removed the `**.r2.dev` `remotePatterns`
+entry. Custom domain `images.afrizonemart.com` has been live since
+2026-05-01 (apex cutover) and is the sole production image host,
+plus `api.afrizonemart.com/uploads/**` for legacy assets and
+`localhost:4000/uploads/**` for dev. No more wildcard exposure to
+any R2 bucket on the planet.
 
 **Where:** `afrizonemart-v2/next.config.mjs:19`
 **What:** Pattern `**.r2.dev` allows images from any Cloudflare
@@ -629,7 +881,18 @@ can serve malicious content as our `<Image>` source.
 the `r2.dev` wildcard entirely once the custom domain is the
 sole production URL.
 
-## [ ] M10 — Express body limit 8MB everywhere
+## [x] M10 — Express body limit 8MB everywhere
+
+**Fixed 2026-05-08**: tightened global to 1mb; 8mb override mounted
+specifically on `/api/admin/products/bulk-upload` and
+`/api/admin/products/bulk` BEFORE the global parser, so they parse
+first and the global skips when `req.body` is already populated.
+The `verify` callback (rawBody capture for webhook signatures) is
+preserved on every parser via a shared `captureRawBody` helper.
+`urlencoded` also dropped to 1mb. 1mb (not 64kb) was chosen as the
+default because long CMS / blog post bodies + product attribute
+JSON can legitimately approach a few hundred KB; 1mb is still an
+8x reduction from before with comfortable headroom.
 
 **Where:** `afrizonemart-api/src/server.ts:103`
 **What:** `express.json({ limit: '8mb' })` applies globally.
@@ -637,7 +900,13 @@ Auth + cart need only ~1KB; only bulk-CSV upload needs 8MB.
 **Fix:** Per-route limits — 64KB for auth, 1MB for cart, 8MB
 only on `/api/admin/products/bulk` and similar.
 
-## [ ] M11 — Local-dev `express.static('uploads')` serves dotfiles
+## [x] M11 — Local-dev `express.static('uploads')` serves dotfiles
+
+**Fixed 2026-05-08**: `express.static` now passed `{ dotfiles: 'deny',
+index: false, redirect: false }` so a stray `.env` / `.git` in the
+uploads dir doesn't leak, no directory listings, no trailing-slash
+redirects. Risk is low in prod (R2 is used) but the option object
+is one extra line.
 
 **Where:** `afrizonemart-api/src/server.ts:96`
 **What:** `app.use('/uploads', express.static(...))` without
@@ -645,7 +914,15 @@ options. Serves dotfiles by default (less of a risk in prod
 where R2 is used, but cheap to fix).
 **Fix:** `express.static(dir, { dotfiles: 'deny', index: false })`
 
-## [ ] M12 — CORS allows any localhost port + `credentials: true` in dev
+## [x] M12 — CORS allows any localhost port + `credentials: true` in dev
+
+**Fixed 2026-05-08**: replaced the open `LOCALHOST_ANY_PORT` regex
+with an explicit allowlist `Set` of ports `{3000, 3001, 3002, 3737,
+4000}`. Dev still works with Next.js's automatic 3001/3002 fallback
+when 3000 is busy, but a malicious page on any other localhost port
+(VS Code extension webview, random dev tool) can no longer make
+authenticated cross-origin calls. Production CORS unchanged
+(explicit `corsOrigins` env list + Vercel preview regex only).
 
 **Where:** `afrizonemart-api/src/server.ts:75`
 **What:** `LOCALHOST_ANY_PORT` regex + `credentials: true`. A
