@@ -1,30 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Hotfix 2026-05-08: every /product/<slug> page started 500'ing with
-  // ERR_REQUIRE_ESM. Real root cause (after two false-flag hotfixes):
-  // `@exodus/bytes` got bumped to 1.15.0 which is ESM-only via the
-  // package's `exports` map. `html-encoding-sniffer` (transitive dep
-  // of jsdom → isomorphic-dompurify) does a CJS `require()` for
-  // `@exodus/bytes/encoding-lite.js` and Node refuses. The product
-  // detail page renders RICHTEXT custom fields via DOMPurify, which
-  // pulls jsdom on the server, which loads html-encoding-sniffer.
-  // Other pages don't trigger DOMPurify so they don't fail.
-  //
-  // Fix: mark the offending packages as external so Node's native
-  // module resolver handles them via the package.json `exports`
-  // conditions correctly (resolves `require` to a CJS variant when
-  // available). The Sentry/Prisma additions are kept defensively in
-  // case a similar issue surfaces there later.
-  //
-  // Don't remove this without re-testing /product/<any-slug> on a
-  // Vercel preview — breakage is silent at build time (only a warning)
-  // and explodes only at SSR runtime.
+  // 2026-05-08 incident: `isomorphic-dompurify` was replaced with
+  // `sanitize-html` after `@exodus/bytes` (transitive of jsdom →
+  // html-encoding-sniffer → isomorphic-dompurify) flipped to ESM-only
+  // and started 500'ing every /product/<slug> render. `sanitize-html`
+  // is pure CJS with no jsdom dependency. The Sentry/Prisma entries
+  // below stay defensively — they were precautionary in #36 and don't
+  // hurt to keep. Don't remove them without re-testing /product on a
+  // Vercel preview.
   experimental: {
     serverComponentsExternalPackages: [
-      'isomorphic-dompurify',
-      'jsdom',
-      'html-encoding-sniffer',
-      '@exodus/bytes',
       '@sentry/nextjs',
       '@sentry/node',
       '@prisma/instrumentation',

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ChevronRight, Clock, Home as HomeIcon } from 'lucide-react';
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeHtml from 'sanitize-html';
 import { fetchBlogPost, fetchBlogPosts } from '@/lib/api/blog';
 import { SITE_NAME, SITE_URL, absUrl } from '@/lib/seo';
 
@@ -164,7 +164,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         <div
           className="prose prose-navy mt-6 max-w-none font-sans text-base text-charcoal"
           dangerouslySetInnerHTML={{
-            __html: DOMPurify.sanitize(post.content, { USE_PROFILES: { html: true } }),
+            __html: sanitizeHtml(post.content),
           }}
         />
       </article>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Eye, Save, Send, X } from 'lucide-react';
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeHtml from 'sanitize-html';
 import { ImageUploader } from '@/components/admin/ImageUploader';
 import { toast } from '@/components/admin/Toast';
 import { HttpApiError } from '@/lib/api/client';
@@ -157,7 +157,7 @@ export function BlogPostForm({ initial, onSaved }: Props) {
               <div
                 className="prose prose-navy min-h-[300px] max-w-none rounded-input border border-border bg-white p-4"
                 dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(content, { USE_PROFILES: { html: true } }),
+                  __html: sanitizeHtml(content),
                 }}
               />
             ) : (
