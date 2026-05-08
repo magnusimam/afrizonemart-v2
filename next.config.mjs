@@ -11,12 +11,13 @@ const nextConfig = {
       { protocol: 'https', hostname: 'flagcdn.com' },
       // Local API uploads (dev).
       { protocol: 'http', hostname: 'localhost', port: '4000', pathname: '/uploads/**' },
-      // Production image hosts:
-      //  - images.afrizonemart.com — custom R2 domain (preferred)
-      //  - *.r2.dev               — fallback while custom domain is propagating
-      //  - api.afrizonemart.com   — for any /uploads/* assets that linger from dev seed data
+      // Phase 11.3 (audit M9): production image hosts. The `**.r2.dev`
+      // wildcard was removed — it allowed images from any Cloudflare R2
+      // bucket on the planet, so an attacker who controls any bucket
+      // could serve content as our `<Image>` source. The custom domain
+      // images.afrizonemart.com has been live since 2026-05-01 (apex
+      // cutover), so the wildcard is no longer needed.
       { protocol: 'https', hostname: 'images.afrizonemart.com' },
-      { protocol: 'https', hostname: '**.r2.dev' },
       { protocol: 'https', hostname: 'api.afrizonemart.com', pathname: '/uploads/**' },
     ],
   },

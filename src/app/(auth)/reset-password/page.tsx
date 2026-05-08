@@ -6,6 +6,7 @@ import { type FormEvent, Suspense, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthApiError, resetPassword } from '@/lib/api/auth';
+import { PASSWORD_RULE_HINT, validatePasswordStrength } from '@/lib/auth/password';
 
 export default function ResetPasswordPage() {
   return (
@@ -49,8 +50,12 @@ function ResetPasswordInner() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+    // Phase 11.3 (audit M6): mirror the server's strong-password rule
+    // here so users see the "needs a number/symbol/uppercase" message
+    // before round-tripping a 400.
+    const strengthError = validatePasswordStrength(password);
+    if (strengthError) {
+      setError(strengthError);
       return;
     }
     if (password !== confirm) {
@@ -94,7 +99,7 @@ function ResetPasswordInner() {
   return (
     <AuthCard
       title="Choose a new password"
-      subtitle="Pick something strong — at least 8 characters."
+      subtitle={PASSWORD_RULE_HINT}
       footer={
         <Link href="/login" className="font-bold text-navy hover:underline">
           Back to sign in
