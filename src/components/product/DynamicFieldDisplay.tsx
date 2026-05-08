@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeHtml from 'sanitize-html';
 import type { CustomFieldDef } from '@/lib/api/admin';
 
 /**
@@ -36,7 +36,7 @@ export function DynamicFieldDisplay({ def, value, className }: DynamicFieldDispl
             className="prose prose-sm max-w-none text-charcoal"
             // eslint-disable-next-line react/no-danger
             dangerouslySetInnerHTML={{
-              __html: DOMPurify.sanitize(String(value), { USE_PROFILES: { html: true } }),
+              __html: sanitizeHtml(String(value)),
             }}
           />
         );
