@@ -6,6 +6,11 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string | null;
+  /// E.164 phone, set via phone-OTP signup or /account/profile. Null
+  /// when the user has only an email-based account.
+  phone: string | null;
+  /// Avatar URL, typically populated by Google sign-in.
+  avatarUrl: string | null;
   role: string;
   /// Free-form job title for staff. Cosmetic — used in the dashboard
   /// greeting and admin staff list. Permissions still drive access.
@@ -186,6 +191,31 @@ export function getMe(accessToken: string): Promise<AuthUser> {
   return authFetch<AuthUser>('/api/auth/me', {
     method: 'GET',
     headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export interface UpdateMeInput {
+  name?: string;
+  /// E.164 phone (e.g. "+2348012345678"). Server validates the format
+  /// and rejects with 400 on bad input or 409 if already taken by
+  /// another account.
+  phone?: string;
+}
+
+/**
+ * Update the signed-in user's mutable profile fields. Returns the
+ * fresh `AuthUser` shape — caller should pass it through
+ * `useAuthStore.setUser()` to keep the store in sync without a full
+ * `setSession()` (which would also reset the access token).
+ */
+export function updateMe(
+  accessToken: string,
+  input: UpdateMeInput,
+): Promise<AuthUser> {
+  return authFetch<AuthUser>('/api/auth/me', {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(input),
   });
 }
 
