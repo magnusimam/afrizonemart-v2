@@ -121,9 +121,28 @@ gets ticked off here.
        CSS (transforms reset) and JS (timeline short-circuited).
        `onAdd` fires immediately on click — animation is visual
        confirmation, never gates the cart-store update.
-    3. **[ ] Cart-button light variant** → `ProductCardPlaceholder`
-       shelf "Add to Cart". Highest blast radius; ship after dark
-       variant proves stable on PDP.
+    3. **[x] Cart-button on product cards** → `ProductCardPlaceholder`
+       shelf "Add to Cart" (landed 2026-05-09). Reuses
+       `AnimatedAddToCartButton` from stage 2 with new props:
+       `theme: 'dark' | 'light'` (cards use the default dark — same
+       navy button on white card surface as before) and
+       `compact: boolean` which scales SVG icons down + tightens
+       padding for the smaller card surface (~140-180px wide). The
+       animation distances themselves are scaled in JS via the same
+       prop so the cart's travel path doesn't overflow a narrow
+       button.
+       Mobile fallback: under 360px viewport the moving parts (shirt
+       + cart) are CSS-hidden — the button still adds to cart, just
+       looks like a plain button. Avoids the cluttered-tiny-cards
+       look on small phones.
+       Resilience trio: separate flag `animated_card_add_to_cart_button`
+       (so cards can be killed independently of PDP) +
+       `<SafeBoundary name="card:add-to-cart">` wrap with a plain
+       navy button as fallback. Pink-variant cards (rare deal/sale
+       sections) fall through to the plain button regardless of the
+       flag — pink-themed animation isn't shipped in stage 3.
+       OOS / info-only "Read More" branch is unchanged (no animation
+       — nothing to add).
 
 40. **[x] Storefront — origin-currency display + "see in your currency" toggle** _(landed 2026-05-08)_.
 

@@ -198,3 +198,94 @@
     display: none;
   }
 }
+
+/* ==========================================================================
+ * Theme: light — for product cards where the surface is white. Inverts
+ * the navy/amber palette so the button reads on a card.
+ * ==========================================================================
+ */
+.themeLight {
+  --background-default: #fff;
+  --background-hover: #F2F2F9;
+  --text-color: #0D1F4E;
+  --cart: #0D1F4E;
+  --cart-tick-color: #F5A623;
+  --shirt-color: #0D1F4E;
+  --shirt-logo: #fff;
+}
+
+/* The light variant lives on a white card; we want a soft navy
+ * outline so the button doesn't disappear when idle. */
+.themeLight:before {
+  box-shadow: inset 0 0 0 1.5px rgba(13, 31, 78, 0.12);
+}
+
+/* ==========================================================================
+ * Compact size variant — for product cards. Cards are ~140-180px wide
+ * vs the PDP CTA which is full-width (300px+). Scales SVG sizes down
+ * and tightens padding. The animation distances themselves (cart-x,
+ * shirt-y, etc.) are scaled in JS via the `compact` prop so the cart
+ * doesn't fly past the button edge.
+ * ==========================================================================
+ */
+.compact {
+  padding: 8px 0;
+  border-radius: 6px;
+}
+
+.compact:before {
+  border-radius: 6px;
+}
+
+.compact .label {
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.compact .shirt {
+  margin: -10px 0 0 -10px;
+}
+
+.compact .shirt svg {
+  --svg-width: 20px;
+  --svg-height: 20px;
+}
+
+.compact .cart {
+  --svg-width: 28px;
+  --svg-height: 20px;
+  margin: -10px 0 0 -14px;
+}
+
+.compact .cart:before {
+  width: 17px;
+  height: 9px;
+  left: 5px;
+  top: 5px;
+}
+
+@media (min-width: 768px) {
+  .compact .label {
+    font-size: 12px;
+    line-height: 18px;
+  }
+}
+
+/* ==========================================================================
+ * Mobile breakpoint fallback — under 360px viewport the animation gets
+ * cluttered with many cards visible at once and the cart's travel path
+ * starts overflowing. Hide the moving parts; the button still works
+ * and customers see a clean static-looking button.
+ * ==========================================================================
+ */
+@media (max-width: 359px) {
+  .compact .shirt,
+  .compact .cart {
+    display: none;
+  }
+  .compact {
+    --background-scale: 1;
+    --text-o: 1;
+    --text-x: 0;
+  }
+}

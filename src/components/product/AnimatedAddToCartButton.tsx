@@ -13,6 +13,16 @@ interface AnimatedAddToCartButtonProps {
   /// animation is purely visual confirmation; it never gates the
   /// state update.
   onAdd: () => void;
+  /// Visual theme. `'dark'` = navy button on white card surface (PDP
+  /// CTA). `'light'` = white button on white card surface with a
+  /// soft navy outline (product cards). The CSS module supplies the
+  /// palette via custom-property overrides — no runtime cost.
+  theme?: 'dark' | 'light';
+  /// Compact size variant — scales the SVG icons down + tightens
+  /// padding for the smaller product-card surface (~140-180px wide).
+  /// Also scales the JS-driven animation distances so the cart's
+  /// travel path doesn't overflow a narrow button.
+  compact?: boolean;
   disabled?: boolean;
   className?: string;
 }
@@ -41,9 +51,16 @@ interface AnimatedAddToCartButtonProps {
 export function AnimatedAddToCartButton({
   label,
   onAdd,
+  theme = 'dark',
+  compact = false,
   disabled,
   className,
 }: AnimatedAddToCartButtonProps) {
+  /// Animation-distance scale factor. Compact buttons (~140-180px on
+  /// product cards) get distances proportionally reduced so the cart
+  /// doesn't fly past the button edge. PDP buttons are full-width and
+  /// use the originally-tuned distances.
+  const scale = compact ? 0.6 : 1;
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [active, setActive] = useState(false);
   const inflight = useRef(false);
@@ -96,14 +113,15 @@ export function AnimatedAddToCartButton({
       onComplete() {
         // Reset CSS vars to idle so the button is ready for another
         // click. clearProps would also work — explicit reset keeps
-        // the values predictable.
+        // the values predictable. Scaled per `compact` so the cart
+        // off-screen position scales with the button width.
         gsap.set(button, {
           '--background-scale': 1,
           '--text-o': 1,
           '--text-x': '0px',
-          '--shirt-y': '-16px',
+          '--shirt-y': `${-16 * scale}px`,
           '--shirt-scale': 0,
-          '--cart-x': '-64px',
+          '--cart-x': `${-64 * scale}px`,
           '--cart-y': '0px',
           '--cart-rotate': '0deg',
           '--cart-scale': 0.75,
@@ -146,18 +164,18 @@ export function AnimatedAddToCartButton({
       button,
       {
         '--shirt-scale': 1,
-        '--shirt-y': '-42px',
+        '--shirt-y': `${-42 * scale}px`,
         duration: 0.4,
         ease: 'power1.in',
       },
       0,
     )
       .to(button, {
-        '--shirt-y': '-40px',
+        '--shirt-y': `${-40 * scale}px`,
         duration: 0.3,
       })
       .to(button, {
-        '--shirt-y': '16px',
+        '--shirt-y': `${16 * scale}px`,
         '--shirt-scale': 0.9,
         duration: 0.25,
       })
@@ -192,12 +210,12 @@ export function AnimatedAddToCartButton({
         duration: 0.2,
       })
       .to(button, {
-        '--cart-x': '52px',
+        '--cart-x': `${52 * scale}px`,
         '--cart-rotate': '-15deg',
         duration: 0.2,
       })
       .to(button, {
-        '--cart-x': '140px',
+        '--cart-x': `${140 * scale}px`,
         '--cart-rotate': '0deg',
         duration: 0.2,
       });
@@ -214,7 +232,13 @@ export function AnimatedAddToCartButton({
     );
   };
 
-  const cls = [styles.button, active ? styles.active : '', className]
+  const cls = [
+    styles.button,
+    theme === 'light' ? styles.themeLight : '',
+    compact ? styles.compact : '',
+    active ? styles.active : '',
+    className,
+  ]
     .filter(Boolean)
     .join(' ');
 

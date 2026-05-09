@@ -8,6 +8,9 @@ import { useCartStore } from '@/stores/cartStore';
 import { getCountry } from '@/lib/countries';
 import { Flag } from '@/components/common/Flag';
 import { DisplayPrice } from '@/components/product/DisplayPrice';
+import { AnimatedAddToCartButton } from '@/components/product/AnimatedAddToCartButton';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { useFlag } from '@/lib/useFlag';
 
 type ButtonVariant = 'navy' | 'pink';
 
@@ -59,6 +62,15 @@ export function ProductCardPlaceholder({
   const hasPrice = typeof price === 'number' && price > 0;
   const isInfoOnly = !hasPrice && !outOfStock;
   const showReadMore = outOfStock || isInfoOnly;
+
+  /// Phase 12 — animated card Add-to-Cart kill-switch (separate from
+  /// the PDP one). Default true. Admin flips
+  /// `animated_card_add_to_cart_button` to false in
+  /// /admin/feature-flags for an instant disable across every shelf
+  /// — customers immediately see the plain button on cards while the
+  /// PDP animation keeps working independently. Registry entry lives
+  /// at afrizonemart-api/src/modules/feature-flags/registry.ts.
+  const animationEnabled = useFlag('animated_card_add_to_cart_button', true);
 
   const productSlug = slug ?? id;
 
@@ -178,16 +190,59 @@ export function ProductCardPlaceholder({
           </div>
         ) : null}
 
-        <button
-          type="button"
-          onClick={showReadMore ? undefined : handleAdd}
-          disabled={showReadMore}
-          className={`mt-auto rounded-btn py-2 font-raleway text-[10px] font-bold uppercase tracking-btn transition-colors md:text-xs ${
-            showReadMore ? btn.oos : btn.base
-          }`}
-        >
-          {showReadMore ? 'Read More' : 'Add to Cart'}
-        </button>
+        {showReadMore ? (
+          /* "Read More" / out-of-stock branch — no animation; the
+           * card has nothing to add to cart from here. Identical to
+           * the pre-stage-3 button behaviour. */
+          <button
+            type="button"
+            disabled
+            className={`mt-auto rounded-btn py-2 font-raleway text-[10px] font-bold uppercase tracking-btn transition-colors md:text-xs ${btn.oos}`}
+          >
+            Read More
+          </button>
+        ) : animationEnabled && buttonVariant === 'navy' ? (
+          /* Animated "Add to Cart" — only for the navy variant (the
+           * common case). The pink variant falls through to the
+           * plain button below; we don't ship a pink-themed
+           * animation in stage 3.
+           *
+           * Wrapped in SafeBoundary (Rule B8) — if the GSAP timeline
+           * regresses, the CSS module fails to load, or any other
+           * render-time error happens, the boundary catches it
+           * (Sentry-tagged `boundary:card:add-to-cart`) and renders
+           * the static button so the customer can still buy. */
+          <div className="mt-auto">
+            <SafeBoundary
+              name="card:add-to-cart"
+              fallback={
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  className={`w-full rounded-btn py-2 font-raleway text-[10px] font-bold uppercase tracking-btn transition-colors md:text-xs ${btn.base}`}
+                >
+                  Add to Cart
+                </button>
+              }
+            >
+              <AnimatedAddToCartButton
+                label="Add to Cart"
+                onAdd={handleAdd}
+                compact
+              />
+            </SafeBoundary>
+          </div>
+        ) : (
+          /* Flag-off path OR pink variant — same plain button this
+           * card used pre-stage-3. */
+          <button
+            type="button"
+            onClick={handleAdd}
+            className={`mt-auto rounded-btn py-2 font-raleway text-[10px] font-bold uppercase tracking-btn transition-colors md:text-xs ${btn.base}`}
+          >
+            Add to Cart
+          </button>
+        )}
       </div>
     </article>
   );
