@@ -74,7 +74,7 @@ export default function MyImageQueuePage() {
     <div className="px-8 py-10">
       <AdminPageHeader
         title={`Hi, ${user?.name?.split(' ')[0] ?? 'there'} — your image queue`}
-        subtitle="Upload front, back, and side images for each product. Mark a product done when all three are uploaded; admin reviews and approves."
+        subtitle="Upload front, back, side, and brand-logo images for each product. Submit once you have at least one image — admin reviews and approves."
         action={
           <button
             type="button"
@@ -220,17 +220,21 @@ function ProductCard({
     item.id,
   ]);
 
-  // Front/back/side are individually optional — some products don't
-  // have all three angles (flat items, small bottles, etc.). Submit
-  // requires at least ONE product image (any of front/back/side or
-  // an extra) plus the brand logo.
-  const productImageCount =
-    (front ? 1 : 0) + (back ? 1 : 0) + (side ? 1 : 0) + extras.length;
+  // Every slot is optional individually. Submit requires at least
+  // ONE image total across all slots (front / back / side / brand /
+  // extras). Brand logo no longer hard-required so interns aren't
+  // stuck on products that don't ship with a clear brand mark — admin
+  // can backfill missing logos via /admin/brand-logos.
+  const totalImageCount =
+    (front ? 1 : 0) +
+    (back ? 1 : 0) +
+    (side ? 1 : 0) +
+    (brandImg ? 1 : 0) +
+    extras.length;
   const canSubmit =
     item.status !== 'pending' &&
     item.status !== 'approved' &&
-    productImageCount >= 1 &&
-    !!brandImg;
+    totalImageCount >= 1;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -326,7 +330,7 @@ function ProductCard({
           <div className="flex flex-col gap-2">
             <label className="flex flex-col gap-1.5">
               <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-amber">
-                Brand logo *
+                Brand logo
               </span>
               <ImageUploader
                 value={brandImg}
