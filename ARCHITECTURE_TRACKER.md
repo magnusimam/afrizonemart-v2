@@ -2810,12 +2810,22 @@ After that we work down: cart sync → orders → payments → notifications.
   Needs a backend endpoint (`POST /api/auth/password-reset/request`,
   `POST /api/auth/password-reset/confirm`) using a one-time token sent
   over email; depends on the notifications module.
-- **Account pages still on mock data** (2026-04-26, partially
-  resolved). `/account` (dashboard) now reads real orders + real user
-  data via `listOrders()` and the auth store. **Still on mocks**:
-  `/account/wishlist`, `/account/addresses`, `/account/profile`,
-  `/account/rewards`. Need wishlist module, addresses module, profile
-  PATCH endpoint, and a loyalty-points module respectively.
+- **Account pages still on mock data** (2026-04-26 → mostly
+  resolved 2026-05-09). `/account` dashboard reads real orders +
+  real user data and now also live wishlist/address counts.
+  `/account/profile` writes via `PATCH /api/auth/me` (name + phone).
+  `/account/addresses` is full CRUD via the new `/api/addresses`
+  module (UserAddress Prisma model, default-exclusivity in
+  transactions, first address auto-default, delete-default
+  promotes the most-recent remaining). `/account/wishlist` reads
+  the new `/api/wishlist` module (idempotent add/remove by
+  productId, list joins enough of Product to render cards).
+  **Still mock**: `/account/rewards` — see FEATURES_BACKLOG.md
+  (Continental Rewards is intentionally deferred). **Followups
+  remaining**: heart toggle on PDP/product cards isn't wired to
+  the wishlist API yet — they keep their local `wished` state.
+  Region/currency/language/timezone on `/account/profile` are
+  "Coming Soon" placeholders pending a `UserPreferences` model.
 - **Order detail URL accepts cuid OR orderNumber** (2026-04-26). The
   initial `/account/orders/[id]` path expected the cuid only and
   404'd when the dashboard linked using the friendly `AZM-…` number.
