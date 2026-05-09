@@ -1,6 +1,7 @@
 import { ChatBubble } from '@/components/layout/ChatBubble';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
+import { FloatingMobileCart } from '@/components/cart/FloatingMobileCart';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 
 /**
@@ -21,6 +22,9 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
       <SafeBoundary name="chrome:footer"><Footer /></SafeBoundary>
       <SafeBoundary name="chrome:chat" fallback={null}>
         <ChatBubble />
+      </SafeBoundary>
+      <SafeBoundary name="chrome:floating-cart" fallback={null}>
+        <FloatingMobileCart />
       </SafeBoundary>
     </>
   );
