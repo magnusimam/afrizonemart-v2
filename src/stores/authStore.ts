@@ -37,6 +37,11 @@ interface AuthState {
   /// kick a logged-in user back to /login on every page reload.
   refreshing: boolean;
   setSession: (result: AuthResult) => void;
+  /// Replace just the `user` slice without touching the access token.
+  /// Used by `/account/profile` after a successful PATCH /api/auth/me
+  /// so the new name flows into the dashboard greeting + sidebar
+  /// without re-authenticating.
+  setUser: (user: AuthUser) => void;
   clear: () => void;
   /**
    * Try to mint a new access token using the httpOnly refresh cookie.
@@ -58,6 +63,8 @@ export const useAuthStore = create<AuthState>()(
 
       setSession: (result) =>
         set({ user: result.user, accessToken: result.accessToken }),
+
+      setUser: (user) => set({ user }),
 
       clear: () => set({ user: null, accessToken: null, refreshing: false }),
 
