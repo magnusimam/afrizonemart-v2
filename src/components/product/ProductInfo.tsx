@@ -10,7 +10,6 @@ import {
   Leaf,
   RotateCcw,
   ShieldCheck,
-  ShoppingCart,
   Sparkles,
   Star,
   Truck,
@@ -22,6 +21,10 @@ import { BundleSelector } from './BundleSelector';
 import { ProductAccordion } from './ProductAccordion';
 import { QuantitySelector } from './QuantitySelector';
 import { DisplayPrice } from './DisplayPrice';
+import { AnimatedAddToCartButton } from './AnimatedAddToCartButton';
+import { StaticAddToCartButton } from './StaticAddToCartButton';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { useFlag } from '@/lib/useFlag';
 
 const featureIconMap: Record<FeatureIcon, LucideIcon> = {
   sparkles: Sparkles,
@@ -57,6 +60,14 @@ export function ProductInfo({ product }: ProductInfoProps) {
   const [quantity, setQuantity] = useState(1);
   const [wished, setWished] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
+
+  /// Phase 12 — animated PDP Add-to-Cart kill-switch. Default true so
+  /// the animation ships visible. Admin flips it to false in
+  /// /admin/feature-flags for an instant disable — customers
+  /// immediately see the plain "Add to Cart" button instead, no
+  /// redeploy needed. Registry entry lives at
+  /// afrizonemart-api/src/modules/feature-flags/registry.ts.
+  const animationEnabled = useFlag('animated_pdp_add_to_cart_button', true);
 
   const selectedBundle = bundles[bundleIndex] ?? bundles[0];
   const totalPrice = selectedBundle.price * quantity;
@@ -221,15 +232,39 @@ export function ProductInfo({ product }: ProductInfoProps) {
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={handleAddToCart}
-          disabled={!product.inStock}
-          className="flex w-full items-center justify-center gap-2 rounded-btn bg-navy py-4 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <ShoppingCart size={18} aria-hidden />
-          Add to Cart — <DisplayPrice amountNgn={totalPrice} originCountry={product.origin} compact />
-        </button>
+        {animationEnabled ? (
+          /* Animated cart button. Wrapped in SafeBoundary (Rule B8) —
+           * if the GSAP timeline regresses, the CSS module fails to
+           * load, or any other render-time error happens, the boundary
+           * catches it (Sentry-tagged `boundary:pdp:add-to-cart`) and
+           * renders the static button so the customer can still buy. */
+          <SafeBoundary
+            name="pdp:add-to-cart"
+            fallback={
+              <StaticAddToCartButton
+                priceNgn={totalPrice}
+                originCountry={product.origin}
+                disabled={!product.inStock}
+                onAdd={handleAddToCart}
+              />
+            }
+          >
+            <AnimatedAddToCartButton
+              label="Add to Cart"
+              disabled={!product.inStock}
+              onAdd={handleAddToCart}
+            />
+          </SafeBoundary>
+        ) : (
+          /* Admin flipped the kill-switch — same button this PDP used
+           * before the animated upgrade. */
+          <StaticAddToCartButton
+            priceNgn={totalPrice}
+            originCountry={product.origin}
+            disabled={!product.inStock}
+            onAdd={handleAddToCart}
+          />
+        )}
 
         <button
           type="button"

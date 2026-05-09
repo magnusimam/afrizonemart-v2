@@ -103,9 +103,24 @@ gets ticked off here.
          redirect pattern (no `window.location.href` inside
          `onSubmit`) so the kill-switch flip / boundary fallback
          doesn't change the flow's correctness.
-    2. **[ ] Cart-button dark variant** → `ProductInfo` PDP "Add to
-       Cart". Dark surface match. Validates the GSAP-Club-free
-       morph rewrite on one button before scaling.
+    2. **[x] Cart-button dark variant** → `ProductInfo` PDP "Add to
+       Cart" (landed 2026-05-09). New `AnimatedAddToCartButton` +
+       CSS module ports the @nayanchamling CodePen reskinned to navy
+       + amber. **MorphSVGPlugin substitute**: the shirt's SVG-path
+       morph step (paid plugin) was replaced with a transform/scale
+       "squash" on the parent `<div className="shirt">` — visually
+       ~80% as polished, 100% on free GSAP core. The original's
+       bottom-edge wavy "morph" line decoration was dropped (also
+       MorphSVG-driven; lossless to remove). Resilience trio wired:
+       `useFlag('animated_pdp_add_to_cart_button', true)` +
+       `<SafeBoundary name="pdp:add-to-cart">` wrap +
+       `<StaticAddToCartButton>` 1:1 swappable fallback. Registry
+       entry added in `feature-flags/registry.ts` so
+       `/admin/feature-flags` lists the flag on first deploy.
+       `prefers-reduced-motion: reduce` skips the animation in both
+       CSS (transforms reset) and JS (timeline short-circuited).
+       `onAdd` fires immediately on click — animation is visual
+       confirmation, never gates the cart-store update.
     3. **[ ] Cart-button light variant** → `ProductCardPlaceholder`
        shelf "Add to Cart". Highest blast radius; ship after dark
        variant proves stable on PDP.
