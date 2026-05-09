@@ -27,11 +27,21 @@ export default function LoginPage() {
   const finishSignIn = (result: AuthResult) => {
     setSession(result);
     const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
-    const fallback = result.user.role === 'ADMIN' ? '/admin' : '/account';
+    // 2026-05-09: customer-facing /login always lands in /account,
+    // even for admins. Admins who want admin-mode go to /admin/login;
+    // signing in here means they want their shopping account. The
+    // previous role-based fallback surprised admins who clicked the
+    // customer header's "Sign in" link and ended up in the admin
+    // console.
+    //
+    // `returnUrl` still wins — an admin returning from /admin/orders
+    // after a session expiry redirected them through /login still
+    // lands back at /admin/orders.
+    //
     // Phase 11.3 (audit C3): safeReturnUrl rejects protocol-relative
     // (`//evil.com`) and absolute off-origin URLs that the previous
     // `startsWith('/')` check let through.
-    router.push(safeReturnUrl(returnUrl, fallback));
+    router.push(safeReturnUrl(returnUrl, '/account'));
   };
 
   const handleSubmit = async (e: FormEvent) => {
