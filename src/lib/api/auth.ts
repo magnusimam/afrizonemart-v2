@@ -31,14 +31,88 @@ export class AuthApiError extends Error {
   public readonly code: string;
   public readonly status: number;
   public readonly details?: unknown;
+  /// Seconds until the rate limit resets — only set on 429
+  /// `RATE_LIMITED` responses. Parsed from the `Retry-After` header
+  /// (RFC 7231) which `express-rate-limit` sets when
+  /// `standardHeaders: true`. UI uses this to render an accurate
+  /// "Try again in N minutes" message instead of the generic
+  /// canned copy.
+  public readonly retryAfterSeconds?: number;
 
-  constructor(status: number, code: string, message: string, details?: unknown) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details?: unknown,
+    retryAfterSeconds?: number,
+  ) {
     super(message);
     this.name = 'AuthApiError';
     this.status = status;
     this.code = code;
     this.details = details;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+/**
+ * Format a `retryAfterSeconds` value into "N seconds" / "N minutes" /
+ * "N minutes". Used by auth pages to surface rate-limit errors with
+ * the actual wait time instead of the canned "wait an hour" copy.
+ *
+ * Returns null for missing / non-positive inputs so callers can
+ * fall back to the server's message verbatim.
+ */
+export function formatRetryAfter(seconds?: number): string | null {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
+    return null;
+  }
+  if (seconds < 60) {
+    return `${Math.ceil(seconds)} seconds`;
+  }
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  }
+  const hours = Math.round(minutes / 60);
+  return `${hours} hour${hours === 1 ? '' : 's'}`;
+}
+
+/**
+ * Render an auth-error into a customer-facing string. Auth pages all
+ * have the same pattern (try/catch with `setError(...)`); this is
+ * the single function each of them should call so rate-limit errors
+ * get the live "Try again in N minutes" treatment instead of the
+ * canned "wait an hour" message from the server.
+ *
+ * Non-rate-limit errors fall through to the server's message with
+ * the optional `fallback` for non-AuthApiError throws.
+ */
+export function friendlyAuthError(err: unknown, fallback: string): string {
+  if (!(err instanceof AuthApiError)) return fallback;
+  if (err.code === 'RATE_LIMITED') {
+    const wait = formatRetryAfter(err.retryAfterSeconds);
+    if (wait) return `Too many requests from this network. Try again in ${wait}.`;
+  }
+  return err.message;
+}
+
+/**
+ * Parse `Retry-After` header. RFC 7231 allows either a delta-seconds
+ * integer ("60") or an HTTP-date ("Wed, 21 Oct 2015 07:28:00 GMT").
+ * Returns the seconds-until-retry as a number, or undefined if the
+ * header is absent / unparseable.
+ */
+function parseRetryAfter(headers: Headers): number | undefined {
+  const raw = headers.get('Retry-After');
+  if (!raw) return undefined;
+  const asInt = Number(raw);
+  if (Number.isFinite(asInt) && asInt >= 0) return asInt;
+  const asDate = Date.parse(raw);
+  if (Number.isFinite(asDate)) {
+    return Math.max(0, Math.round((asDate - Date.now()) / 1000));
+  }
+  return undefined;
 }
 
 async function authFetch<T>(path: string, init: RequestInit): Promise<T> {
@@ -65,6 +139,7 @@ async function authFetch<T>(path: string, init: RequestInit): Promise<T> {
       envelope?.error?.code ?? 'UNKNOWN',
       envelope?.error?.message ?? `Request failed with status ${res.status}`,
       envelope?.error?.details,
+      res.status === 429 ? parseRetryAfter(res.headers) : undefined,
     );
   }
 

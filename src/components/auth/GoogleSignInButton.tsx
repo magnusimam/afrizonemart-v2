@@ -3,8 +3,8 @@
 import Script from 'next/script';
 import { useEffect, useRef, useState } from 'react';
 import {
-  AuthApiError,
   createGoogleChallenge,
+  friendlyAuthError,
   signInWithGoogle,
   type AuthResult,
 } from '@/lib/api/auth';
@@ -89,11 +89,7 @@ export function GoogleSignInButton({ onSuccess, onError, text = 'continue_with' 
             const result = await signInWithGoogle(response.credential, nonce);
             onSuccess(result);
           } catch (err) {
-            const msg =
-              err instanceof AuthApiError
-                ? err.message
-                : 'Could not sign in with Google.';
-            onError?.(msg);
+            onError?.(friendlyAuthError(err, 'Could not sign in with Google.'));
           } finally {
             setBusy(false);
           }

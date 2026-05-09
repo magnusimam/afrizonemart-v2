@@ -7,7 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { PhoneSignInForm } from '@/components/auth/PhoneSignInForm';
-import { AuthApiError, loginUser, type AuthResult } from '@/lib/api/auth';
+import { friendlyAuthError, loginUser, type AuthResult } from '@/lib/api/auth';
 import { useAuthStore } from '@/stores/authStore';
 import { safeReturnUrl } from '@/lib/safe-redirect';
 
@@ -42,11 +42,7 @@ export default function LoginPage() {
       const result = await loginUser({ email, password });
       finishSignIn(result);
     } catch (err) {
-      setError(
-        err instanceof AuthApiError
-          ? err.message
-          : 'Sign-in failed. Please try again.',
-      );
+      setError(friendlyAuthError(err, 'Sign-in failed. Please try again.'));
     } finally {
       setSubmitting(false);
     }
