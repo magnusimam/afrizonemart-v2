@@ -7,7 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { COUNTRIES, COUNTRY_CODES, getCountry } from '@/lib/countries';
-import { AuthApiError, registerUser, type AuthResult } from '@/lib/api/auth';
+import { friendlyAuthError, registerUser, type AuthResult } from '@/lib/api/auth';
 import { PASSWORD_RULE_HINT, validatePasswordStrength } from '@/lib/auth/password';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -59,11 +59,7 @@ export default function RegisterPage() {
       setSession(result);
       router.push('/account');
     } catch (err) {
-      setError(
-        err instanceof AuthApiError
-          ? err.message
-          : 'Could not create your account. Please try again.',
-      );
+      setError(friendlyAuthError(err, 'Could not create your account. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -91,6 +87,27 @@ export default function RegisterPage() {
             {error}
           </div>
         )}
+
+        {/* Google one-tap is the fastest path — promote it above the
+         * email/password form so customers bypass the (rate-limited)
+         * /register endpoint when possible. The form is still
+         * available below as the fallback. */}
+        <GoogleSignInButton
+          text="signup_with"
+          onSuccess={(result: AuthResult) => {
+            setSession(result);
+            router.push('/account');
+          }}
+          onError={(message) => setError(message)}
+        />
+
+        <div className="relative my-1 flex items-center">
+          <span className="h-px flex-1 bg-border" />
+          <span className="px-3 font-raleway text-xs font-semibold uppercase tracking-btn text-muted">
+            or sign up with email
+          </span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="First Name">
@@ -214,22 +231,6 @@ export default function RegisterPage() {
         >
           {submitting ? 'Creating account…' : 'Create Account'}
         </button>
-
-        <div className="relative my-2 flex items-center">
-          <span className="h-px flex-1 bg-border" />
-          <span className="px-3 font-raleway text-xs font-semibold uppercase tracking-btn text-muted">
-            or
-          </span>
-          <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <GoogleSignInButton
-          text="signup_with"
-          onSuccess={(result: AuthResult) => {
-            setSession(result);
-            router.push('/account');
-          }}
-        />
       </form>
     </AuthCard>
   );

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { type FormEvent, Suspense, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
-import { AuthApiError, resetPassword } from '@/lib/api/auth';
+import { friendlyAuthError, resetPassword } from '@/lib/api/auth';
 import { PASSWORD_RULE_HINT, validatePasswordStrength } from '@/lib/auth/password';
 
 export default function ResetPasswordPage() {
@@ -68,11 +68,7 @@ function ResetPasswordInner() {
       setDone(true);
       setTimeout(() => router.push('/login'), 2500);
     } catch (err) {
-      setError(
-        err instanceof AuthApiError
-          ? err.message
-          : 'Could not reset your password. The link may have expired.',
-      );
+      setError(friendlyAuthError(err, 'Could not reset your password. The link may have expired.'));
     } finally {
       setSubmitting(false);
     }

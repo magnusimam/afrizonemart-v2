@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { Loader2, Phone, ShieldCheck } from 'lucide-react';
 import {
-  AuthApiError,
+  friendlyAuthError,
   startPhoneVerification,
   verifyPhoneAndSignIn,
   type AuthResult,
@@ -57,11 +57,7 @@ export function PhoneSignInForm({ onSuccess }: Props) {
       await startPhoneVerification(fullPhone);
       setStep('code');
     } catch (err) {
-      setError(
-        err instanceof AuthApiError
-          ? err.message
-          : 'Could not send a code right now. Try again.',
-      );
+      setError(friendlyAuthError(err, 'Could not send a code right now. Try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -79,11 +75,7 @@ export function PhoneSignInForm({ onSuccess }: Props) {
       const r = await verifyPhoneAndSignIn(fullPhone, code.trim());
       onSuccess(r);
     } catch (err) {
-      setError(
-        err instanceof AuthApiError
-          ? err.message
-          : 'Could not verify the code. Try again.',
-      );
+      setError(friendlyAuthError(err, 'Could not verify the code. Try again.'));
     } finally {
       setSubmitting(false);
     }

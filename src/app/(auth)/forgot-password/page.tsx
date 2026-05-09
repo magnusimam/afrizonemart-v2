@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
 import { CheckCircle2, Loader2, Mail } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
-import { AuthApiError, requestPasswordReset } from '@/lib/api/auth';
+import { friendlyAuthError, requestPasswordReset } from '@/lib/api/auth';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -22,11 +22,7 @@ export default function ForgotPasswordPage() {
     } catch (err) {
       // The API always returns 204 even for unknown emails (anti-enum), so
       // anything that surfaces here is a real network/server failure.
-      setError(
-        err instanceof AuthApiError
-          ? err.message
-          : 'Could not send reset link. Try again in a moment.',
-      );
+      setError(friendlyAuthError(err, 'Could not send reset link. Try again in a moment.'));
     } finally {
       setSubmitting(false);
     }
