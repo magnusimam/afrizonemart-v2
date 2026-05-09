@@ -1,4 +1,5 @@
 import { ChatBubble } from '@/components/layout/ChatBubble';
+import { FloatingMobileCart } from '@/components/cart/FloatingMobileCart';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { Hero } from '@/components/layout/Hero';
@@ -78,6 +79,9 @@ export default async function Home() {
       </main>
       <SafeBoundary name="footer"><Footer /></SafeBoundary>
       <SafeBoundary name="chat-bubble"><ChatBubble /></SafeBoundary>
+      <SafeBoundary name="floating-cart" fallback={null}>
+        <FloatingMobileCart />
+      </SafeBoundary>
     </>
   );
 }
