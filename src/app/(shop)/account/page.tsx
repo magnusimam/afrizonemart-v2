@@ -7,6 +7,8 @@ import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
 import { formatPriceNGN } from '@/lib/format';
 import { listOrders, type Order } from '@/lib/api/orders';
+import { listAddresses } from '@/lib/api/addresses';
+import { countWishlist } from '@/lib/api/wishlist';
 import { useAuthStore } from '@/stores/authStore';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import type { OrderStatus as UiOrderStatus } from '@/types';
@@ -31,7 +33,10 @@ function statusToUi(s: Order['status']): UiOrderStatus {
 
 export default function AccountDashboardPage() {
   const user = useAuthStore((s) => s.user);
+  const accessToken = useAuthStore((s) => s.accessToken);
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [addressCount, setAddressCount] = useState<number | null>(null);
+  const [wishlistCount, setWishlistCount] = useState<number | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -43,6 +48,28 @@ export default function AccountDashboardPage() {
       }
     })();
   }, []);
+
+  // Counters for the four stat cards. Each fails open to 0 so a hiccup
+  // on one endpoint doesn't blank out the dashboard.
+  useEffect(() => {
+    if (!accessToken) return;
+    void (async () => {
+      try {
+        const r = await listAddresses(accessToken);
+        setAddressCount(r.items.length);
+      } catch {
+        setAddressCount(0);
+      }
+    })();
+    void (async () => {
+      try {
+        const r = await countWishlist(accessToken);
+        setWishlistCount(r.count);
+      } catch {
+        setWishlistCount(0);
+      }
+    })();
+  }, [accessToken]);
 
   const recentOrders = (orders ?? []).slice(0, 3);
   const orderCount = orders?.length ?? 0;
@@ -87,8 +114,16 @@ export default function AccountDashboardPage() {
             <div className="flex flex-col gap-6 lg:col-span-9">
               <section className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                 <StatCard Icon={Package} label="Orders" value={orderCount.toString()} />
-                <StatCard Icon={Heart} label="Wishlist" value="0" />
-                <StatCard Icon={MapPin} label="Addresses" value="0" />
+                <StatCard
+                  Icon={Heart}
+                  label="Wishlist"
+                  value={wishlistCount === null ? '—' : wishlistCount.toString()}
+                />
+                <StatCard
+                  Icon={MapPin}
+                  label="Addresses"
+                  value={addressCount === null ? '—' : addressCount.toString()}
+                />
                 <StatCard Icon={Sparkles} label="Points" value="0" amber />
               </section>
 
