@@ -172,6 +172,41 @@ export function adminListProductPriceHistory(
   );
 }
 
+export interface PriceBulkRowResult {
+  row: number;
+  slug?: string;
+  status: 'updated' | 'unchanged' | 'not-found' | 'error';
+  message?: string;
+  oldPrice?: number;
+  newPrice?: number;
+  oldComparePrice?: number | null;
+  newComparePrice?: number | null;
+}
+
+export interface PriceBulkUploadResult {
+  total: number;
+  updated: number;
+  unchanged: number;
+  notFound: number;
+  errors: number;
+  results: PriceBulkRowResult[];
+}
+
+/// Upload a CSV of slug,price[,comparePrice,reason] to bulk-update
+/// existing products' prices. Each row routes through
+/// applyPriceChange(source: CSV) so the audit log captures it.
+export function adminBulkUploadPrices(
+  csv: string,
+): Promise<PriceBulkUploadResult> {
+  return apiFetchAuthed<PriceBulkUploadResult>(
+    '/api/admin/products/bulk-price-upload',
+    {
+      method: 'POST',
+      body: JSON.stringify({ csv }),
+    },
+  );
+}
+
 export type RepriceMode = 'set' | 'percent-up' | 'percent-down';
 export type RepriceApplyTo = 'price' | 'compare' | 'both';
 export interface RepriceAction {
