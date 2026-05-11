@@ -91,3 +91,48 @@ better than guessing). Without reliable cost data, deriving prices
 from costs just moves the bad-data problem one column to the left.
 
 Added: 2026-05-11
+
+---
+
+## Shareable product links (Share button on PDP)
+
+**Status:** Queued — every product page already lives at a stable
+`/product/[slug]` URL, but there's no in-product affordance for a
+customer to grab + share it. Customers who want to send a friend a
+specific product currently have to copy the URL bar manually.
+
+**Why it matters:** product shares to WhatsApp / IG DMs / SMS are
+high-intent referral traffic for a continent where WhatsApp is the
+default product-recommendation channel. Adding a one-tap share is
+the cheapest organic-growth lever on the site.
+
+**What it needs (rough scope):**
+- `<ShareProductButton />` mounted on the PDP near the title /
+  price. Mobile: invokes `navigator.share({ title, text, url })`
+  — the native iOS / Android sheet handles routing to WhatsApp,
+  Messenger, SMS, copy, etc.
+- Desktop fallback (no `navigator.share`): inline popover with a
+  "Copy link" button + direct one-tap targets for WhatsApp
+  (`https://wa.me/?text=…`), X/Twitter, Facebook, Telegram, and
+  email.
+- Open Graph tags on `/product/[slug]` need to be solid so the
+  unfurl renders nicely — title, description, **product image as
+  `og:image`**, price in description. Test in Slack, WhatsApp,
+  iMessage. Vercel's image-optimizer should already serve a
+  ~1200×630 variant; just need to add `metadata.openGraph` and
+  `metadata.twitter` to the product page's `generateMetadata`.
+- UTM parameters on shared links so we can measure share-driven
+  traffic in analytics: append `?utm_source=share&utm_medium=
+  <whatsapp|copy|web-share|…>`. Stripped on the server side for
+  canonicalisation but kept in the query for analytics.
+- Optional: short link service. Today's URLs are already short
+  for slug-based products (`afrizonemart.com/product/<slug>`)
+  but a custom `azm.to/p/<id>` could be cleaner for SMS. Out of
+  scope for first cut.
+
+**Trigger to promote:** No real blocker — this is cheap and
+high-leverage. Magnus said "add to backlog first" so I'm holding
+until he gives the build signal. Likely ships in a single PR
+once we're done with the current price-management batch.
+
+Added: 2026-05-11
