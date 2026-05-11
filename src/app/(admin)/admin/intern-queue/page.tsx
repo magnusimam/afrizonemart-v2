@@ -1,10 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   Check,
+  ChevronRight,
   CircleDashed,
   Clock,
   Plus,
@@ -24,18 +26,21 @@ import {
 } from '@/lib/api/admin';
 import { useAuthStore } from '@/stores/authStore';
 
-type Filter = 'all' | 'todo' | 'pending' | 'approved' | 'rejected';
-
 /// Intern-facing image-upload queue. Stripped down — no admin buttons,
 /// no other admin pages, no danger. Just: see your products, upload
-/// 3 images per product, submit, see what's been approved or rejected.
+/// images per product, submit, see what's been approved or rejected.
+///
+/// Status tiles at the top are now navigational — clicking one takes
+/// the intern to /admin/intern-queue/list?status=X where the leaner
+/// list view supports inline name + price edits. The cards view
+/// below shows ALL items grouped by status (no local filter) since
+/// approved/pending cards collapse to a thin row anyway.
 export default function MyImageQueuePage() {
   const user = useAuthStore((s) => s.user);
   const [data, setData] = useState<{
     items: InternQueueItem[];
     stats: { todo: number; pending: number; approved: number; rejected: number };
   } | null>(null);
-  const [filter, setFilter] = useState<Filter>('todo');
   const [busy, setBusy] = useState(false);
 
   const load = () =>
@@ -47,11 +52,7 @@ export default function MyImageQueuePage() {
     void load();
   }, []);
 
-  const filtered = useMemo(() => {
-    if (!data) return [];
-    if (filter === 'all') return data.items;
-    return data.items.filter((it) => it.status === filter);
-  }, [data, filter]);
+  const allItems = data?.items ?? [];
 
   const handleClaim = async () => {
     setBusy(true);
@@ -89,30 +90,26 @@ export default function MyImageQueuePage() {
 
       {data && (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <FilterTab
-            active={filter === 'todo'}
-            onClick={() => setFilter('todo')}
+          <StatusTile
+            href="/admin/intern-queue/list?status=todo"
             icon={<CircleDashed size={14} aria-hidden />}
             label="To do"
             count={data.stats.todo}
           />
-          <FilterTab
-            active={filter === 'pending'}
-            onClick={() => setFilter('pending')}
+          <StatusTile
+            href="/admin/intern-queue/list?status=pending"
             icon={<Clock size={14} aria-hidden />}
             label="Pending review"
             count={data.stats.pending}
           />
-          <FilterTab
-            active={filter === 'approved'}
-            onClick={() => setFilter('approved')}
+          <StatusTile
+            href="/admin/intern-queue/list?status=approved"
             icon={<ShieldCheck size={14} aria-hidden />}
             label="Approved"
             count={data.stats.approved}
           />
-          <FilterTab
-            active={filter === 'rejected'}
-            onClick={() => setFilter('rejected')}
+          <StatusTile
+            href="/admin/intern-queue/list?status=rejected"
             icon={<AlertTriangle size={14} aria-hidden />}
             label="Needs rework"
             count={data.stats.rejected}
@@ -122,15 +119,14 @@ export default function MyImageQueuePage() {
 
       {data === null ? (
         <p className="font-sans text-sm text-muted">Loading your queue…</p>
-      ) : filtered.length === 0 ? (
+      ) : allItems.length === 0 ? (
         <p className="rounded-card border border-border bg-white p-8 text-center font-sans text-sm text-muted">
-          {filter === 'todo'
-            ? 'Nothing to do right now. Hit "Claim 10 more" to pull from the pool.'
-            : `No ${filter} products.`}
+          Nothing in your queue yet. Hit &ldquo;Claim 10 more&rdquo; to pull
+          from the pool.
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          {filtered.map((item) => (
+          {allItems.map((item) => (
             <ProductCard key={item.id} item={item} onSaved={load} busy={busy} setBusy={setBusy} />
           ))}
         </div>
@@ -139,39 +135,35 @@ export default function MyImageQueuePage() {
   );
 }
 
-function FilterTab({
-  active,
-  onClick,
+/// Status tile that navigates to the list view filtered to that
+/// status. Tap-target is the whole card.
+function StatusTile({
+  href,
   icon,
   label,
   count,
 }: {
-  active: boolean;
-  onClick: () => void;
+  href: string;
   icon: React.ReactNode;
   label: string;
   count: number;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center justify-between gap-2 rounded-card border px-3 py-3 font-raleway text-xs font-bold uppercase tracking-btn ${
-        active ? 'border-navy bg-navy text-white' : 'border-border bg-white text-charcoal hover:border-navy'
-      }`}
+    <Link
+      href={href}
+      className="group flex items-center justify-between gap-2 rounded-card border border-border bg-white px-3 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-charcoal transition-colors hover:border-navy hover:bg-navy hover:text-white"
     >
       <span className="flex items-center gap-1.5">
         {icon}
         {label}
       </span>
-      <span
-        className={`rounded-full px-2 py-0.5 text-xs ${
-          active ? 'bg-white/20 text-white' : 'bg-page text-charcoal'
-        }`}
-      >
-        {count}
+      <span className="flex items-center gap-1">
+        <span className="rounded-full bg-page px-2 py-0.5 text-xs text-charcoal group-hover:bg-white/20 group-hover:text-white">
+          {count}
+        </span>
+        <ChevronRight size={12} aria-hidden className="opacity-50 group-hover:opacity-100" />
       </span>
-    </button>
+    </Link>
   );
 }
 
