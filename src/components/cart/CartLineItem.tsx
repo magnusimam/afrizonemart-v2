@@ -62,7 +62,7 @@ export function CartLineItem({ item }: CartLineItemProps) {
           {country ? (
             <span className="inline-flex items-center gap-1 font-sans text-xs text-muted">
               <Flag code={country.code} title={country.name} size="sm" />
-              Made in {country.name}
+              Product Of {country.name}
             </span>
           ) : null}
         </div>

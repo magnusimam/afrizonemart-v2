@@ -153,10 +153,10 @@ export function ProductCardPlaceholder({
         {country && (
           <div
             className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-input bg-white/95 px-1.5 py-0.5 font-sans text-[9px] font-semibold text-charcoal shadow-sm backdrop-blur md:text-[10px]"
-            title={`Made in ${country.name}`}
+            title={`Product Of ${country.name}`}
           >
             <Flag code={country.code} title={country.name} size="sm" />
-            <span>Made in {country.name}</span>
+            <span>Product Of {country.name}</span>
           </div>
         )}
       </Link>

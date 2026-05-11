@@ -104,7 +104,7 @@ export default async function ShopByCountryPage({ params, searchParams }: PagePr
               />
               <div className="flex flex-col gap-1">
                 <h1 className="font-raleway text-3xl font-bold leading-tight md:text-5xl">
-                  Made in {country.name}
+                  Product Of {country.name}
                 </h1>
                 <p className="max-w-2xl font-sans text-sm leading-relaxed text-white/80 md:text-lg">
                   {highlight}
