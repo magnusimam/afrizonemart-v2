@@ -111,6 +111,67 @@ export function adminDeleteProduct(id: string): Promise<void> {
   return apiFetchAuthed<void>(`/api/admin/products/${id}`, { method: 'DELETE' });
 }
 
+export type PriceChangeSource =
+  | 'INLINE'
+  | 'BULK'
+  | 'CSV'
+  | 'SCHEDULED'
+  | 'MANUAL'
+  | 'REVERT';
+
+export interface ApplyPriceChangeInput {
+  price?: number;
+  comparePrice?: number | null;
+  reason?: string;
+}
+
+export interface ApplyPriceChangeResult {
+  productId: string;
+  oldPrice: number;
+  newPrice: number;
+  oldComparePrice: number | null;
+  newComparePrice: number | null;
+  discountPercent: number | null;
+  noop: boolean;
+}
+
+/// Inline price edit — used by the editable price cell on
+/// /admin/products. Returns `noop: true` if nothing actually
+/// changed so the UI can skip the success toast.
+export function adminUpdateProductPrice(
+  id: string,
+  input: ApplyPriceChangeInput,
+): Promise<ApplyPriceChangeResult> {
+  return apiFetchAuthed<ApplyPriceChangeResult>(
+    `/api/admin/products/${id}/price`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export interface PriceHistoryEntry {
+  id: string;
+  oldPrice: number | null;
+  newPrice: number;
+  oldComparePrice: number | null;
+  newComparePrice: number | null;
+  source: PriceChangeSource;
+  reason: string | null;
+  createdAt: string;
+  changedBy: { id: string; name: string | null; email: string } | null;
+}
+
+export function adminListProductPriceHistory(
+  id: string,
+  limit = 50,
+): Promise<{ items: PriceHistoryEntry[] }> {
+  return apiFetchAuthed<{ items: PriceHistoryEntry[] }>(
+    `/api/admin/products/${id}/price-history?limit=${limit}`,
+  );
+}
+
 export type AdminBulkAction =
   | { kind: 'delete' }
   | { kind: 'set-in-stock'; value: boolean }
