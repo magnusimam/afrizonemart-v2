@@ -91,3 +91,52 @@ better than guessing). Without reliable cost data, deriving prices
 from costs just moves the bad-data problem one column to the left.
 
 Added: 2026-05-11
+
+---
+
+## Scheduled price changes (PR 4 of the price-management workstream)
+
+**Status:** Deferred — was originally queued as PR 4 of the
+five-stage price-management workstream (tracker #42). Cancelled
+2026-05-11 after PRs 1–3 landed (inline edit + bulk re-price +
+CSV import). Three working surfaces are enough for today's
+catalog size; scheduling adds cron infrastructure that isn't
+urgent without a specific campaign to power.
+
+**Why deferred:** Without a Black Friday / supplier-deal /
+weekend-sale campaign actively planned, the value of "the cron
+flips prices for me at midnight" is too abstract to justify the
+build cost. Today admin can do the same flip by hand once we
+know a sale window — applying a bulk re-price (PR 2) at start
+and again at end gets you the same outcome with two clicks
+each.
+
+**What it needs (rough scope):**
+- New `ProductPriceSchedule` Prisma model — one row per future
+  flip, queueable per product (multiple future changes can
+  stack). Columns: productId, scheduledPrice,
+  scheduledComparePrice (nullable), effectiveFrom,
+  effectiveUntil (nullable; null = no auto-revert),
+  revertToPrice (snapshot at schedule time so the revert
+  flips back to what was current, not what is current),
+  status enum (PENDING / APPLIED / REVERTED / CANCELLED),
+  createdById, reason.
+- Cron worker — extend the existing dispatcher pattern in
+  `src/modules/*/dispatcher.ts`. Tick every minute; find rows
+  where `effectiveFrom <= now AND status = PENDING` → apply
+  via applyPriceChange(source: SCHEDULED, actorId: null); find
+  rows where `effectiveUntil <= now AND status = APPLIED` →
+  revert via applyPriceChange(source: SCHEDULED, actorId:
+  null) using the snapshotted revertToPrice.
+- Admin UI on /admin/products/[id] — "Schedule a price change"
+  form (or table of upcoming schedules), edit/cancel pending
+  rows.
+- Bulk-schedule: same shape as bulk re-price (PR 2) but with
+  effectiveFrom/Until date pickers.
+
+**Trigger to promote:** When a concrete campaign is on the
+calendar that needs prices to flip on a schedule — Black
+Friday, Eid promotion, supplier deal week. Without that
+forcing function this is over-engineering.
+
+Added: 2026-05-11 (cancelled mid-workstream)
