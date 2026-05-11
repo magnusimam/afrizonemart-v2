@@ -33,7 +33,6 @@ export const dynamic = 'force-dynamic';
 
 const NAVY = '#000066';
 const AMBER = '#FBAC34';
-const AMBER_LIGHT = '#FEF3E2';
 const WHITE_FROST = 'rgba(255, 255, 255, 0.92)';
 
 function formatPrice(value: number): string {
