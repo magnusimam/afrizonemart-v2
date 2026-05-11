@@ -18,6 +18,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
 import type { FeatureIcon, ProductDetail } from '@/lib/products';
 import { BundleSelector } from './BundleSelector';
+import { ShareProductButton } from './ShareProductButton';
 import { ProductAccordion } from './ProductAccordion';
 import { QuantitySelector } from './QuantitySelector';
 import { DisplayPrice } from './DisplayPrice';
@@ -115,20 +116,28 @@ export function ProductInfo({ product }: ProductInfoProps) {
             {product.reviewCount.toLocaleString()} Reviews)
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => setWished((w) => !w)}
-          aria-pressed={wished}
-          aria-label={wished ? 'Remove from wishlist' : 'Add to wishlist'}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-charcoal transition-colors hover:border-danger hover:text-danger"
-        >
-          <Heart
-            size={18}
-            fill={wished ? 'currentColor' : 'none'}
-            className={wished ? 'text-danger' : ''}
-            aria-hidden
+        <div className="flex items-center gap-2">
+          <ShareProductButton
+            slug={product.slug}
+            productName={product.name}
+            brand={product.brand}
+            shortDescription={product.shortDescription}
           />
-        </button>
+          <button
+            type="button"
+            onClick={() => setWished((w) => !w)}
+            aria-pressed={wished}
+            aria-label={wished ? 'Remove from wishlist' : 'Add to wishlist'}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-charcoal transition-colors hover:border-danger hover:text-danger"
+          >
+            <Heart
+              size={18}
+              fill={wished ? 'currentColor' : 'none'}
+              className={wished ? 'text-danger' : ''}
+              aria-hidden
+            />
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
