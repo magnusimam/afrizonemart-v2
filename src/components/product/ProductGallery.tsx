@@ -34,7 +34,7 @@ export function ProductGallery({ images, origin, discountPercent }: ProductGalle
         {country && (
           <div className="absolute left-4 top-4 flex items-center gap-1.5 rounded-input bg-white/95 px-2.5 py-1 font-sans text-xs font-semibold text-charcoal shadow-sm backdrop-blur">
             <Flag code={country.code} title={country.name} size="md" />
-            <span>Made in {country.name}</span>
+            <span>Product Of {country.name}</span>
           </div>
         )}
 
