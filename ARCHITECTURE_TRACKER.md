@@ -46,6 +46,94 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+43. **[~] Share product as image (PDP share-as-PNG)** _(v1 landed 2026-05-11; flag default OFF pending prod smoke)_.
+
+    **Why**: the link-share PDP button (item #41 lookalike, shipped
+    2026-05-11) covers WhatsApp/IG/Twitter unfurls, but unfurls only
+    render if the receiver's platform supports OG previews. A
+    **pre-generated PNG card** is universal — drops into any chat,
+    status, story, or feed with the product image + name + price baked
+    in. For a marketplace where WhatsApp Status shares are a real
+    traffic source, this closes the gap that link-share leaves open.
+
+    **Reference**: LARQ Water Bottle composition Magnus shared
+    2026-05-11 — cutout product floating on a branded backdrop,
+    frosted card with brand / name / price / CTA. Afrizonemart palette
+    (navy `#000066` + amber `#FBAC34`, Raleway) replaces LARQ teal.
+
+    **Decisions locked** (full record in
+    FEATURES_BACKLOG.md "Share product as image" entry):
+    - Background removal: pluggable provider (`Noop` default →
+      `RemoveBg` / `CloudflareWorkersAI` swap-in via env). Ships with
+      `Noop` so the feature lands before any AI vendor is signed up.
+    - Cache: R2 at `cutouts/{sha256(originalImageUrl)}.png`. No
+      schema change for v1.
+    - Composition: `@vercel/og` (satori + resvg) in a Next.js App
+      Router route handler (Vercel infra; keeps memory off the
+      Railway API node).
+    - Variants for v1: 1080×1080 (WhatsApp/IG status) + 1200×630
+      (Twitter/Facebook/iMessage).
+    - Surface: PDP only. Cards skipped (too many entry points; tiny
+      thumbnails not worth generation cost).
+    - Mobile: Web Share API with `files: [pngBlob]`. Desktop:
+      download.
+    - Resilience trio: `useFlag('share_as_image')` kill switch
+      (default OFF until smoke-tested in prod) + `<SafeBoundary>` +
+      original `<ShareProductButton>` link actions remain available.
+
+    **Build plan (v1 landed 2026-05-11; flag default OFF):**
+    1. **[x]** API: `share-image` module
+       (`afrizonemart-api/src/modules/share-image/{service,
+       controller,routes,providers/{types,noop,remove-bg}}.ts`).
+       Public rate-limited `GET /api/share-image/cutout/:slug`
+       returns `{ url, isOriginal, provider, cached }`. R2 cache key
+       `cutouts/sha256(originalImageUrl).png`; HEAD on the public
+       URL serves as the cache-hit check, no Prisma change. Provider
+       picked at boot: `RemoveBgProvider` when `REMOVE_BG_API_KEY` is
+       set, otherwise `NoopProvider` (pass-through, free). On any
+       provider failure, service falls back to returning the original
+       source URL so the satori composite never blocks on "cutout
+       missing".
+    2. **[x]** API: `shareImageLimiter` (20/hr per IP) added to
+       `middleware/rate-limit.ts`.
+    3. **[x]** API: `REMOVE_BG_API_KEY` optional field in
+       `config/env.ts`.
+    4. **[x]** API: `share_as_image` flag in
+       `feature-flags/registry.ts` (`defaultValue: false`); seeded
+       into DB on next API boot via existing `seedRegisteredFlags()`.
+    5. **[x]** Storefront: `@vercel/og` installed (^0.11.1).
+    6. **[x]** Storefront: route handler at
+       `src/app/api/products/[slug]/share-image/route.tsx`. Variants
+       `square` (1080×1080, default) and `og` (1200×630). Uses
+       `next/og` ImageResponse with the navy/amber gradient backdrop,
+       cutout pulled from the API endpoint, frosted-card overlay
+       showing brand / name / price / comparePrice strike / Shop now
+       CTA / short URL. Node runtime (not Edge) so it can reuse
+       `loadProductDetail`.
+    7. **[x]** Storefront: `<ShareProductButton>` extended with a
+       `<ShareAsImageMenuItem>` row in the popover, gated by
+       `useFlag('share_as_image')` and wrapped in `<SafeBoundary>`.
+       Mobile uses `navigator.share({ files })` when supported;
+       desktop downloads the PNG via an anchor element.
+    8. **[ ]** Smoke test: deferred — hit
+       `/api/products/<slug>/share-image?variant=square` on prod
+       after flipping the flag and eyeball the PNG; only then widen
+       rollout.
+
+    **Brand-token correction**: live `tailwind.config.ts` uses navy
+    `#000066` + amber `#FBAC34` (not the `#0D1F4E` / `#F5A623` pair
+    that was in some older docs). Satori composite uses the live
+    values.
+
+    **Cross-cutting:**
+    - The fallback path matters more than usual here — if image
+      generation throws, the existing link-share targets must still
+      work. `<SafeBoundary>` around the share-as-image trigger only;
+      the rest of the popover stays mounted.
+    - `Noop` provider returns `{ url: originalImageUrl, isOriginal:
+      true }` so the satori composite never blocks on "cutout
+      missing".
+
 42. **[~] Price management surfaces** _(queued 2026-05-11)_.
 
     **Why**: today's price-update flow is "open each product, edit

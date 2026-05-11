@@ -230,3 +230,100 @@ until he gives the build signal. Likely ships in a single PR
 once we're done with the current price-management batch.
 
 Added: 2026-05-11
+
+---
+
+## Share product as image (PDP "Share as image" action) — ✅ v1 LANDED 2026-05-11
+
+**v1 shipped 2026-05-11**: pluggable cutout service + satori
+composite + PDP popover entry, all wired and typechecking clean.
+Behind the `share_as_image` feature flag (default OFF). To enable,
+flip the flag in `/admin/feature-flags`; to upgrade cutout quality
+from the Noop pass-through to remove.bg, set `REMOVE_BG_API_KEY` in
+the API env (no code change). End-to-end smoke (curl the route on
+prod, eyeball the PNG, then flip the flag for a wider test) is
+deferred to the next deploy window.
+
+(Original scope retained below for historical context.)
+
+## Share product as image (PDP "Share as image" action) — 🚧 BUILDING 2026-05-11
+
+**Status:** Active — promoted from backlog 2026-05-11 immediately
+after design alignment. Tracker home is item #43 in
+ARCHITECTURE_TRACKER.md.
+
+**Why it matters:** the link-share button (shipped 2026-05-11)
+covers the WhatsApp/Twitter/etc. unfurl path, but an unfurl needs
+the receiver to be on a platform that renders OG previews and
+trusts the domain. A pre-generated **PNG card** is universal — it
+renders inside any chat, story, status, or feed without needing
+metadata, link previews, or even an internet round-trip on the
+receiver's side. For a marketplace where status-shares on WhatsApp
+and Instagram are a real traffic source, this closes the gap.
+
+**Reference design:** the LARQ Water Bottle PDP composition Magnus
+shared (`share product as photo.jpg`). Cutout product floating on
+a branded backdrop with a frosted card overlay containing brand /
+name / rating / price / CTA. We swap LARQ teal for Afrizonemart
+navy `#000066` + amber `#FBAC34`, Raleway type.
+
+**Decisions locked 2026-05-11:**
+1. **Background removal:** Cloudflare Workers AI primary; if their
+   `rmbg` model availability/quality is iffy on test products, the
+   provider interface (`BackgroundRemovalProvider`) is pluggable —
+   `RemoveBgProvider` (paid, best quality) and `NoopProvider`
+   (returns original; share image still ships but without the
+   floating-product look) are available swap-ins. **For v1 we
+   start with `NoopProvider` so the feature can ship before any
+   AI vendor is signed up**; the `REMOVE_BG_API_KEY` env (or CF AI
+   credentials) just needs to be set to upgrade quality with no
+   code change.
+2. **Cache:** R2 at `cutouts/{sha256(originalImageUrl)}.png`. No
+   Prisma schema change for v1 — R2 HEAD on each share request is
+   cheap (~20ms in-region). Migrate to a `Product.cutoutImageUrl`
+   column if cold-cache rate ever matters.
+3. **Composition:** `@vercel/og` (satori + resvg) in a Next.js
+   App Router route handler — `app/api/products/[slug]/share-image
+   /route.tsx`. Vercel infra is purpose-built for this; keeps the
+   memory-heavy image work off the Railway API node.
+4. **Variants for v1:** square `1080×1080` (WhatsApp / IG status)
+   + landscape `1200×630` (Twitter / Facebook / iMessage). Story
+   `1080×1920` deferred until we see whether the square variant
+   gets used on stories anyway.
+5. **No QR code.** Footer just shows `afrizonemart.com/p/<slug>`
+   text — QR adds noise on a 1080² canvas and most users tap
+   image links directly when forwarded.
+6. **Surface:** PDP only for v1. Product cards on the home /
+   shelf grids do **not** get this — too many entry points dilute
+   the action and small thumbnails don't justify generation cost.
+7. **Mobile delivery:** Web Share API with `files: [pngBlob]` →
+   native iOS / Android share sheet. Desktop downloads the PNG.
+8. **Resilience trio (per standing rule):** `useFlag
+   ('share_as_image')` kill switch (default OFF in registry until
+   smoke-tested in prod) + `<SafeBoundary>` around the share
+   modal + plain-link fallback (the existing
+   `<ShareProductButton>` actions stay available even if the
+   image generation throws).
+
+**Scope of the build:**
+- API: `share-image` module
+  (`afrizonemart-api/src/modules/share-image/{service,controller,
+  routes,providers/}.ts`). Public rate-limited endpoint `GET
+  /api/products/:slug/cutout` returns `{ url, isOriginal }`.
+- API: `shareImageLimiter` (20/hr per IP) added to
+  `middleware/rate-limit.ts`.
+- API: `REMOVE_BG_API_KEY` (optional) added to
+  `config/env.ts` zod schema.
+- API: `share_as_image` flag added to `feature-flags/registry.ts`,
+  `defaultValue: false`.
+- Storefront: install `@vercel/og`. New route handler at
+  `app/api/products/[slug]/share-image/route.tsx`.
+- Storefront: extend `<ShareProductButton>` with a "Share as
+  image" item (icon + label) in the existing popover.
+- Smoke test: hit `/api/products/<known-slug>/share-image?variant
+  =square` from `npm run smoke` and verify PNG content-type +
+  non-zero body.
+
+**Trigger to promote:** N/A — actively building.
+
+Added: 2026-05-11 (promoted same day)
