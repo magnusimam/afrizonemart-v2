@@ -17,7 +17,9 @@ import {
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { Column, DataTable } from '@/components/admin/DataTable';
+import { EditablePriceCell } from '@/components/admin/EditablePriceCell';
 import { ImportCsvDialog } from '@/components/admin/ImportCsvDialog';
+import { PriceHistoryDrawer } from '@/components/admin/PriceHistoryDrawer';
 import { toast } from '@/components/admin/Toast';
 import { HttpApiError } from '@/lib/api/client';
 import {
@@ -29,7 +31,6 @@ import {
   type AdminCategory,
   type AdminProductListItem,
 } from '@/lib/api/admin';
-import { formatPriceNGN } from '@/lib/format';
 import { COUNTRIES } from '@/lib/countries';
 
 export default function AdminProductsPage() {
@@ -54,6 +55,26 @@ export default function AdminProductsPage() {
   // page through results and accumulate a selection.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState<null | 'delete'>(null);
+  /// Which product's price-history drawer is open. Null = closed.
+  const [historyFor, setHistoryFor] = useState<AdminProductListItem | null>(null);
+
+  /// Optimistic patch — swap the price fields on a row in place so
+  /// the UI reflects an inline edit / revert without a full re-fetch.
+  const patchRow = (
+    productId: string,
+    next: { price: number; comparePrice: number | null },
+  ) => {
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            items: prev.items.map((p) =>
+              p.id === productId ? { ...p, ...next } : p,
+            ),
+          }
+        : prev,
+    );
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q), 300);
@@ -224,16 +245,14 @@ export default function AdminProductsPage() {
       key: 'price',
       header: 'Price',
       render: (p) => (
-        <div className="flex flex-col leading-tight">
-          <span className="font-raleway font-semibold text-navy">
-            {formatPriceNGN(p.price)}
-          </span>
-          {p.comparePrice && p.comparePrice > p.price && (
-            <span className="font-sans text-[11px] text-muted line-through">
-              {formatPriceNGN(p.comparePrice)}
-            </span>
-          )}
-        </div>
+        <EditablePriceCell
+          productId={p.id}
+          productName={p.name}
+          price={p.price}
+          comparePrice={p.comparePrice ?? null}
+          onChanged={(next) => patchRow(p.id, next)}
+          onOpenHistory={() => setHistoryFor(p)}
+        />
       ),
       className: 'whitespace-nowrap',
     },
@@ -461,6 +480,25 @@ export default function AdminProductsPage() {
         open={importOpen}
         onClose={() => setImportOpen(false)}
         onSuccess={() => setReloadToken((t) => t + 1)}
+      />
+      <PriceHistoryDrawer
+        product={
+          historyFor
+            ? {
+                id: historyFor.id,
+                name: historyFor.name,
+                price: historyFor.price,
+                comparePrice: historyFor.comparePrice ?? null,
+              }
+            : null
+        }
+        onClose={() => setHistoryFor(null)}
+        onReverted={(next) => {
+          patchRow(next.productId, {
+            price: next.price,
+            comparePrice: next.comparePrice,
+          });
+        }}
       />
     </div>
   );

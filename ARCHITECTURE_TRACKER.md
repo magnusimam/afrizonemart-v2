@@ -46,6 +46,57 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+42. **[~] Price management surfaces** _(queued 2026-05-11)_.
+
+    **Why**: today's price-update flow is "open each product, edit
+    the field, save". As the catalog grows that's a non-starter.
+    Magnus chose five surfaces to ship in order; #6 (cost + markup
+    derived pricing) is intentionally deferred to FEATURES_BACKLOG.md
+    pending reliable supplier-cost data.
+
+    **Foundation**: a `ProductPriceChange` audit table that EVERY
+    price-write path uses. Without it, "who set this product to ₦5
+    instead of ₦5,000" becomes an unanswerable question across five
+    different change paths.
+
+    **Stages** (ship order locked by Magnus):
+    1. **[~] PR 1 — Audit log + inline price edit** _(2026-05-11)_.
+       New `ProductPriceChange` Prisma model (productId, old/new
+       price, old/new comparePrice, changedBy User FK, reason,
+       source enum INLINE/BULK/CSV/SCHEDULED/MANUAL/REVERT,
+       createdAt). `applyPriceChange()` service helper wraps the
+       Product update + audit row creation in a transaction; every
+       subsequent stage writes through it. PATCH
+       `/api/admin/products/:id/price` for the inline edit shortcut.
+       Editable price cell on /admin/products list with Undo toast.
+    2. **[ ] PR 2 — Bulk re-price** _(queued)_. Selection action on
+       /admin/products: "Set price to ₦X", "Increase by Y%", or
+       "Decrease by Z%". Pairs with the existing category / country /
+       stock filters. Each row writes through `applyPriceChange`.
+    3. **[ ] PR 3 — CSV import** _(queued)_. Upload sku,price,
+       comparePrice (and optionally reason) for bulk updates from
+       supplier price sheets. Same module style as the existing
+       bulk product CSV upload.
+    4. **[ ] PR 4 — Scheduled price changes** _(queued)_. New
+       `ProductPriceSchedule` model so multiple future changes can
+       queue per product. Cron flips live price on `effectiveFrom`
+       and reverts on `effectiveUntil`. Powers Black Friday / sale
+       weekends without anyone staying up to flip switches.
+    5. **[~] BACKLOG #6 — Cost + markup derived pricing**
+       _(deferred to FEATURES_BACKLOG 2026-05-11)_. Biggest refactor
+       of the five; pays off only once supplier-cost data is
+       reliable.
+
+    **Cross-cutting:**
+    - Every price-mutating endpoint hands `actor: req.user.id` and a
+      `source` to `applyPriceChange` so the audit log can answer
+      "where did this change come from".
+    - `ProductPriceChange` view on the product detail page so admin
+      can see the full history and revert a row in one click (the
+      revert itself is just another `applyPriceChange` write with
+      `source: REVERT`).
+    - All endpoints under `products.write` permission.
+
 41. **[~] Animated checkout/cart buttons** _(queued 2026-05-08)_.
 
     **Why**: lift the perceived polish of the two highest-conversion
