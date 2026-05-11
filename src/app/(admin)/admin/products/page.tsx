@@ -22,6 +22,7 @@ import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { Column, DataTable } from '@/components/admin/DataTable';
 import { EditablePriceCell } from '@/components/admin/EditablePriceCell';
 import { ImportCsvDialog } from '@/components/admin/ImportCsvDialog';
+import { ImportPriceCsvDialog } from '@/components/admin/ImportPriceCsvDialog';
 import { PriceHistoryDrawer } from '@/components/admin/PriceHistoryDrawer';
 import { toast } from '@/components/admin/Toast';
 import { HttpApiError } from '@/lib/api/client';
@@ -53,6 +54,7 @@ export default function AdminProductsPage() {
   const [busy, setBusy] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [importOpen, setImportOpen] = useState(false);
+  const [importPricesOpen, setImportPricesOpen] = useState(false);
 
   // Multi-select state. IDs are tracked across pages so an admin can
   // page through results and accumulate a selection.
@@ -327,6 +329,13 @@ export default function AdminProductsPage() {
             >
               <FileUp size={14} aria-hidden /> Import CSV
             </button>
+            <button
+              type="button"
+              onClick={() => setImportPricesOpen(true)}
+              className="flex items-center gap-2 rounded-btn border border-navy bg-white px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-navy hover:text-white"
+            >
+              <Tag size={14} aria-hidden /> Import prices
+            </button>
             <Link
               href="/admin/products/new"
               className="flex items-center gap-2 rounded-btn bg-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
@@ -499,6 +508,11 @@ export default function AdminProductsPage() {
       <ImportCsvDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
+        onSuccess={() => setReloadToken((t) => t + 1)}
+      />
+      <ImportPriceCsvDialog
+        open={importPricesOpen}
+        onClose={() => setImportPricesOpen(false)}
         onSuccess={() => setReloadToken((t) => t + 1)}
       />
       <BulkRepriceModal
