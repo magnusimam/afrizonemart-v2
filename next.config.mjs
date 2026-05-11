@@ -17,12 +17,27 @@ const nextConfig = {
     ],
   },
   images: {
-    // Cloudflare's Bot Fight Mode blocks server-side fetches from
-    // Next.js's image-optimizer (node-fetch UA). Until BFM is disabled
-    // for images.afrizonemart.com, skip the optimizer and let the
-    // browser fetch the original. R2 already returns a sensible
-    // Cache-Control: public, max-age=31536000, immutable.
-    unoptimized: true,
+    // 2026-05-09: re-enabled the Vercel image optimizer. The earlier
+    // `unoptimized: true` was a workaround for Cloudflare Bot Fight
+    // Mode blocking the optimizer's outbound fetch to
+    // `images.afrizonemart.com` — BFM is now disabled (or has a
+    // bypass rule) for that hostname. With the optimizer back on,
+    // every <Image> serves WebP/AVIF at the right viewport size and
+    // is cached at the Vercel edge, instead of every visitor pulling
+    // the original R2 file. Expect a 70–90% drop in image bytes per
+    // pageview.
+    //
+    // **Rollback if BFM blocks optimizer fetches again** (symptom:
+    // every <Image> 500s or returns blank): re-add `unoptimized: true`
+    // here and redeploy. The `remotePatterns` list below stays
+    // valid either way.
+    //
+    // Conservative cache TTL — Vercel caches optimized variants for
+    // this long before re-fetching from R2. R2 itself returns
+    // `Cache-Control: max-age=31536000, immutable` so re-fetch is
+    // cheap when it does happen.
+    minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       { protocol: 'https', hostname: 'flagcdn.com' },
       // Local API uploads (dev).
