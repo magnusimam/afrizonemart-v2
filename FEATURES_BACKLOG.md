@@ -91,3 +91,40 @@ better than guessing). Without reliable cost data, deriving prices
 from costs just moves the bad-data problem one column to the left.
 
 Added: 2026-05-11
+
+---
+
+## R2 orphan-scan cron (image-cleanup safety net)
+
+**Status:** Deferred — inline best-effort R2 cleanup landed
+2026-05-11 (afrizonemart-api `uploads/cleanup.ts`, wired into
+product delete + intern resubmit). The cron is the safety net
+for the failure cases that inline cleanup misses.
+
+**Why deferred:** inline cleanup catches the 95% case. R2 file
+storage is cheap (~$15/TB/month) so a few orphans accumulating
+is a cost issue, not a correctness one. We want this to exist
+before the catalog hits ~10k products — at that scale orphans
+add up.
+
+**What it needs (rough scope):**
+- Monthly cron (extend the existing webhook/notification
+  dispatcher pattern in `src/modules/*/dispatcher.ts` or
+  cart/abandoned-cron.ts).
+- List all R2 keys under `products/` (paginated S3 ListObjects).
+- Build a referenced-set from the DB: every URL in
+  `Product.images[]`, `Product.brandImageUrl`, and every
+  `ProductImageSubmission.{front,back,side,brand,additional}`
+  field. Use the existing `urlToKey()` helper to normalise.
+- Delete the difference. Cap per-run (e.g. 1000 deletes max)
+  so a runaway scan can't accidentally trash the bucket.
+- Dry-run mode toggled by an env var so the first prod run
+  just logs what *would* be deleted.
+- Log totals to Sentry breadcrumbs so we have visibility into
+  the orphan rate over time.
+
+**Trigger to promote:** when product count exceeds ~5k OR
+when R2 storage costs cross a threshold worth caring about
+(probably $50/month).
+
+Added: 2026-05-11
