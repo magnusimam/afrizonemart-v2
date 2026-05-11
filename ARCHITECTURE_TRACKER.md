@@ -77,11 +77,14 @@ gets ticked off here.
        comparePrice (and optionally reason) for bulk updates from
        supplier price sheets. Same module style as the existing
        bulk product CSV upload.
-    4. **[ ] PR 4 — Scheduled price changes** _(queued)_. New
-       `ProductPriceSchedule` model so multiple future changes can
-       queue per product. Cron flips live price on `effectiveFrom`
-       and reverts on `effectiveUntil`. Powers Black Friday / sale
-       weekends without anyone staying up to flip switches.
+    4. **[~] PR 4 — Scheduled price changes** _(deferred to
+       FEATURES_BACKLOG 2026-05-11)_. Magnus cancelled mid-
+       workstream — three working price-management surfaces
+       (inline + bulk + CSV) are enough for the catalog at
+       today's size; scheduled flips aren't urgent without a
+       specific sale campaign to power. Promote back from the
+       backlog when there's a concrete reason (Black Friday,
+       weekend supplier deal) that justifies the cron infra.
     5. **[~] BACKLOG #6 — Cost + markup derived pricing**
        _(deferred to FEATURES_BACKLOG 2026-05-11)_. Biggest refactor
        of the five; pays off only once supplier-cost data is
