@@ -5,16 +5,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CheckSquare,
   Edit,
+  Eye,
   FileUp,
   FolderInput,
   Package,
   PackageX,
   Plus,
   Search,
+  Tag,
   Trash2,
   X,
 } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
+import { BulkRepriceModal } from '@/components/admin/BulkRepriceModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { Column, DataTable } from '@/components/admin/DataTable';
 import { EditablePriceCell } from '@/components/admin/EditablePriceCell';
@@ -57,6 +60,11 @@ export default function AdminProductsPage() {
   const [bulkConfirm, setBulkConfirm] = useState<null | 'delete'>(null);
   /// Which product's price-history drawer is open. Null = closed.
   const [historyFor, setHistoryFor] = useState<AdminProductListItem | null>(null);
+  /// Bulk-reprice modal state. `quick` opens from the dropdown
+  /// shortcut; `preview` opens the rich before/after view.
+  const [repriceModal, setRepriceModal] = useState<'quick' | 'preview' | null>(
+    null,
+  );
 
   /// Optimistic patch — swap the price fields on a row in place so
   /// the UI reflects an inline edit / revert without a full re-fetch.
@@ -411,6 +419,18 @@ export default function AdminProductsPage() {
               onPick={(slug) => runBulk({ kind: 'set-category', categorySlug: slug })}
             />
             <BulkButton
+              icon={<Tag size={14} aria-hidden />}
+              label="Re-price"
+              onClick={() => setRepriceModal('quick')}
+              disabled={busy}
+            />
+            <BulkButton
+              icon={<Eye size={14} aria-hidden />}
+              label="Preview re-price"
+              onClick={() => setRepriceModal('preview')}
+              disabled={busy}
+            />
+            <BulkButton
               icon={<Trash2 size={14} aria-hidden />}
               label="Delete"
               onClick={() => setBulkConfirm('delete')}
@@ -480,6 +500,17 @@ export default function AdminProductsPage() {
         open={importOpen}
         onClose={() => setImportOpen(false)}
         onSuccess={() => setReloadToken((t) => t + 1)}
+      />
+      <BulkRepriceModal
+        open={repriceModal !== null}
+        ids={Array.from(selectedIds)}
+        mode={repriceModal ?? 'quick'}
+        onClose={() => setRepriceModal(null)}
+        onApplied={() => {
+          // Re-fetch the list so cells reflect the new prices.
+          setReloadToken((t) => t + 1);
+          clearSelection();
+        }}
       />
       <PriceHistoryDrawer
         product={

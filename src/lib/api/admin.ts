@@ -172,10 +172,48 @@ export function adminListProductPriceHistory(
   );
 }
 
+export type RepriceMode = 'set' | 'percent-up' | 'percent-down';
+export type RepriceApplyTo = 'price' | 'compare' | 'both';
+export interface RepriceAction {
+  kind: 'reprice';
+  mode: RepriceMode;
+  /// For `set`: target value in NGN. For percent modes: the
+  /// percent value (e.g. 5 = +5%).
+  value: number;
+  /// Only meaningful for `set` mode. Percent modes always operate
+  /// on price.
+  applyTo?: RepriceApplyTo;
+  reason?: string;
+}
+
 export type AdminBulkAction =
   | { kind: 'delete' }
   | { kind: 'set-in-stock'; value: boolean }
-  | { kind: 'set-category'; categorySlug: string | null };
+  | { kind: 'set-category'; categorySlug: string | null }
+  | RepriceAction;
+
+export interface RepricePreviewItem {
+  id: string;
+  name: string;
+  oldPrice: number;
+  newPrice: number;
+  oldComparePrice: number | null;
+  newComparePrice: number | null;
+  noop: boolean;
+}
+
+export function adminBulkRepricePreview(
+  ids: string[],
+  action: RepriceAction,
+): Promise<{ items: RepricePreviewItem[] }> {
+  return apiFetchAuthed<{ items: RepricePreviewItem[] }>(
+    '/api/admin/products/bulk/reprice-preview',
+    {
+      method: 'POST',
+      body: JSON.stringify({ ids, action }),
+    },
+  );
+}
 
 export interface AdminBulkActionResult {
   affected: number;
