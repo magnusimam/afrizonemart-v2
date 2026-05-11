@@ -1734,6 +1734,10 @@ export interface InternQueueItem {
   slug: string;
   name: string;
   brand: string | null;
+  /// NGN whole units. Editable by interns from the list view
+  /// (PR Lesoda 2026-05-11). Quick-edit hits the audit log.
+  price: number;
+  comparePrice: number | null;
   category: { slug: string; name: string } | null;
   currentImages: string[];
   status: 'todo' | 'pending' | 'approved' | 'rejected';
