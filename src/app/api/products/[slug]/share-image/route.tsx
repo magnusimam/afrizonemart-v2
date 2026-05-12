@@ -389,7 +389,7 @@ export async function GET(
             {countryFlag(product.origin)}
           </div>
           <div style={{ display: 'flex' }}>
-            Made in {countryName(product.origin)}
+            Product of {countryName(product.origin)}
           </div>
         </div>
 
