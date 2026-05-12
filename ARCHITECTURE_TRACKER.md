@@ -46,7 +46,7 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
-43. **[~] Share product as image (PDP share-as-PNG)** _(v1 landed 2026-05-11; flag default OFF pending prod smoke)_.
+43. **[x] Share product as image (PDP share-as-PNG)** _(v3 shipped 2026-05-12, flag ON in prod, LARQ-match achieved)_.
 
     **Why**: the link-share PDP button (item #41 lookalike, shipped
     2026-05-11) covers WhatsApp/IG/Twitter unfurls, but unfurls only
@@ -115,24 +115,93 @@ gets ticked off here.
        `useFlag('share_as_image')` and wrapped in `<SafeBoundary>`.
        Mobile uses `navigator.share({ files })` when supported;
        desktop downloads the PNG via an anchor element.
-    8. **[ ]** Smoke test: deferred — hit
-       `/api/products/<slug>/share-image?variant=square` on prod
-       after flipping the flag and eyeball the PNG; only then widen
-       rollout.
+    8. **[x]** Smoke test on prod (2026-05-12) — verified PNGs
+       across multiple products (Mama's Pride rice, Dangote
+       spaghetti, Yellow Garri, Tom Brown cereal). Flag flipped ON
+       in prod /admin/feature-flags.
 
-    **Brand-token correction**: live `tailwind.config.ts` uses navy
-    `#000066` + amber `#FBAC34` (not the `#0D1F4E` / `#F5A623` pair
-    that was in some older docs). Satori composite uses the live
-    values.
+    **v2 → v3 design iteration (2026-05-12):**
 
-    **Cross-cutting:**
-    - The fallback path matters more than usual here — if image
-      generation throws, the existing link-share targets must still
-      work. `<SafeBoundary>` around the share-as-image trigger only;
-      the rest of the popover stays mounted.
-    - `Noop` provider returns `{ url: originalImageUrl, isOriginal:
-      true }` so the satori composite never blocks on "cutout
-      missing".
+    9.  **[x]** Restructure: separate standalone `<ShareAsImageButton>`
+        component next to wishlist + link-share buttons. Inline
+        popover-item was invisible on mobile (navigator.share fires
+        before popover opens).
+    10. **[x]** Real Afrizonemart logo (orange Africa + wordmark)
+        replaces fake "A" badge. Wrapped in tight white pill so
+        navy elements of the logo have contrast against navy
+        backdrop.
+    11. **[x]** Landscape (1200×630 `og`) default instead of square.
+        Square available via `?variant=square`. Storefront button
+        drops its `?variant=square` to inherit the new default.
+    12. **[x]** Translucent glass card (rgba 0.10 + 0.22 border)
+        replaces opaque white. All card text flipped to white/
+        off-white. SHOP NOW stays amber for CTA pop.
+    13. **[x]** Card geometry: full-height → 65–68% of frame,
+        vertically centered. Card right edge overlaps product by
+        ~20px for LARQ-style depth (not the previous 100px square
+        overlap).
+    14. **[x]** Product geometry: 500×500 upper-right → 500×500
+        (og) / 600×600 (square) vertically centered. Bigger,
+        dominates the right half.
+    15. **[x]** Horizon-split backdrop: navy wall (top 62%) + floor
+        gradient (bottom 38%) tinted by **dominant product color**
+        extracted via Cloudflare 1×1 transform (`cdn-cgi/image/
+        width=1,height=1,fit=cover`). Spotify-style: each card feels
+        lit by its product (red Dangote → warm rust floor; yellow
+        garri → golden floor). Top stays navy = brand anchor.
+        Decoded with pngjs.
+    16. **[x]** Bottom-of-card restructure: price + SHOP NOW pill
+        share one flex row (always left-aligned, stable across all
+        products); URL on its own footer line at 12px. Pill no
+        longer drifts on long-slug products.
+    17. **[x]** Smarter description: prefer `shortDescription` when
+        ≥80 chars; otherwise fall back to cleaned (HTML-stripped,
+        whitespace-collapsed) `longDescription`. Truncate at 130
+        chars.
+    18. **[x]** Origin chip: full country name via
+        `Intl.DisplayNames` + flag emoji via Unicode regional
+        indicators ("🇳🇬 Product of Nigeria"). Flag glyphs need
+        `emoji: 'twemoji'` on the ImageResponse.
+    19. **[x]** Provider migration RemoveBg → Cloudflare Images
+        Transform (`segment=foreground` on `images.afrizonemart.com`
+        zone). Free under existing 5k/month CF Image Transformations
+        tier; no API key needed; in-network with R2. Provider
+        priority: `CloudflareImagesProvider` > `RemoveBgProvider` >
+        `NoopProvider`.
+    20. **[x]** `?force=1` cache-bypass on the cutout endpoint so
+        admins can re-run removal after rotating providers without
+        nuking R2 manually.
+    21. **[x]** Render-bug fixes: backdrop divs need explicit
+        `width/height` not flex %; helper components return single
+        root `<div>` not Fragments; price uses "NGN" ASCII prefix
+        (no Naira glyph in Inter); flag emoji rendered via
+        `emoji: 'twemoji'`.
+
+    **Final architecture (2026-05-12):**
+    - API: pluggable `BackgroundRemovalProvider` interface — input
+      includes `buffer` + `contentType` + `sourceUrl`. Three
+      implementations (`CloudflareImagesProvider`, `RemoveBgProvider`,
+      `NoopProvider`). Picked at boot by env precedence:
+      `CF_TRANSFORM_DOMAIN` > `REMOVE_BG_API_KEY` > Noop. Service
+      retains R2 cache, HEAD check, `?force=1` bypass, graceful
+      fallback to source URL on any failure.
+    - Storefront: route handler at
+      `app/api/products/[slug]/share-image/route.tsx` does cutout
+      fetch + dominant-color extraction in parallel, then satori
+      composite. Helpers `FloatingProduct` (real cutout) +
+      `InsetProduct` (Noop fallback). Logo loaded from
+      `/images/logo.png` via SITE_URL.
+    - Production env (Railway api service):
+      `CF_TRANSFORM_DOMAIN=images.afrizonemart.com`. Cloudflare zone
+      Image Transformations enabled with "This zone only" source
+      restriction.
+    - Vercel project transferred from personal account to
+      Afrizonemart Team (team_IHHLjZ1qzeulb9JiVDBZVYbJ) during this
+      workstream after the personal account hit Hobby plan pause
+      (Fluid CPU + Origin Transfer over limits). API CORS regex in
+      `afrizonemart-api/src/server.ts` still references the old
+      preview-domain slug — **follow-up needed** to widen for the
+      new team's preview URLs.
 
 42. **[~] Price management surfaces** _(queued 2026-05-11)_.
 

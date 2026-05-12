@@ -233,6 +233,37 @@ Added: 2026-05-11
 
 ---
 
+## Share product as image (PDP "Share as image" action) — ✅ v3 SHIPPED 2026-05-12
+
+**Final state (2026-05-12)**: flag is **ON in prod**, LARQ-style
+composition achieved across all tested products, Cloudflare Images
+Transform powers the cutout (free under 5k/mo tier), satori in a
+Next.js route composes the card on Vercel. Standalone
+`<ShareAsImageButton>` icon next to the wishlist + link-share
+buttons on every PDP.
+
+**Iteration history (one workstream, three end-to-end design
+passes):**
+- v1 (2026-05-11): pluggable cutout service + satori composite +
+  popover-item entry. Flag default OFF.
+- v2 (2026-05-12): moved button out of popover into its own icon
+  (popover never opened on mobile because navigator.share fires
+  first); switched provider from Noop → remove.bg → Cloudflare
+  Images Transform; landscape default; translucent glass card;
+  product-color-tinted floor (Spotify-style); real Afrizonemart
+  logo in white pill; horizon-split backdrop.
+- v3 (2026-05-12): polish pass — smaller logo pill, lighter
+  description, stable SHOP NOW alignment via price+pill on one
+  row + URL footer on its own line, full country name + flag
+  emoji on origin chip ("🇳🇬 Product of Nigeria"), satori
+  render-bug fixes (explicit dims on backdrop divs, single-root
+  divs in helpers, NGN ASCII prefix, emoji: 'twemoji').
+
+Tracker entry #43 in ARCHITECTURE_TRACKER.md has the full
+checklist (21 sub-tasks) + final architecture notes.
+
+(Original v1 record retained below for historical context.)
+
 ## Share product as image (PDP "Share as image" action) — ✅ v1 LANDED 2026-05-11
 
 **v1 shipped 2026-05-11**: pluggable cutout service + satori
