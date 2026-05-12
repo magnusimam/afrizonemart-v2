@@ -9,6 +9,7 @@ import { formatPriceNGN } from '@/lib/format';
 import { listOrders, type Order } from '@/lib/api/orders';
 import { listAddresses } from '@/lib/api/addresses';
 import { countWishlist } from '@/lib/api/wishlist';
+import { getMyLoyalty } from '@/lib/api/loyalty';
 import { useAuthStore } from '@/stores/authStore';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import type { OrderStatus as UiOrderStatus } from '@/types';
@@ -37,6 +38,7 @@ export default function AccountDashboardPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [addressCount, setAddressCount] = useState<number | null>(null);
   const [wishlistCount, setWishlistCount] = useState<number | null>(null);
+  const [coinBalance, setCoinBalance] = useState<number | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -67,6 +69,14 @@ export default function AccountDashboardPage() {
         setWishlistCount(r.count);
       } catch {
         setWishlistCount(0);
+      }
+    })();
+    void (async () => {
+      try {
+        const r = await getMyLoyalty();
+        setCoinBalance(r.enrolled ? r.account.coinBalance : 0);
+      } catch {
+        setCoinBalance(0);
       }
     })();
   }, [accessToken]);
@@ -124,7 +134,12 @@ export default function AccountDashboardPage() {
                   label="Addresses"
                   value={addressCount === null ? '—' : addressCount.toString()}
                 />
-                <StatCard Icon={Sparkles} label="Points" value="0" amber />
+                <StatCard
+                  Icon={Sparkles}
+                  label="Coins"
+                  value={coinBalance === null ? '—' : coinBalance.toString()}
+                  amber
+                />
               </section>
 
               <section className="rounded-card border border-border bg-white p-5 shadow-card md:p-6">
