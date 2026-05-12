@@ -104,34 +104,43 @@ export function AnimatedAddToCartButton({
       return;
     }
 
+    /// Snap the button back to its idle CSS-var values + clear React
+    /// state. Called from `onComplete` (normal end) AND `onInterrupt`
+    /// (timeline killed mid-flight by a re-render, component unmount,
+    /// or a tween on the same property starting elsewhere). Without
+    /// the onInterrupt handler the cart would freeze wherever the
+    /// last completed tween left it — typically near the centre of
+    /// the button, which is the "stops halfway in the middle" bug
+    /// Magnus reported on mobile cards. Removing `.active` lets the
+    /// CSS opacity:0 rule take over so the cart is invisible in
+    /// idle state regardless of where its CSS-var positions sit.
+    const resetIdle = () => {
+      gsap.set(button, {
+        '--background-scale': 1,
+        '--text-o': 1,
+        '--text-x': '0px',
+        '--shirt-y': `${-16 * scale}px`,
+        '--shirt-scale': 0,
+        '--cart-x': `${-64 * scale}px`,
+        '--cart-y': '0px',
+        '--cart-rotate': '0deg',
+        '--cart-scale': 0.75,
+        '--cart-clip': '0px',
+        '--cart-clip-x': '0px',
+        '--cart-tick-offset': '10px',
+      });
+      setActive(false);
+      inflight.current = false;
+    };
+
     // ---- Animation timeline (~2.0s end-to-end) ----
     // Faithful port of the @nayanchamling timeline minus the two
     // MorphSVG-driven steps. The shirt's "squash" on its way down is
     // approximated by a scale tween on the parent .shirt div instead
     // of morphing the SVG path itself.
     const tl = gsap.timeline({
-      onComplete() {
-        // Reset CSS vars to idle so the button is ready for another
-        // click. clearProps would also work — explicit reset keeps
-        // the values predictable. Scaled per `compact` so the cart
-        // off-screen position scales with the button width.
-        gsap.set(button, {
-          '--background-scale': 1,
-          '--text-o': 1,
-          '--text-x': '0px',
-          '--shirt-y': `${-16 * scale}px`,
-          '--shirt-scale': 0,
-          '--cart-x': `${-64 * scale}px`,
-          '--cart-y': '0px',
-          '--cart-rotate': '0deg',
-          '--cart-scale': 0.75,
-          '--cart-clip': '0px',
-          '--cart-clip-x': '0px',
-          '--cart-tick-offset': '10px',
-        });
-        setActive(false);
-        inflight.current = false;
-      },
+      onComplete: resetIdle,
+      onInterrupt: resetIdle,
     });
 
     // Background squish — feels like the button is being pressed.

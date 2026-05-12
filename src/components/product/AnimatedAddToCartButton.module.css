@@ -53,8 +53,12 @@
   position: relative;
   font-family: inherit;
   border-radius: 8px;
-  /* Reserve room for the cart's vertical travel without clipping. */
+  /* Belt-and-braces clip: `overflow: hidden` alone is sometimes
+   * bypassed by iOS Safari when absolute children have their own
+   * stacking context via translateZ. `contain: paint` is a stricter
+   * containment hint that browsers honour even in that case. */
   overflow: hidden;
+  contain: paint;
 }
 
 .button:disabled {
@@ -115,6 +119,15 @@
   position: absolute;
   left: 50%;
   z-index: 2;
+}
+
+/* Idle state (not animating): hide the moving parts so they can't
+ * visually overflow the button even if a mobile browser bypasses
+ * the clip. They're only visible while `.active` is set. The
+ * timeline's first frame brings them in instantly via `gsap.set`. */
+.button:not(.active) .shirt,
+.button:not(.active) .cart {
+  opacity: 0;
 }
 
 .shirt {
