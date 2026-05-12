@@ -54,6 +54,37 @@ function formatPrice(value: number): string {
   return `NGN ${value.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
 }
 
+// ISO 2-letter code → full English country name. Falls back to the
+// raw code on any failure (region unknown, ICU not bundled, etc.).
+const REGION_NAMES = (() => {
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' });
+  } catch {
+    return null;
+  }
+})();
+
+function countryName(code: string): string {
+  try {
+    return REGION_NAMES?.of(code.toUpperCase()) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+// ISO 2-letter code → flag emoji via Unicode regional indicators.
+// "NG" → 🇳🇬. Renders to a colored flag SVG via twemoji at
+// composite time (see `emoji: 'twemoji'` on the ImageResponse).
+function countryFlag(code: string): string {
+  if (!code || code.length !== 2) return '';
+  const base = 127397; // 0x1F1E6 - 'A'.charCodeAt(0)
+  return code
+    .toUpperCase()
+    .split('')
+    .map((c) => String.fromCodePoint(base + c.charCodeAt(0)))
+    .join('');
+}
+
 async function fetchCutout(
   slug: string,
   force: boolean,
@@ -231,25 +262,34 @@ export async function GET(
   let priceSize: number;
 
   if (variant === 'og') {
+    // 1200 × 630. Card slightly shorter + pushed down to give
+    // breathing room below the logo (was almost touching).
+    // Width 600 + product right=60 + product width=500 ⇒ ~20px
+    // overlap between card right edge and product left edge:
+    // enough for the LARQ-style depth without covering the
+    // product's important left edge.
     cardLeft = 60;
-    cardWidth = 620;
-    cardHeight = 430;
-    cardTop = Math.floor((height - cardHeight) / 2);
+    cardWidth = 600;
+    cardHeight = 400;
+    cardTop = 130;
     productRight = 60;
     productSize = 500;
     productTop = Math.floor((height - productSize) / 2);
     nameSize = 36;
     priceSize = 44;
   } else {
+    // 1080 × 1080. Card narrower than before (was 460) so it stops
+    // covering large parts of tall/narrow products. ~20px overlap
+    // preserved for depth.
     cardLeft = 60;
-    cardWidth = 460;
-    cardHeight = 600;
-    cardTop = Math.floor((height - cardHeight) / 2);
+    cardWidth = 380;
+    cardHeight = 560;
+    cardTop = 260;
     productRight = 60;
     productSize = 600;
-    productTop = Math.floor((height - productSize) / 2);
-    nameSize = 38;
-    priceSize = 48;
+    productTop = 240;
+    nameSize = 36;
+    priceSize = 46;
   }
 
   const horizonY = Math.floor(height * 0.62);
@@ -297,49 +337,62 @@ export async function GET(
           }}
         />
 
-        {/* Real Afrizonemart logo top-left */}
+        {/* Real Afrizonemart logo top-left, wrapped in a white pill
+            so the navy elements of the logo (wordmark, cart) have
+            contrast against the navy backdrop. The orange Africa
+            silhouette stays visible either way; the white pill
+            just rescues the navy bits. */}
         <div
           style={{
             position: 'absolute',
-            top: 28,
+            top: 22,
             left: 48,
             display: 'flex',
             alignItems: 'center',
+            padding: '8px 14px',
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderRadius: 14,
+            boxShadow: '0 6px 18px rgba(0,0,0,0.18)',
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={LOGO_URL}
             alt=""
-            width={variant === 'og' ? 240 : 260}
-            height={variant === 'og' ? 66 : 72}
+            width={variant === 'og' ? 220 : 240}
+            height={variant === 'og' ? 60 : 66}
             style={{
-              width: variant === 'og' ? 240 : 260,
-              height: variant === 'og' ? 66 : 72,
+              width: variant === 'og' ? 220 : 240,
+              height: variant === 'og' ? 60 : 66,
               objectFit: 'contain',
             }}
           />
         </div>
 
-        {/* Origin chip top-right */}
+        {/* Origin chip top-right — full country name + flag */}
         <div
           style={{
             position: 'absolute',
-            top: 40,
+            top: 36,
             right: 56,
             display: 'flex',
             alignItems: 'center',
+            gap: 8,
             padding: '10px 18px',
             borderRadius: 999,
             backgroundColor: 'rgba(255,255,255,0.14)',
             border: `1px solid ${GLASS_BORDER}`,
             color: TEXT_PRIMARY,
             fontSize: 16,
-            fontWeight: 700,
-            letterSpacing: 1.5,
+            fontWeight: 600,
           }}
         >
-          PRODUCT OF {product.origin}
+          <div style={{ display: 'flex', fontSize: 20 }}>
+            {countryFlag(product.origin)}
+          </div>
+          <div style={{ display: 'flex' }}>
+            Made in {countryName(product.origin)}
+          </div>
         </div>
 
         {/* Product image — painted before the card so the card's
@@ -513,6 +566,10 @@ export async function GET(
     {
       width,
       height,
+      // Render flag emoji + any future emoji glyphs via Twitter's
+      // open-source SVG set. Without this, `🇳🇬` would render as
+      // tofu (the bundled Inter font has no flag glyphs).
+      emoji: 'twemoji',
       headers: {
         'Cache-Control': 'public, max-age=60, s-maxage=3600, stale-while-revalidate=86400',
       },
