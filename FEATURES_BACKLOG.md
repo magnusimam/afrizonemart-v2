@@ -358,3 +358,537 @@ navy `#000066` + amber `#FBAC34`, Raleway type.
 **Trigger to promote:** N/A — actively building.
 
 Added: 2026-05-11 (promoted same day)
+
+---
+
+# Engagement / retention ideas (brainstorm 2026-05-12)
+
+Thirteen feature ideas surfaced when Magnus asked "what would make
+people come back to Afrizonemart?". Grouped here under the engagement
+loop each one creates. Top 3 to build first (the 80/20):
+1. Send to my mum + family-pool cart + subscriptions (one
+   workstream, three features, all share infrastructure).
+2. Continental Rewards (already above) + price-drop alerts +
+   one-tap reorder.
+3. Meet-the-maker content + WhatsApp catalog.
+
+Each individual entry below stands on its own scope. Some have hard
+dependencies on Continental Rewards or the planned multi-vendor
+seller surface, noted in their respective "Trigger to promote"
+lines.
+
+---
+
+## "Send to my mum" — buy on someone's behalf
+
+**Status:** Deferred — diaspora-native feature, highest-leverage
+of the engagement-ideas batch. Should be the first in the
+"diaspora workstream" trio (this + family pool + subscriptions).
+
+**Why it matters:** Diaspora customers are Afrizonemart's most
+monetisable cohort. They have higher AOV, longer LTV, and an
+emotional reason to come back (sending things "home" to family).
+Right now they shop the site like any other customer — load cart,
+checkout, type Mum's Lagos address from memory each time. A
+purpose-built "send to my mum" flow turns that into one tap and
+turns Afrizonemart into a remittance-shaped product they tell
+their cousins about.
+
+**What it needs (rough scope):**
+- New `Recipient` Prisma model owned by a User — name, phone,
+  delivery address(es), relationship label (Mum, Dad, Sister,
+  Cousin, etc.), optional photo.
+- `/account/recipients` page to add/edit/delete recipients.
+- Checkout flow: a "Sending to" picker at the top of the shipping
+  step. Picking a recipient prefills the shipping address from
+  their saved record.
+- Recipient receives an SMS on order placement: "Your son Tunde
+  in London just sent you these groceries. Arriving Saturday.
+  Track: afrizonemart.com/r/<short-token>".
+- Recipient gets a second SMS on delivery: "Your delivery from
+  Tunde has arrived."
+- Optional gift note on each order — short text typed at
+  checkout, surfaces on the delivery slip and the recipient's
+  SMS.
+- Optional gift wrap / handwritten note add-on as a paid SKU
+  for higher-AOV diaspora orders.
+
+**Trigger to promote:** This is the diaspora-cohort killer
+feature. Promote when diaspora-share of revenue crosses ~15% OR
+when retention analytics show diaspora repeat-rate is below
+target (probably both happen around the same time). Pairs with
+basic remittance-style transactional SMS infrastructure (Twilio
+already in place for OTP, reuse).
+
+Added: 2026-05-12
+
+---
+
+## Family pool cart — multiple people one shipment
+
+**Status:** Deferred — part of the diaspora-workstream trio.
+
+**Why it matters:** Couples and siblings often coordinate a
+single "things from home" shipment but don't have a clean way
+to add items together. Today this means one person collects
+requests via WhatsApp, types each item manually into their
+cart, then everyone Venmos/PayPals them. A shared cart lets
+two-to-six people add items from different devices/accounts,
+see a running total, pay separately or together, and ship to
+one address.
+
+**What it needs (rough scope):**
+- New `SharedCart` Prisma model — id, ownerUserId, recipientId
+  (optional, ties into "Send to my mum"), createdAt, expiresAt
+  (default 7 days), status (open/locked/paid).
+- `SharedCartParticipant` join model — sharedCartId,
+  userId-or-email-or-phone, role (owner/contributor), invited-at,
+  joined-at.
+- `SharedCartItem` like a regular cart item but with an
+  `addedByUserId` so everyone can see who added what.
+- Share-cart link with a token: `afrizonemart.com/share-cart/<token>`.
+  Recipient clicks the link, gets a one-tap WhatsApp/email login,
+  joins the cart, adds their items.
+- Settlement options: (a) one person pays for everyone, (b) split
+  evenly, (c) each person pays for their own items. (a) is the
+  simplest first cut.
+- Real-time updates via SSE or polling so participants see new
+  items as others add them.
+
+**Trigger to promote:** Build after "Send to my mum" lands and we
+see usage patterns. If diaspora customers are already coordinating
+informally, the share-cart flow is a natural upgrade.
+
+Added: 2026-05-12
+
+---
+
+## Subscriptions for staples
+
+**Status:** Deferred — third in the diaspora-workstream trio.
+
+**Why it matters:** Recurring revenue + emotional stickiness. The
+killer use case is the diaspora child setting up "garri, rice, palm
+oil, every month to Mum" once and never touching it again. Combines
+the "remittance-shaped" pattern with the "set it and forget it"
+behaviour that makes Amazon Subscribe-and-Save sticky.
+
+**What it needs (rough scope):**
+- New `ProductSubscription` Prisma model — userId, productId,
+  quantity, intervalDays (7/14/30/60/90), recipientId (optional),
+  nextRunAt, status (active/paused/cancelled), priceLockedAt
+  (optional — lock price for 12 months as the loyalty perk).
+- Cron worker (extend the existing dispatcher pattern) ticks
+  hourly; finds subscriptions where `nextRunAt <= now`, creates
+  an order via the normal order flow, charges the saved payment
+  method, advances `nextRunAt`.
+- Sticky payment-method storage (already partial via GT Squad
+  tokenisation; needs auth.write capability for saved cards).
+- Customer-facing UI: "Subscribe" toggle next to "Add to cart"
+  on grocery-category PDPs only. Choose interval. Pick recipient
+  if "Send to my mum" is wired. Active subscriptions list at
+  `/account/subscriptions` with pause / skip-next-shipment /
+  cancel actions.
+- Loyalty hook: 5–10% discount on subscribed items (Continental
+  Rewards perk for Silver+ tiers).
+- Pre-charge notification: SMS 48 hours before charge so customer
+  can skip / pause if needed. Reduces involuntary churn.
+
+**Trigger to promote:** After "Send to my mum" + Continental
+Rewards both ship. The three together form the diaspora
+retention engine.
+
+Added: 2026-05-12
+
+---
+
+## Gift cards / Wallet top-up
+
+**Status:** Deferred — diaspora-adjacent. Smaller scope than the
+trio above but pairs with all three.
+
+**Why it matters:** Diaspora customers want to send money home but
+in a brand-safe, controlled way. "Mum, here is GBP 100 of
+Afrizonemart credit, spend it on what you need" is a more
+emotionally comfortable gift than "here is GBP 100 on your card,
+don't waste it." Pre-collected revenue too — we hold the float
+until the recipient spends.
+
+**What it needs (rough scope):**
+- New `Wallet` Prisma model per User (balance NGN, balance USD,
+  balance other if multi-currency). Holds account credit.
+- New `WalletTransaction` ledger model — type (gift_card_received,
+  gift_card_purchased, order_payment, refund_credit, etc.), amount,
+  causeOrderId, createdAt, immutable rows.
+- Gift card purchase flow at `/gifts` — pick amount, recipient
+  details, optional gift note. Issues a unique redemption code.
+- Recipient redeems via `/redeem/<code>` (or pre-redeemed on their
+  account if recipient already exists in the contacts book).
+- Wallet balance applied automatically at checkout, before
+  payment-method charge.
+- Diaspora-side: option to "auto-top-up" a recipient's wallet
+  monthly (recurring gift card, similar to subscriptions).
+
+**Trigger to promote:** Closer-to-launch — build after the core
+diaspora trio so we have natural pickup. Or build earlier as a
+standalone if we want a wedge-product to test the diaspora
+hypothesis cheaply (a gift card needs less infra than full
+"Send to my mum").
+
+Added: 2026-05-12
+
+---
+
+## WhatsApp catalog + ordering bot
+
+**Status:** Deferred — pending decision on whether to build in-house
+or use a third-party (Wati, Twilio Studio, MessageBird, etc.).
+
+**Why it matters:** Most African e-commerce eventually has to meet
+customers inside WhatsApp because that's where their attention
+already is. A WhatsApp bot that consumes our existing API endpoints
+lets first-time customers browse, ask questions, add to cart, and
+pay all without leaving the chat. Removes the "go to a website"
+friction that kills first-purchase conversion for less
+tech-comfortable customers.
+
+**What it needs (rough scope):**
+- WhatsApp Business API access — Cloud API (Meta direct) or via a
+  BSP (Twilio/MessageBird/Wati). Cloud API is cheaper at scale;
+  BSPs are faster to bootstrap.
+- Bot framework — could be Claude + tool-use, or a more
+  conventional state-machine. Claude API lets us handle messy
+  natural-language queries ("show me rice under 5k", "anything
+  cheaper than the one Auntie bought last week") gracefully.
+- Reuse the existing storefront API. Bot is just another client.
+  Cart state may need a phone-number-keyed guest cart on the API
+  side so the bot doesn't need full auth.
+- Payment via GT Squad's WhatsApp-friendly link/checkout (or our
+  storefront's hosted checkout link as a fallback).
+- Order updates pushed back to the same WhatsApp thread —
+  "Shipped", "Out for delivery", "Delivered" as messages.
+- WhatsApp template messages for transactional + marketing (with
+  opt-in, per Meta policy).
+
+**Trigger to promote:** Promote when (a) we want to expand into a
+new market where the website has low traction but WhatsApp usage
+is universal (Kenya, Tanzania, Ghana are likely candidates), OR
+(b) post-purchase analytics show that customers shared product
+links on WhatsApp at high rates — meaning WhatsApp is already
+where they shop, we just don't have a presence there.
+
+Added: 2026-05-12
+
+---
+
+## Group deal unlocks (Pinduoduo-style)
+
+**Status:** Deferred.
+
+**Why it matters:** Africa's social shopping behaviour is real —
+customers WhatsApp each other "have you seen this?" all day. A
+mechanic that says "if 8 more people buy this rice today, the
+price drops 12% for everyone" turns that informal sharing into a
+distribution engine. Pinduoduo built a $200B company on this; no
+African marketplace has tried it seriously.
+
+**What it needs (rough scope):**
+- New `GroupDeal` Prisma model — productId, originalPrice,
+  groupPrice, minMembers, startsAt, endsAt, status (open/closed/
+  fulfilled/cancelled).
+- `GroupDealParticipant` — userId, joinedAt, paidAt (held in
+  authorisation until the deal closes; only captured if the
+  threshold hits).
+- Customer-facing PDP integration: "Join the group, lock in
+  N4,500 — 6 more buyers needed by 8pm". Shareable link.
+- Hourly cron checks deals: if threshold reached at deal end,
+  capture all auth'd payments + place orders. If not, release
+  the auth'd holds.
+- Admin: create group deals from the products admin, monitor
+  active deals dashboard.
+- Trust handling: only fulfil if seller can actually supply the
+  volume — coordinate with inventory.
+
+**Trigger to promote:** Build when we have (a) the bandwidth to
+operate group-deal logistics (inventory planning is harder), AND
+(b) sellers willing to offer real discounts at volume. Could be
+piloted with one supplier-partnered SKU as a test.
+
+Added: 2026-05-12
+
+---
+
+## Referral with real reward
+
+**Status:** Deferred — hard dependency on Continental Rewards
+(both schema + UI) since the referral payout lives in the
+loyalty ledger.
+
+**Why it matters:** Cheapest, most-honest growth lever. "Refer a
+friend, both of you get N3k off your next N10k order" beats every
+paid acquisition channel for a marketplace whose customer base
+already talks to each other constantly on WhatsApp. Compound
+growth at near-zero CAC.
+
+**What it needs (rough scope):**
+- Each User gets a unique referral code (`AFRI-<userId-suffix>`)
+  shown at `/account/refer`.
+- Sharing UI: pre-filled WhatsApp / SMS / email templates with
+  the user's code and a personalised landing page.
+- Landing page at `/r/<code>` — applies the code to the new
+  user's account at signup.
+- On the new user's first qualifying order (>= N10k, completed,
+  not refunded), credit the loyalty ledger of BOTH the referrer
+  and the new user with N3k worth of points.
+- Anti-abuse: same-device, same-payment-card, same-shipping-
+  address heuristics flag obvious self-referrals for review.
+- Tiered cap: each user can refer up to 25 paying friends; above
+  that, payouts pause (most genuine referrers won't hit this).
+- Admin dashboard at `/admin/referrals` — top referrers, payout
+  totals, suspected abuse flags.
+
+**Trigger to promote:** Promote in lockstep with Continental
+Rewards (the wallet/ledger is the same plumbing). Don't ship
+before Rewards exists — paying out referrals without a place
+to store the balance is messy.
+
+Added: 2026-05-12
+
+---
+
+## Meet-the-maker — story per product
+
+**Status:** Deferred.
+
+**Why it matters:** Pan-African is our differentiation. "This shea
+butter is from a women's cooperative in Tamale, Ghana — here is
+the 30-second video of how it is made" turns a commodity grocery
+into a trust signal and a brand moment. Particularly for diaspora,
+this converts "I am buying groceries" into "I am supporting Africa"
+— and "supporting Africa" comes with willingness to pay a premium
+that "buying groceries" doesn't.
+
+**What it needs (rough scope):**
+- New `ProductStory` Prisma model — productId, videoUrl (R2),
+  videoPosterUrl, captionText, makerName, makerLocationCountry +
+  city, durationSeconds (<= 60), createdAt.
+- Or simpler: extend `Product.attributes` JSON with a `story`
+  block — pragmatic v1 since we don't need analytics on stories
+  yet.
+- Admin: a "Story" tab on the product edit page. Upload video
+  (R2, sniffed for video MIME), enter caption + maker name +
+  location. Interns can upload but only admin approves (similar
+  to the existing intern queue).
+- Storefront: render the story below the product gallery on PDPs
+  as a small video card. Tap to expand fullscreen.
+- Stories also surface in the "Today on Afrizonemart" tray (see
+  next entry).
+- Video budget: keep <= 30 seconds, <= 8MB per story to avoid
+  bandwidth costs. Compress on upload.
+
+**Trigger to promote:** Build when we have >= 20 products with
+genuine maker stories ready to record. Below 20 the feature
+looks empty; above 20 it starts to feel like real editorial.
+The seller-onboarding flow once multi-vendor lands is a natural
+moment to ask for story content as part of product setup.
+
+Added: 2026-05-12
+
+---
+
+## Today on Afrizonemart — daily stories tray
+
+**Status:** Deferred — depends on the Meet-the-maker content
+engine existing first (otherwise stories tray has nothing to
+show).
+
+**Why it matters:** IG-stories-style daily content tray on the
+homepage. New arrivals, deals of the day, seller spotlights,
+recipe of the week, maker stories. Creates a daily check-in
+habit — customers open the site to "see what's new today" the
+same way they open Instagram. Sticky.
+
+**What it needs (rough scope):**
+- New `DailyStory` Prisma model — title, coverImageUrl (R2 or
+  derived from product image), type (product / seller / recipe /
+  deal / story-of-the-maker / curator-pick), linkTarget,
+  scheduledAt, expiresAt, displayOrder, isActive.
+- Admin: `/admin/daily-stories` curation page. Drag-and-drop
+  ordering, scheduling, expiry. Auto-expire after 24 hours
+  unless extended.
+- Storefront: horizontal scrollable tray at the top of the
+  homepage (mobile) / right rail of the homepage (desktop).
+  Each story is a circular avatar with the cover image and a
+  short label. Tap to open fullscreen, swipe to next.
+- Reuse CMS page builder for the fullscreen story content
+  (rich text + image + product link).
+- Engagement: heart / share / save buttons on each story.
+
+**Trigger to promote:** After meet-the-maker stories exist
+(>= 20 products) so the tray has substance. Or earlier as a pure
+"deals of the day" surface if we want to test the format with
+just promotional content.
+
+Added: 2026-05-12
+
+---
+
+## Local-language UI toggle
+
+**Status:** Deferred — biggest scope of this batch, deepest moat.
+
+**Why it matters:** Yoruba, Hausa, Igbo, Swahili, Pidgin (and
+later Amharic, French for francophone Africa, Arabic for North
+Africa). Even partial coverage — UI strings, not product copy —
+opens entire markets that competitors don't serve. The
+translation work is tedious but the moat lasts forever once
+shipped, because catching up costs every competitor the same
+multi-month effort.
+
+**What it needs (rough scope):**
+- i18n framework — `next-intl` or `next-i18next`. `next-intl` is
+  cleaner with App Router.
+- Translation file structure under `/src/messages/<locale>.json`.
+  Start with English as the canonical and build outward.
+- Language switcher in the header next to currency / country.
+  Persists choice to a cookie.
+- Translate the **UI shell first** — navigation, buttons, form
+  labels, error messages. Product names and descriptions stay
+  in their original language; that's a per-product / per-seller
+  problem to solve later.
+- Locale order to prioritise: Pidgin -> Yoruba -> Hausa -> Swahili
+  -> Igbo. Pidgin first because it's the lingua-franca of
+  Nigerian online culture and translation is closer to English.
+- Pluralisation + interpolation handled by next-intl's ICU
+  message format.
+- Accept translation contributions from staff — a private Crowdin
+  or Tolgee instance might be worth setting up if we want to
+  scale beyond the first two languages.
+- Right-to-left support (for Arabic later) — Tailwind has RTL
+  utilities; build accommodating CSS now even if we don't ship
+  RTL on day one.
+
+**Trigger to promote:** Promote when (a) we are ready to enter a
+specific market where English is a real barrier (Tanzania for
+Swahili is the most obvious), OR (b) when a Nigerian-focused
+Pidgin push is part of a marketing campaign. Don't try to ship
+all five languages at once — pick one, ship, gather feedback,
+add the next.
+
+Added: 2026-05-12
+
+---
+
+## Price-drop / back-in-stock alerts
+
+**Status:** Deferred — small scope, high leverage, should ship
+relatively early.
+
+**Why it matters:** Industry-standard but disproportionately
+effective in price-sensitive markets where customers genuinely
+wait for sales. Wishlist items that drop in price OR come back
+in stock send a push/SMS notification. Two-day build,
+consistently lifts repeat-order rate ~15-25% across e-commerce
+benchmarks.
+
+**What it needs (rough scope):**
+- New `PriceAlert` Prisma model — userId, productId,
+  triggerPrice (notify when price <= this), createdAt,
+  notifiedAt (nullable), status (active/triggered/expired).
+- Customer-facing UI: a small bell icon next to the price on
+  PDPs. Tap -> input target price OR accept "any price drop".
+  Saves an alert. Also: a "Notify when back in stock" link
+  shown on OOS products.
+- The existing `applyPriceChange` audit-aware helper (price
+  management workstream PR 1) becomes the trigger point. After
+  every successful price write, fire an event
+  `product.price_changed` with old/new price. Subscriber
+  module checks active alerts for that product, notifies the
+  matching users.
+- Stock-restored events: emit `product.in_stock` when inventory
+  flips from 0 to >0 (already partially in place; finish the
+  emit if needed). Same subscriber pattern.
+- Notification channels: email (Resend already wired), SMS
+  (Twilio already wired), in-app notification.
+- One-tap "Stop alerting me" link in every notification email.
+  Required for unsubscribe compliance.
+- Admin: simple `/admin/price-alerts` for inspection +
+  manual-trigger for a specific product if needed.
+
+**Trigger to promote:** Build relatively early — small scope,
+real lift, leans on infra (events + notifications + applyPriceChange)
+that already exists. Could ship in a single PR week.
+
+Added: 2026-05-12
+
+---
+
+## Birthday / occasion gifting reminders
+
+**Status:** Deferred — pairs naturally with "Send to my mum".
+
+**Why it matters:** Once a customer has saved family members
+as recipients (per "Send to my mum"), adding birthdays to those
+records unlocks a calendar of timely repeat-purchase triggers.
+Push: "Mum's birthday in 7 days — last year you sent her ankara
+fabric, want to send something similar?" One-tap re-purchase.
+Compounds the diaspora retention engine.
+
+**What it needs (rough scope):**
+- Add `birthday`, `weddingAnniversary`, other key dates (optional
+  JSON) to the `Recipient` model from "Send to my mum".
+- Daily cron at 9am customer-local-time — find recipients whose
+  occasion is in 7/3/1 days from now. Notify the buyer.
+- Notification template: "[Auntie]'s birthday in 7 days. Last
+  year you sent: [order link]. Want to send something this year?"
+  with a "Reorder" CTA + a "Pick something else" CTA.
+- Editable reminder cadence per customer (turn off if annoying).
+- "Holiday" reminders too — Christmas, Eid, Easter, school
+  resumption — all configurable globally rather than per-recipient.
+- Order page integration: after placing a gift order, suggest
+  "Add [recipient]'s birthday so I can remind you next year".
+
+**Trigger to promote:** Promote after "Send to my mum" has been
+in production for 4+ weeks so we have a meaningful recipient
+database to remind against. Without recipients, this is just
+a generic calendar tool.
+
+Added: 2026-05-12
+
+---
+
+## One-tap re-order from history
+
+**Status:** Deferred — trivially small scope, real conversion lift.
+
+**Why it matters:** Most grocery-staples buyers buy the same things
+every month. Today they have to manually re-find each product, re-
+add to cart, re-confirm address. A "Buy again" button on each past
+order pre-fills the cart with the same items at current prices and
+drops the customer straight to checkout. ~1 day of work, lifts
+repeat-order rate significantly for staples.
+
+**What it needs (rough scope):**
+- New API endpoint: `POST /api/orders/:id/reorder` that takes the
+  order's `OrderItem`s, looks up the current product prices and
+  availability, returns a `CartItem[]` shape ready to push into
+  the cart store.
+- Handle edge cases: product discontinued (skip + flag), price
+  changed (use new price, surface a note), out of stock (add to
+  cart but show a banner).
+- Storefront: "Buy again" button on each past-order card in
+  `/account/orders`. Tap -> adds items to cart -> routes to
+  `/cart` with a toast "Added 4 items from order AZM-XXXX
+  (1 item unavailable)".
+- Also a more prominent "Re-order your usuals" tile on the
+  account dashboard, showing the most-frequently-ordered items
+  across the user's history (top 5 by purchase count) as a
+  "one-tap pick from these" carousel.
+
+**Trigger to promote:** Promote whenever — it's a small build with
+clear ROI. Probably ships right after the diaspora trio when
+attention is on retention features anyway. Or earlier if
+month-over-month retention metrics show a clear drop-off after
+first purchase.
+
+Added: 2026-05-12
