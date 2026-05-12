@@ -3,34 +3,31 @@ import { NextRequest } from 'next/server';
 import { loadProductDetail } from '@/lib/products';
 
 /**
- * GET /api/products/[slug]/share-image?variant=square|og
+ * GET /api/products/[slug]/share-image?variant=square|og&force=1
  *
- * Generates a PNG promotional card for the product. Layout takes
- * its cue from the LARQ Water Bottle reference Magnus supplied —
- * horizon-split backdrop, frosted-glass info card on the left,
- * product floating on the right with a soft drop-shadow.
+ * Generates a PNG promotional card for the product. Layout takes its
+ * cue from the LARQ Water Bottle reference Magnus shared — horizon-
+ * split backdrop, frosted-glass info card on the left, product
+ * floating on the right with a soft drop-shadow.
  *
- * Two render variants in this file:
- *
- *  - Floating (when the API's cutout endpoint returns
- *    `isOriginal: false`, i.e. background-removed PNG with alpha
- *    channel). Product floats on the gradient with a soft elliptical
- *    shadow underneath, exactly as in the LARQ reference.
- *
- *  - Inset (when `isOriginal: true`, i.e. the API fell back to the
- *    NoopProvider because REMOVE_BG_API_KEY isn't configured).
- *    Product image sits inside a rounded white frame on the right —
- *    the rectangular original looks intentional inside a frame, not
- *    pasted onto the gradient.
- *
- * Either way the frosted card on the left renders the same:
- * brand eyebrow, name, rating, short description, price (with
- * compare-price strike when applicable), amber "Shop now" pill,
- * and short URL footer.
+ * Two render paths, picked off the cutout response's `isOriginal`:
+ *  - Floating (isOriginal:false, real cutout): product floats on the
+ *    gradient with a soft elliptical drop-shadow underneath.
+ *  - Inset (isOriginal:true, original-image fallback): product sits
+ *    inside a rounded white frame so the rectangular original looks
+ *    intentional, not pasted onto the backdrop.
  *
  * Variants:
  *  - `square` (default) — 1080×1080 for WhatsApp / IG status / SMS.
  *  - `og`              — 1200×630 for Twitter / Facebook / iMessage.
+ *
+ * Satori gotchas this file works around (the v1 hit all three):
+ *  1. Backdrops sized with `flex: X%` collapse when the flex child
+ *     has no children of its own → use explicit `width/height`.
+ *  2. Fragment-wrapped absolute children sometimes drop → every
+ *     helper returns a single root <div>.
+ *  3. The bundled Inter font has no Naira (U+20A6) glyph → display
+ *     prices as "NGN 950" not "₦950" until we load Raleway.
  */
 export const dynamic = 'force-dynamic';
 
@@ -39,12 +36,14 @@ const NAVY_LIGHT = '#1a1a8c';
 const NAVY_FLOOR = '#2a2aa3';
 const AMBER = '#FBAC34';
 const FROST = 'rgba(255, 255, 255, 0.95)';
-const FROST_BORDER = 'rgba(255, 255, 255, 0.7)';
 const INK = '#2C2C2C';
 const MUTED = '#555555';
+const STAR_DIM = '#D5D5D5';
 
 function formatPrice(value: number): string {
-  return `₦${value.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
+  // ASCII "NGN" prefix instead of ₦ — Inter (satori's bundled font)
+  // doesn't include the Naira glyph, renders as tofu.
+  return `NGN ${value.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
 }
 
 async function fetchCutout(
@@ -67,24 +66,23 @@ async function fetchCutout(
 }
 
 function Stars({ rating }: { rating: number }) {
-  // Round to nearest half star — but for satori we cheat and round to
-  // the nearest whole star since rendering half-stars cleanly without
-  // SVG paths is more work than it's worth at this scale.
+  // Round to nearest whole star — half-stars are more layout pain
+  // than they're worth at this resolution.
   const filled = Math.max(0, Math.min(5, Math.round(rating)));
-  const stars = Array.from({ length: 5 }, (_, i) => i < filled);
   return (
     <div style={{ display: 'flex', gap: 2 }}>
-      {stars.map((isFilled, i) => (
-        <span
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div
           key={i}
           style={{
             fontSize: 22,
-            color: isFilled ? AMBER : '#E5E5E5',
+            color: i < filled ? AMBER : STAR_DIM,
             lineHeight: 1,
+            display: 'flex',
           }}
         >
           ★
-        </span>
+        </div>
       ))}
     </div>
   );
@@ -119,18 +117,19 @@ export async function GET(
     product.shortDescription ||
     product.longDescription.replace(/<[^>]+>/g, '').slice(0, 200);
   const truncDesc =
-    description.length > 160 ? `${description.slice(0, 157)}…` : description;
+    description.length > 140 ? `${description.slice(0, 137)}…` : description;
   const truncName =
-    product.name.length > 56 ? `${product.name.slice(0, 53)}…` : product.name;
+    product.name.length > 52 ? `${product.name.slice(0, 49)}…` : product.name;
 
-  // Layout dimensions per variant. Square gets the full left/right
-  // split LARQ-style; og is wider so we slightly narrow the card.
-  const cardWidth = variant === 'og' ? 560 : 520;
-  const cardLeft = variant === 'og' ? 60 : 60;
+  // Variant-specific dimensions.
+  const cardLeft = 60;
   const cardTop = variant === 'og' ? 80 : 200;
-  const cardBottom = variant === 'og' ? 80 : 120;
-  const productAreaWidth = variant === 'og' ? 520 : 480;
-  const productAreaRight = variant === 'og' ? 60 : 80;
+  const cardWidth = variant === 'og' ? 520 : 500;
+  const cardHeight = variant === 'og' ? height - 160 : height - 320;
+
+  const productAreaSize = variant === 'og' ? 440 : 500;
+  const productAreaRight = variant === 'og' ? 80 : 80;
+  const productAreaTop = variant === 'og' ? 100 : 220;
 
   return new ImageResponse(
     (
@@ -141,33 +140,34 @@ export async function GET(
           display: 'flex',
           position: 'relative',
           fontFamily: 'sans-serif',
+          backgroundColor: NAVY,
         }}
       >
-        {/* Horizon-split backdrop. Top wall darker, bottom floor
-            slightly lighter — gives the photo-studio look. */}
+        {/* Backdrop wall (top 62%). Explicit width+height — satori
+            collapses flex-only sized divs with no children. */}
         <div
           style={{
             position: 'absolute',
-            inset: 0,
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: `${Math.floor(height * 0.62)}px`,
+            background: `linear-gradient(180deg, ${NAVY} 0%, ${NAVY_LIGHT} 100%)`,
             display: 'flex',
-            flexDirection: 'column',
           }}
-        >
-          <div
-            style={{
-              flex: '0 0 62%',
-              background: `linear-gradient(180deg, ${NAVY} 0%, ${NAVY_LIGHT} 100%)`,
-              display: 'flex',
-            }}
-          />
-          <div
-            style={{
-              flex: '1',
-              background: `linear-gradient(180deg, ${NAVY_LIGHT} 0%, ${NAVY_FLOOR} 100%)`,
-              display: 'flex',
-            }}
-          />
-        </div>
+        />
+        {/* Backdrop floor (bottom 38%) */}
+        <div
+          style={{
+            position: 'absolute',
+            top: `${Math.floor(height * 0.62)}px`,
+            left: 0,
+            width: '100%',
+            height: `${height - Math.floor(height * 0.62)}px`,
+            background: `linear-gradient(180deg, ${NAVY_LIGHT} 0%, ${NAVY_FLOOR} 100%)`,
+            display: 'flex',
+          }}
+        />
 
         {/* Brand wordmark top-left */}
         <div
@@ -182,15 +182,15 @@ export async function GET(
         >
           <div
             style={{
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               borderRadius: 10,
               backgroundColor: AMBER,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: NAVY,
-              fontSize: 28,
+              fontSize: 30,
               fontWeight: 800,
             }}
           >
@@ -209,60 +209,59 @@ export async function GET(
           </div>
         </div>
 
-        {/* Origin chip top-right (e.g. "Made in NG") */}
+        {/* Origin chip top-right */}
         <div
           style={{
             position: 'absolute',
-            top: 50,
+            top: 52,
             right: 56,
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            padding: '8px 16px',
+            padding: '10px 18px',
             borderRadius: 999,
-            backgroundColor: 'rgba(255,255,255,0.15)',
+            backgroundColor: 'rgba(255,255,255,0.18)',
+            border: '1px solid rgba(255,255,255,0.3)',
             color: 'white',
             fontSize: 16,
-            fontWeight: 600,
-            letterSpacing: 1,
+            fontWeight: 700,
+            letterSpacing: 1.5,
           }}
         >
           PRODUCT OF {product.origin}
         </div>
 
-        {/* Right side — product image area */}
+        {/* Product image area — single root div per variant */}
         {productImageSrc ? (
           isFloating ? (
             <FloatingProduct
               src={productImageSrc}
-              width={productAreaWidth}
+              size={productAreaSize}
               right={productAreaRight}
-              variant={variant}
+              top={productAreaTop}
             />
           ) : (
             <InsetProduct
               src={productImageSrc}
-              width={productAreaWidth}
+              size={productAreaSize}
               right={productAreaRight}
-              variant={variant}
+              top={productAreaTop}
             />
           )
         ) : null}
 
-        {/* Frosted info card on the left, full height */}
+        {/* Frosted info card on the left */}
         <div
           style={{
             position: 'absolute',
             left: cardLeft,
             top: cardTop,
-            bottom: cardBottom,
             width: cardWidth,
+            height: cardHeight,
             display: 'flex',
             flexDirection: 'column',
             padding: '36px 36px 32px 36px',
             borderRadius: 24,
             backgroundColor: FROST,
-            border: `1px solid ${FROST_BORDER}`,
             boxShadow: '0 30px 60px rgba(0, 0, 0, 0.35)',
           }}
         >
@@ -284,11 +283,11 @@ export async function GET(
           {/* Product name */}
           <div
             style={{
-              fontSize: variant === 'og' ? 40 : 46,
+              fontSize: variant === 'og' ? 38 : 44,
               fontWeight: 800,
               color: NAVY,
-              lineHeight: 1.08,
-              marginTop: 10,
+              lineHeight: 1.1,
+              marginTop: 8,
               marginBottom: 14,
               display: 'flex',
             }}
@@ -303,7 +302,7 @@ export async function GET(
                 display: 'flex',
                 alignItems: 'center',
                 gap: 10,
-                marginBottom: 16,
+                marginBottom: 14,
               }}
             >
               <Stars rating={product.rating} />
@@ -311,9 +310,7 @@ export async function GET(
                 {product.rating.toFixed(1)} ({product.reviewCount.toLocaleString()} reviews)
               </div>
             </div>
-          ) : (
-            <div style={{ height: 8, display: 'flex' }} />
-          )}
+          ) : null}
 
           {/* Short description */}
           <div
@@ -328,19 +325,21 @@ export async function GET(
             {truncDesc}
           </div>
 
+          {/* Spacer to push the price + CTA to the bottom */}
+          <div style={{ flexGrow: 1, display: 'flex' }} />
+
           {/* Price row */}
           <div
             style={{
               display: 'flex',
               alignItems: 'baseline',
               gap: 14,
-              marginTop: 'auto',
-              marginBottom: 4,
+              marginBottom: 18,
             }}
           >
             <div
               style={{
-                fontSize: variant === 'og' ? 48 : 56,
+                fontSize: variant === 'og' ? 44 : 52,
                 fontWeight: 800,
                 color: NAVY,
                 display: 'flex',
@@ -351,7 +350,7 @@ export async function GET(
             {comparePriceLabel ? (
               <div
                 style={{
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: 500,
                   color: '#999',
                   textDecoration: 'line-through',
@@ -369,7 +368,6 @@ export async function GET(
               display: 'flex',
               alignItems: 'center',
               gap: 14,
-              marginTop: 18,
             }}
           >
             <div
@@ -388,7 +386,7 @@ export async function GET(
             </div>
             <div
               style={{
-                fontSize: 14,
+                fontSize: 13,
                 color: NAVY,
                 opacity: 0.65,
                 display: 'flex',
@@ -408,6 +406,7 @@ export async function GET(
             width: '100%',
             height: 8,
             backgroundColor: AMBER,
+            display: 'flex',
           }}
         />
       </div>
@@ -416,6 +415,8 @@ export async function GET(
       width,
       height,
       headers: {
+        // Short browser cache, longer CDN cache. Use ?force=1 to
+        // bust both when testing template changes.
         'Cache-Control': 'public, max-age=60, s-maxage=3600, stale-while-revalidate=86400',
       },
     },
@@ -424,89 +425,86 @@ export async function GET(
 
 function FloatingProduct({
   src,
-  width,
+  size,
   right,
-  variant,
+  top,
 }: {
   src: string;
-  width: number;
+  size: number;
   right: number;
-  variant: 'square' | 'og';
+  top: number;
 }) {
-  const productSize = width;
-  const productTop = variant === 'og' ? 80 : 180;
-  // Shadow ellipse sits below the product. Width slightly bigger
-  // than the product, height shallow, soft radial fade.
-  const shadowWidth = productSize * 0.85;
-  const shadowHeight = 60;
-  const shadowBottom = variant === 'og' ? 100 : 160;
+  const shadowWidth = Math.floor(size * 0.78);
+  const shadowHeight = 48;
+  const shadowOffsetFromTop = top + size - 24;
 
-  return (
-    <>
-      <div
-        style={{
-          position: 'absolute',
-          right: right + (productSize - shadowWidth) / 2,
-          bottom: shadowBottom,
-          width: shadowWidth,
-          height: shadowHeight,
-          background:
-            'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 70%)',
-          display: 'flex',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          right,
-          top: productTop,
-          width: productSize,
-          height: productSize,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt=""
-          width={productSize}
-          height={productSize}
-          style={{ objectFit: 'contain', maxWidth: '100%', maxHeight: '100%' }}
-        />
-      </div>
-    </>
-  );
-}
-
-function InsetProduct({
-  src,
-  width,
-  right,
-  variant,
-}: {
-  src: string;
-  width: number;
-  right: number;
-  variant: 'square' | 'og';
-}) {
-  const frameSize = width;
-  const frameTop = variant === 'og' ? 100 : 220;
-  const innerPad = 32;
-
+  // Single root div wrapping shadow + image. Satori is more reliable
+  // with a single absolute container than two siblings or a Fragment.
   return (
     <div
       style={{
         position: 'absolute',
         right,
-        top: frameTop,
-        width: frameSize,
-        height: frameSize,
+        top,
+        width: size,
+        height: size + shadowHeight,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        style={{
+          objectFit: 'contain',
+          width: size,
+          height: size,
+        }}
+      />
+      <div
+        style={{
+          width: shadowWidth,
+          height: shadowHeight,
+          marginTop: -shadowHeight + 12,
+          background:
+            'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 70%)',
+          display: 'flex',
+        }}
+      />
+      {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
+      {shadowOffsetFromTop > 0 ? null : null}
+    </div>
+  );
+}
+
+function InsetProduct({
+  src,
+  size,
+  right,
+  top,
+}: {
+  src: string;
+  size: number;
+  right: number;
+  top: number;
+}) {
+  const pad = 32;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        right,
+        top,
+        width: size,
+        height: size,
         backgroundColor: 'white',
         borderRadius: 24,
         boxShadow: '0 30px 60px rgba(0, 0, 0, 0.35)',
-        padding: innerPad,
+        padding: pad,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -516,9 +514,13 @@ function InsetProduct({
       <img
         src={src}
         alt=""
-        width={frameSize - innerPad * 2}
-        height={frameSize - innerPad * 2}
-        style={{ objectFit: 'contain' }}
+        width={size - pad * 2}
+        height={size - pad * 2}
+        style={{
+          objectFit: 'contain',
+          width: size - pad * 2,
+          height: size - pad * 2,
+        }}
       />
     </div>
   );
