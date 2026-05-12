@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, Copy, Image as ImageIcon, Mail, Send, Share2 } from 'lucide-react';
-import { SafeBoundary } from '@/components/common/SafeBoundary';
-import { useFlag } from '@/lib/useFlag';
+import { Check, Copy, Mail, Send, Share2 } from 'lucide-react';
 import { SITE_URL } from '@/lib/seo';
 
 /**
@@ -54,7 +52,6 @@ export function ShareProductButton({
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const canShareAsImage = useFlag('share_as_image', false);
 
   // Plain text companion to the URL — surfaces in WhatsApp's
   // preview, SMS, and Twitter's intent. Keep under ~120 chars so
@@ -199,103 +196,9 @@ export function ShareProductButton({
             icon={<Mail size={14} aria-hidden />}
             label="Email"
           />
-
-          {canShareAsImage ? (
-            <SafeBoundary name="share-as-image" fallback={null}>
-              <ShareAsImageMenuItem
-                slug={slug}
-                shareTitle={shareTitle}
-                shareText={shareText}
-              />
-            </SafeBoundary>
-          ) : null}
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * "Share as image" popover row. Fetches the generated PNG card
- * from `/api/products/[slug]/share-image?variant=square`, then:
- *  - On mobile (Web Share API + files support) — invokes the
- *    native share sheet with the PNG attached so the user can
- *    drop it into WhatsApp / IG status / SMS directly.
- *  - Elsewhere — triggers a download fallback so the user can
- *    save the PNG and share manually.
- *
- * Gated by `useFlag('share_as_image')` upstream. Wrapped in a
- * SafeBoundary so a fetch / share failure can't take down the
- * surrounding link-share popover.
- */
-function ShareAsImageMenuItem({
-  slug,
-  shareTitle,
-  shareText,
-}: {
-  slug: string;
-  shareTitle: string;
-  shareText: string;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
-
-  const handleClick = async () => {
-    if (busy) return;
-    setBusy(true);
-    setError(false);
-    try {
-      const res = await fetch(`/api/products/${encodeURIComponent(slug)}/share-image?variant=square`);
-      if (!res.ok) throw new Error(`generation failed: ${res.status}`);
-      const blob = await res.blob();
-      const file = new File([blob], `${slug}-afrizonemart.png`, { type: 'image/png' });
-
-      const canShareFiles =
-        typeof navigator !== 'undefined' &&
-        typeof navigator.canShare === 'function' &&
-        navigator.canShare({ files: [file] });
-
-      if (canShareFiles && typeof navigator.share === 'function') {
-        try {
-          await navigator.share({
-            files: [file],
-            title: shareTitle,
-            text: shareText,
-          });
-          return;
-        } catch (err) {
-          if (err instanceof Error && err.name === 'AbortError') return;
-          // Fall through to download.
-        }
-      }
-
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = `${slug}-afrizonemart.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    } catch {
-      setError(true);
-      window.setTimeout(() => setError(false), 3000);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={() => void handleClick()}
-      disabled={busy}
-      className="flex items-center gap-2 rounded-input px-3 py-2 text-left font-sans text-sm text-charcoal hover:bg-page disabled:opacity-60"
-    >
-      <ImageIcon size={14} aria-hidden />
-      {busy ? 'Generating…' : error ? 'Try again' : 'Share as image'}
-    </button>
   );
 }
 

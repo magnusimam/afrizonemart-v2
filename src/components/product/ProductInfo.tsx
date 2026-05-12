@@ -19,6 +19,7 @@ import { useCartStore } from '@/stores/cartStore';
 import type { FeatureIcon, ProductDetail } from '@/lib/products';
 import { BundleSelector } from './BundleSelector';
 import { ShareProductButton } from './ShareProductButton';
+import { ShareAsImageButton } from './ShareAsImageButton';
 import { ProductAccordion } from './ProductAccordion';
 import { QuantitySelector } from './QuantitySelector';
 import { DisplayPrice } from './DisplayPrice';
@@ -118,6 +119,12 @@ export function ProductInfo({ product }: ProductInfoProps) {
         </div>
         <div className="flex items-center gap-2">
           <ShareProductButton
+            slug={product.slug}
+            productName={product.name}
+            brand={product.brand}
+            shortDescription={product.shortDescription}
+          />
+          <ShareAsImageButton
             slug={product.slug}
             productName={product.name}
             brand={product.brand}
