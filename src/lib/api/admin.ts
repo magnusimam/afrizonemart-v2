@@ -2012,3 +2012,115 @@ export function adminSetShelfProducts(
     },
   );
 }
+
+// ----- Admin Loyalty (Continental Rewards) — Tracker #44 PR 1 -----
+
+export type LoyaltyTier = 'BLUE' | 'GOLD' | 'VIP' | 'AMBASSADOR' | 'DORIME';
+
+export type LoyaltyTransactionType =
+  | 'WELCOME_BONUS'
+  | 'EARN'
+  | 'REDEEM'
+  | 'REFUND_REVERSAL'
+  | 'REDEEM_REFUND'
+  | 'EXPIRY'
+  | 'ADMIN_ADJUSTMENT';
+
+export interface LoyaltyConfigDto {
+  baseEarnPerOrder: number;
+  tierMultiplier: number;
+  welcomeBonusCoins: number;
+  tier2GoldThreshold: number;
+  tier3VipThreshold: number;
+  tier4AmbassadorThreshold: number;
+  tier5DorimeThreshold: number;
+  coinValueNgn: number;
+  maxOrderRedeemPercent: number;
+  minRedeemCoins: number;
+  coinExpiryMonths: number;
+  spendWindowMonths: number;
+}
+
+export interface LoyaltyAccountRow {
+  id: string;
+  userId: string;
+  coinBalance: number;
+  currentTier: LoyaltyTier;
+  lifetimeCoinsEarned: number;
+  lifetimeCoinsRedeemed: number;
+  enrolledAt: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    id: string;
+    email: string;
+    name: string | null;
+    phone: string | null;
+  };
+}
+
+export interface LoyaltyTransactionRow {
+  id: string;
+  accountId: string;
+  delta: number;
+  balanceAfter: number;
+  type: LoyaltyTransactionType;
+  causeOrderId: string | null;
+  causeAdminId: string | null;
+  reason: string | null;
+  expiresAt: string | null;
+  expiredAt: string | null;
+  createdAt: string;
+}
+
+export interface LoyaltyAccountDetail extends LoyaltyAccountRow {
+  transactions: LoyaltyTransactionRow[];
+}
+
+export function adminGetLoyaltyConfig(): Promise<LoyaltyConfigDto> {
+  return apiFetchAuthed('/api/admin/loyalty/config');
+}
+
+export function adminUpdateLoyaltyConfig(
+  patch: Partial<LoyaltyConfigDto>,
+): Promise<LoyaltyConfigDto> {
+  return apiFetchAuthed('/api/admin/loyalty/config', {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export function adminListLoyaltyAccounts(params: {
+  q?: string;
+  tier?: LoyaltyTier;
+  page?: number;
+  pageSize?: number;
+}): Promise<{
+  items: LoyaltyAccountRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}> {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.tier) qs.set('tier', params.tier);
+  if (params.page) qs.set('page', String(params.page));
+  if (params.pageSize) qs.set('pageSize', String(params.pageSize));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return apiFetchAuthed(`/api/admin/loyalty/accounts${suffix}`);
+}
+
+export function adminGetLoyaltyAccount(id: string): Promise<LoyaltyAccountDetail> {
+  return apiFetchAuthed(`/api/admin/loyalty/accounts/${encodeURIComponent(id)}`);
+}
+
+export function adminAdjustLoyaltyAccount(
+  id: string,
+  delta: number,
+  reason: string,
+): Promise<LoyaltyTransactionRow> {
+  return apiFetchAuthed(`/api/admin/loyalty/accounts/${encodeURIComponent(id)}/adjust`, {
+    method: 'POST',
+    body: JSON.stringify({ delta, reason }),
+  });
+}
