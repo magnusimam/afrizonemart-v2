@@ -892,3 +892,167 @@ month-over-month retention metrics show a clear drop-off after
 first purchase.
 
 Added: 2026-05-12
+
+---
+
+## Real-time order tracking with map
+
+**Status:** Deferred — UX-grade feature, depends on courier
+integration.
+
+**Why it matters:** Lagos traffic is real. Customers obsessively
+refresh "where is my order?" pages. A real-time map showing the
+rider's current location + ETA cuts customer-support load and
+turns "anxiety waiting" into "anticipation tracking." Bonus
+conversion: visible delivery progress generates social-media
+posts ("look how close my Afrizonemart bag is!").
+
+**What it needs (rough scope):**
+- Courier API integration — GIG Logistics already wired for
+  quotes; check if their real-time tracking API exists. If
+  not, partner with a last-mile-courier that exposes location
+  webhooks (Sendy, GoKada-for-delivery, Glovo, local options).
+- New `DeliveryEvent` Prisma model — orderId, courierId,
+  eventType (picked_up, in_transit, near_destination,
+  delivered, failed_attempt), lat/lng, timestamp, payload (raw
+  webhook).
+- Storefront map UI on `/account/orders/[id]` — Mapbox or
+  Cloudflare Maps. Show rider pin moving, customer pin at
+  destination, ETA ribbon.
+- Push notification: "Your rider is 5 minutes away. Have your
+  phone ready."
+- Fall back to a clean stepper view ("Picked up → In transit →
+  Delivered") if the courier doesn't expose live coords.
+
+**Trigger to promote:** Promote when a courier with reliable
+tracking webhooks is integrated, OR when "where is my order"
+makes up a top-3 customer-support reason.
+
+Added: 2026-05-12
+
+---
+
+## Affiliate / Creator program
+
+**Status:** Deferred — distribution play, hard depends on
+Continental Rewards wallet for payouts.
+
+**Why it matters:** African creators on TikTok / Instagram / X
+already promote products informally — give them tracking links
+and a real commission and they'll do it formally. Influencer
+marketing in Africa is high-engagement and disproportionately
+cheap. Diaspora-fashion / cooking / lifestyle creators are the
+sweet spot.
+
+**What it needs (rough scope):**
+- New `AffiliateAccount` Prisma model — userId, handle,
+  socialUrls, commissionPercent (default 5%, configurable),
+  payoutAccount (Continental Rewards wallet or external
+  bank/mobile money), totalEarned, isActive.
+- Each affiliate gets unique tracking links: `afrizonemart.com/
+  product/<slug>?aff=<handle>`. Cookie keyed by handle persists
+  for 30 days.
+- On order completion, if the cookie matches an active
+  affiliate AND the affiliate isn't the buyer, credit the
+  commission to their wallet.
+- Affiliate dashboard at `/account/affiliate` — links
+  performance (clicks, orders, commission), top products,
+  withdrawal history.
+- Admin: `/admin/affiliates` to review applications, set
+  custom commission rates, monitor anti-fraud signals.
+- Anti-fraud: same-card-same-address heuristics flag obvious
+  self-purchases.
+- Compliance: affiliate must disclose paid promotion per FTC
+  + Nigerian ad rules — surfaced as a checkbox in the
+  application.
+
+**Trigger to promote:** After Continental Rewards is live
+(payout infra). Pilot with 5 hand-picked creators before
+opening applications widely. Don't launch publicly until
+fraud-detection heuristics are tuned (else early abuse can
+poison the model).
+
+Added: 2026-05-12
+
+---
+
+## Buy-now-pay-later (BNPL) for mid-ticket orders
+
+**Status:** Deferred — partnership-dependent.
+
+**Why it matters:** Mid-ticket categories (electronics,
+fashion, appliances) have huge African demand but get blocked
+by upfront cash availability. A BNPL option ("pay 4 instalments
+of ₦12,500 over 2 months, 0% interest") removes that block.
+Industry conversion lift on BNPL-enabled checkouts is ~10-15%
+on eligible orders.
+
+**What it needs (rough scope):**
+- Partner with a Nigerian/Kenyan BNPL provider — CredPal,
+  Carbon, M-KOPA, Lipa Later, depending on market. Most expose
+  a hosted checkout where we just redirect the customer to
+  their flow with the cart total.
+- API integration on checkout: when cart > ₦20k and customer
+  is in a BNPL-supported country, show "Pay in 4" as a payment
+  option alongside card + mobile money.
+- BNPL provider settles us in full immediately; customer pays
+  them over time. We absorb the 4–6% transaction fee (vs ~1.5%
+  for cards) but the conversion lift more than covers it on
+  eligible orders.
+- New `Payment.method` enum value `BNPL`. Same order flow
+  otherwise — order is "paid" the moment BNPL approves.
+- Risk: BNPL providers KYC the customer themselves; we don't
+  carry default risk.
+- UX: clear instalment plan shown before customer commits.
+  Surface the total + per-instalment breakdown.
+
+**Trigger to promote:** When we have non-grocery / mid-ticket
+categories meaningfully expanded (electronics, appliances,
+furniture). For pure-grocery catalog the AOV is too low to
+justify BNPL. Or build the integration early and only enable
+it on category-specific products.
+
+Added: 2026-05-12
+
+---
+
+## Returns made easy — one-tap return + pickup
+
+**Status:** Deferred — most logistics-heavy of this batch.
+
+**Why it matters:** Returns are the #1 trust signal. African
+e-commerce has a returns-anxiety problem — customers hesitate
+on first orders because "what if I need to return it." A
+clean one-tap return flow (pickup at home, refund to wallet
+within 48 hours) flips the trust equation and dissolves
+first-order hesitation.
+
+**What it needs (rough scope):**
+- New `ReturnRequest` Prisma model — orderId, orderItemId,
+  reason (enum: not_as_described, damaged, wrong_item,
+  changed_mind, other), customerNote, status (requested /
+  approved / picked_up / inspected / refunded / rejected),
+  refundAmount, refundMethod (original_payment / wallet).
+- Customer-facing return flow on `/account/orders/[id]` —
+  "Return this item" button per order item. Two-step: pick
+  reason → upload photo if applicable → submit.
+- Pickup scheduling: customer picks a 4-hour window. Courier
+  picks up the item at the home address.
+- Admin: `/admin/returns` to approve/reject + track inspection.
+  Once inspected, one click triggers refund to original
+  payment or wallet.
+- Wallet refunds are instant (Continental Rewards wallet) and
+  unlock the "refund to my wallet for 110% credit" upsell —
+  customer gets ₦5500 in wallet instead of ₦5000 to original
+  card. Lower cash-cost-of-refund + higher LTV.
+- Returns dashboard: tracking the customer's return at every
+  step (similar to order tracking).
+- Reasoning data feeds back into product quality signals —
+  high-return-rate SKUs get flagged for admin review.
+
+**Trigger to promote:** Promote when we have a courier
+partnership that handles returns (not just outbound delivery).
+Probably bundled with the "Real-time order tracking with map"
+courier integration above.
+
+Added: 2026-05-12
