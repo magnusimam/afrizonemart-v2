@@ -60,6 +60,7 @@ export default function PaymentPage() {
 
   const shipping = useCheckoutStore((s) => s.shipping);
   const shippingRateId = useCheckoutStore((s) => s.shippingRateId);
+  const coinRedeemRequest = useCartStore((s) => s.coinRedeemRequest);
   const selectedQuote = useCheckoutStore((s) => s.selectedQuote);
   const storedPayment = useCheckoutStore((s) => s.paymentMethod);
   const setPaymentMethod = useCheckoutStore((s) => s.setPaymentMethod);
@@ -152,6 +153,7 @@ export default function PaymentPage() {
         },
         paymentMethod: PAYMENT_METHOD_MAP[selected],
         shippingRateId,
+        coinRedeemCoins: coinRedeemRequest > 0 ? coinRedeemRequest : undefined,
       });
       setOrderId(order.orderNumber);
 

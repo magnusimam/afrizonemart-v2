@@ -32,6 +32,8 @@ export interface Order {
   currency: string;
   couponCode: string | null;
   couponDiscount: number;
+  coinsRedeemed: number;
+  coinDiscount: number;
   shippingRateId: string | null;
   shipFullName: string;
   shipPhone: string;
@@ -55,6 +57,10 @@ export interface PlaceOrderInput {
   };
   paymentMethod?: PaymentMethodId;
   shippingRateId?: string;
+  /// Afrizone Coins to apply to this order. Server re-validates
+  /// against the live balance + min/max rules. 0 or omitted = no
+  /// redemption.
+  coinRedeemCoins?: number;
 }
 
 export function placeOrder(input: PlaceOrderInput): Promise<Order> {

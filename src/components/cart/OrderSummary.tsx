@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Lock } from 'lucide-react';
 import { DisplayPrice } from '@/components/product/DisplayPrice';
+import { useCartStore } from '@/stores/cartStore';
 
 interface OrderSummaryProps {
   itemCount: number;
@@ -11,6 +12,10 @@ interface OrderSummaryProps {
   couponCode?: string | null;
   couponDiscount?: number;
   couponFreeShipping?: boolean;
+  /** NGN per coin — passed in by the cart page so OrderSummary
+   *  doesn't have to fetch /api/loyalty/me itself. Defaults to 33
+   *  to match the current admin config. */
+  coinValueNgn?: number;
 }
 
 export function OrderSummary({
@@ -19,12 +24,18 @@ export function OrderSummary({
   couponCode,
   couponDiscount = 0,
   couponFreeShipping = false,
+  coinValueNgn = 33,
 }: OrderSummaryProps) {
+  const coinRedeemRequest = useCartStore((s) => s.coinRedeemRequest);
+  const coinDiscount = coinRedeemRequest * coinValueNgn;
   const empty = itemCount === 0;
   // Shipping is finalised on the checkout page (zone+rate picker). Cart
   // page just shows "calculated at checkout" + the discount + total
   // BEFORE shipping so the customer sees what they're saving.
-  const totalBeforeShipping = Math.max(0, subtotal - couponDiscount);
+  const totalBeforeShipping = Math.max(
+    0,
+    subtotal - couponDiscount - coinDiscount,
+  );
 
   return (
     <aside className="lg:sticky lg:top-4">
@@ -56,6 +67,17 @@ export function OrderSummary({
               valueClass="text-success"
             />
           ) : null}
+          {coinDiscount > 0 ? (
+            <SummaryRow
+              label={`Afrizone Coins (${coinRedeemRequest.toLocaleString()})`}
+              value={
+                <span>
+                  −<DisplayPrice amountNgn={coinDiscount} compact />
+                </span>
+              }
+              valueClass="text-success"
+            />
+          ) : null}
           <SummaryRow
             label="Shipping"
             value={couponFreeShipping ? 'Free' : 'Calculated at checkout'}
@@ -65,7 +87,9 @@ export function OrderSummary({
 
         <div className="flex items-baseline justify-between gap-3 border-t-2 border-border pt-4">
           <span className="font-raleway text-base font-bold text-navy md:text-lg">
-            {couponDiscount > 0 ? 'Subtotal after discount' : 'Subtotal'}
+            {couponDiscount > 0 || coinDiscount > 0
+              ? 'Subtotal after discounts'
+              : 'Subtotal'}
           </span>
           <DisplayPrice
             amountNgn={totalBeforeShipping}

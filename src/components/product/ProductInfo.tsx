@@ -24,6 +24,7 @@ import { ProductAccordion } from './ProductAccordion';
 import { QuantitySelector } from './QuantitySelector';
 import { DisplayPrice } from './DisplayPrice';
 import { AnimatedAddToCartButton } from './AnimatedAddToCartButton';
+import { PayWithCoinButton } from './PayWithCoinButton';
 import { StaticAddToCartButton } from './StaticAddToCartButton';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { useFlag } from '@/lib/useFlag';
@@ -288,6 +289,11 @@ export function ProductInfo({ product }: ProductInfoProps) {
         >
           Buy Now
         </button>
+
+        <PayWithCoinButton
+          productPriceNgn={totalPrice}
+          onAdd={handleAddToCart}
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-2 rounded-card border border-border bg-page p-3 md:gap-3 md:p-4">

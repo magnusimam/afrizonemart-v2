@@ -4,10 +4,17 @@ import type { CartItem } from '@/types';
 
 interface CartState {
   items: CartItem[];
+  /// Continental Rewards (Tracker #44 PR 3) — number of Afrizone
+  /// Coins the customer wants to apply at checkout. Validated +
+  /// debited server-side inside placeOrder. Persisted locally so
+  /// the choice survives page reloads. Cleared on order placement
+  /// (via clear()).
+  coinRedeemRequest: number;
   setItems: (items: CartItem[]) => void;
   addItem: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
+  setCoinRedeemRequest: (coins: number) => void;
   clear: () => void;
 }
 
@@ -15,7 +22,9 @@ export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
       items: [],
+      coinRedeemRequest: 0,
       setItems: (items) => set({ items }),
+      setCoinRedeemRequest: (coins) => set({ coinRedeemRequest: Math.max(0, Math.floor(coins)) }),
       addItem: (item, quantity = 1) =>
         set((state) => {
           const existing = state.items.find((i) => i.productId === item.productId);
@@ -43,7 +52,7 @@ export const useCartStore = create<CartState>()(
                   i.productId === productId ? { ...i, quantity } : i,
                 ),
         })),
-      clear: () => set({ items: [] }),
+      clear: () => set({ items: [], coinRedeemRequest: 0 }),
     }),
     { name: 'azm-cart' },
   ),

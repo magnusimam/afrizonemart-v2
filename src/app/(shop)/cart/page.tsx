@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Home as HomeIcon, Trash2 } from 'lucide-react';
+import { CartCoinRedeemForm } from '@/components/cart/CartCoinRedeemForm';
 import { CartCouponForm } from '@/components/cart/CartCouponForm';
 import { CartLineItem } from '@/components/cart/CartLineItem';
 import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
@@ -161,12 +162,18 @@ export default function CartPage() {
                   </div>
 
                   <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div className="md:max-w-md md:flex-1">
+                    <div className="flex flex-col gap-4 md:max-w-md md:flex-1">
                       <SafeBoundary name="cart:coupon" fallback={null}>
                         <CartCouponForm
                           couponCode={serverCart?.couponCode ?? null}
                           couponDiscount={serverCart?.couponDiscount ?? 0}
                           onChange={setServerCart}
+                          disabled={!isAuthed}
+                        />
+                      </SafeBoundary>
+                      <SafeBoundary name="cart:coin-redeem" fallback={null}>
+                        <CartCoinRedeemForm
+                          productSubtotal={subtotal}
                           disabled={!isAuthed}
                         />
                       </SafeBoundary>
