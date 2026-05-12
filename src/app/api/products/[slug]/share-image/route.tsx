@@ -247,7 +247,7 @@ export async function GET(
   const shortUrl = `afrizonemart.com/product/${product.slug}`;
   const description = pickDescription(product.shortDescription, product.longDescription);
   const truncDesc =
-    description.length > 160 ? `${description.slice(0, 157)}…` : description;
+    description.length > 130 ? `${description.slice(0, 127)}…` : description;
   const truncName =
     product.name.length > 48 ? `${product.name.slice(0, 45)}…` : product.name;
 
@@ -337,11 +337,9 @@ export async function GET(
           }}
         />
 
-        {/* Real Afrizonemart logo top-left, wrapped in a white pill
-            so the navy elements of the logo (wordmark, cart) have
-            contrast against the navy backdrop. The orange Africa
-            silhouette stays visible either way; the white pill
-            just rescues the navy bits. */}
+        {/* Real Afrizonemart logo top-left, in a tight white pill
+            so the navy elements of the logo (wordmark, cart) read
+            against the navy backdrop. */}
         <div
           style={{
             position: 'absolute',
@@ -349,21 +347,21 @@ export async function GET(
             left: 48,
             display: 'flex',
             alignItems: 'center',
-            padding: '8px 14px',
+            padding: '5px 10px',
             backgroundColor: 'rgba(255,255,255,0.95)',
-            borderRadius: 14,
-            boxShadow: '0 6px 18px rgba(0,0,0,0.18)',
+            borderRadius: 10,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={LOGO_URL}
             alt=""
-            width={variant === 'og' ? 220 : 240}
-            height={variant === 'og' ? 60 : 66}
+            width={variant === 'og' ? 180 : 200}
+            height={variant === 'og' ? 48 : 54}
             style={{
-              width: variant === 'og' ? 220 : 240,
-              height: variant === 'og' ? 60 : 66,
+              width: variant === 'og' ? 180 : 200,
+              height: variant === 'og' ? 48 : 54,
               objectFit: 'contain',
             }}
           />
@@ -484,24 +482,48 @@ export async function GET(
 
           <div
             style={{
-              fontSize: 16,
+              fontSize: 14,
+              fontWeight: 400,
               color: TEXT_SECONDARY,
-              lineHeight: 1.45,
-              marginBottom: 18,
+              lineHeight: 1.4,
+              marginBottom: 16,
               display: 'flex',
             }}
           >
             {truncDesc}
           </div>
 
+          {/* Flex spacer pushes the bottom block (price + CTA + URL)
+              to the bottom of the card. */}
           <div style={{ flexGrow: 1, display: 'flex' }} />
 
+          {/* Compare-at price as its own thin row above, so the
+              main price + SHOP NOW row stays clean and aligned
+              regardless of whether a compare price exists. */}
+          {comparePriceLabel ? (
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 500,
+                color: TEXT_MUTED,
+                textDecoration: 'line-through',
+                marginBottom: 4,
+                display: 'flex',
+              }}
+            >
+              {comparePriceLabel}
+            </div>
+          ) : null}
+
+          {/* Price + SHOP NOW share one row, left-aligned together
+              with a fixed gap. Pill position is stable regardless
+              of the URL or description above. */}
           <div
             style={{
               display: 'flex',
-              alignItems: 'baseline',
-              gap: 14,
-              marginBottom: 16,
+              alignItems: 'center',
+              gap: 16,
+              marginBottom: 12,
             }}
           >
             <div
@@ -514,35 +536,13 @@ export async function GET(
             >
               {priceLabel}
             </div>
-            {comparePriceLabel ? (
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: 500,
-                  color: TEXT_MUTED,
-                  textDecoration: 'line-through',
-                  display: 'flex',
-                }}
-              >
-                {comparePriceLabel}
-              </div>
-            ) : null}
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-            }}
-          >
             <div
               style={{
-                padding: '12px 22px',
+                padding: '11px 20px',
                 borderRadius: 999,
                 backgroundColor: AMBER,
                 color: NAVY,
-                fontSize: 17,
+                fontSize: 16,
                 fontWeight: 800,
                 letterSpacing: 1,
                 display: 'flex',
@@ -550,15 +550,18 @@ export async function GET(
             >
               SHOP NOW
             </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: TEXT_MUTED,
-                display: 'flex',
-              }}
-            >
-              {shortUrl}
-            </div>
+          </div>
+
+          {/* URL on its own quiet footer line so a long slug never
+              squeezes the pill out of alignment. */}
+          <div
+            style={{
+              fontSize: 12,
+              color: TEXT_MUTED,
+              display: 'flex',
+            }}
+          >
+            {shortUrl}
           </div>
         </div>
       </div>
