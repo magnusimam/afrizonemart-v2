@@ -46,6 +46,111 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+44. **[ ] Continental Rewards (Afrizone Coin loyalty program)** _(queued 2026-05-12)_.
+
+    **Why**: from FEATURES_BACKLOG since 2026-05-09. Promoted now
+    because Magnus signed off on the full design 2026-05-12 after a
+    Q&A round that locked every economic + UX decision. Real
+    retention engine — gives diaspora and repeat buyers a reason to
+    come back, unlocks downstream features (referral payouts,
+    affiliate program, subscription discounts).
+
+    **Design (locked 2026-05-12):**
+    - **Currency:** Afrizone Coin. 1 coin = ₦33 (admin-configurable).
+    - **Enrollment:** auto on first PAID order. No opt-in. Customer
+      gets a welcome bonus (default 20 coins, admin-configurable) on
+      enrolment.
+    - **Tiers** based on **rolling 12-month spend** (admin-
+      configurable window, default 12 months):
+      | Tier | Name | 12-mo spend | Coins/order |
+      |------|------|-------------|-------------|
+      | 1 | Continental Blue | ₦0 – ₦79,999 | 5 |
+      | 2 | Continental Gold | ≥ ₦80,000 | 10 |
+      | 3 | Continental VIP | ≥ ₦500,000 | 20 |
+      | 4 | Continental Ambassador | ≥ ₦1,000,000 | 40 |
+      | 5 | Continental Dorime | ≥ ₦10,000,000 | 80 |
+    - **Earn rate** = `baseEarn × multiplier^(tier - 1)`. Default
+      base = 5, default multiplier = 2×. Both admin-editable; tier
+      thresholds also admin-editable.
+    - **Coin expiry:** 2 months from earn date (admin-configurable).
+      FIFO at redemption — oldest coins debited first.
+    - **Redemption rules at checkout:**
+      - Max 50% of product subtotal (excludes shipping) — admin-
+        configurable.
+      - Minimum 30 coins per redemption (= ₦990 floor) — admin-
+        configurable.
+      - "Pay with Afrizone Coin" PDP button → option A: adds product
+        to cart with a coin-redeem intent flag; cart/checkout
+        surfaces a toggle + amount slider; customer can adjust or
+        remove.
+    - **What counts as "spend"** for tier qualification: net of
+      refunds, product subtotal only, excludes the coin-redeemed
+      portion (prevents tier-loop exploit), PAID status only.
+    - **Refund clawback:** if a previously-earning order is later
+      refunded, the earned coins are reversed via an immutable
+      `REFUND_REVERSAL` ledger entry. Tier auto-recomputes.
+    - **Every economic knob** lives in `/admin/loyalty/config` and
+      every change is `AuditLog`-recorded with actor + before/after.
+
+    **Schema (Prisma):**
+    - `LoyaltyAccount` — 1:1 with User. Caches `coinBalance`,
+      `currentTier`, `lifetimeCoinsEarned`, `lifetimeCoinsRedeemed`,
+      `enrolledAt`.
+    - `LoyaltyTransaction` — immutable ledger. Columns: `delta`,
+      `balanceAfter`, `type` (enum: `WELCOME_BONUS`, `EARN`,
+      `REDEEM`, `REFUND_REVERSAL`, `REDEEM_REFUND`, `EXPIRY`,
+      `ADMIN_ADJUSTMENT`), `causeOrderId`, `causeAdminId`, `reason`,
+      `expiresAt` (set on EARN/WELCOME_BONUS only), `expiredAt`.
+    - `LoyaltyConfig` — singleton row holding every admin-tunable
+      knob: `baseEarnPerOrder`, `tierMultiplier`,
+      `welcomeBonusCoins`, four `tierNThreshold` ints,
+      `coinValueNgn`, `maxOrderRedeemPercent`, `minRedeemCoins`,
+      `coinExpiryMonths`, `spendWindowMonths`, `updatedBy`.
+
+    **Build plan (4 PRs, ~1–1.5 days each):**
+    1. **[ ] PR 1 — Schema + LoyaltyConfig + admin scaffolding.**
+       Prisma models + migration. Admin pages
+       `/admin/loyalty/config` (every economic knob, audit-logged)
+       and `/admin/loyalty/accounts` (list customers, drill into
+       transactions, manual `ADMIN_ADJUSTMENT` endpoint).
+       No customer-facing surfaces yet.
+    2. **[ ] PR 2 — Auto-enrollment + Earn flow + Customer
+       dashboard.** Subscribe to `order.paid` event; create
+       `LoyaltyAccount` on first paid order; award welcome bonus +
+       tier-appropriate coins. `GET /api/loyalty/me`. Replace
+       `/account/rewards` 404 page with real balance + tier +
+       progress-to-next-tier + ledger view. Dashboard "Points" tile
+       shows real coin balance.
+    3. **[ ] PR 3 — Redemption.** "Pay with Afrizone Coin" PDP
+       button (option A: adds product to cart with coin-redeem
+       intent). Cart/checkout integration with toggle + amount
+       slider. `POST /api/loyalty/redeem` atomic with `placeOrder`.
+       Server-side enforcement of min 30 / max 50% / balance.
+    4. **[ ] PR 4 — Expiry cron + refund clawback + tier
+       recompute.** Daily cron expires coins past `expiresAt` with
+       FIFO `EXPIRY` ledger entries. Subscribe to `order.refunded`
+       for `REFUND_REVERSAL`. Tier recompute on the same daily cron
+       (rolling-window slide).
+
+    **Cross-cutting (matters for every PR):**
+    - Coin balance is **cached** on `LoyaltyAccount` for fast reads,
+      but the **source of truth is the ledger sum**. Any time a
+      ledger entry lands, the cache is recomputed in the same
+      transaction.
+    - Tier qualification is **recomputed**, not stored as-changing.
+      The cached `currentTier` is what the customer sees today; the
+      cron recomputes it daily based on rolling 12-month spend.
+    - All admin config changes write to `AuditLog`.
+    - All `LoyaltyTransaction` rows are append-only. No `UPDATE` or
+      `DELETE` queries on the ledger anywhere in code.
+    - Welcome bonus only fires once per `LoyaltyAccount` — the
+      `enrolledAt` field is the lock.
+    - FIFO expiry: when redemption happens, debit oldest non-
+      expired coins first (sorted by `createdAt`). This way customers
+      maximally benefit from "use it before it expires" timing.
+
+    Full FEATURES_BACKLOG.md entry above remains as design context.
+
 43. **[x] Share product as image (PDP share-as-PNG)** _(v3 shipped 2026-05-12, flag ON in prod, LARQ-match achieved)_.
 
     **Why**: the link-share PDP button (item #41 lookalike, shipped
