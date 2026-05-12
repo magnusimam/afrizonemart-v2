@@ -257,7 +257,7 @@ gets ticked off here.
       `source: REVERT`).
     - All endpoints under `products.write` permission.
 
-41. **[~] Animated checkout/cart buttons** _(queued 2026-05-08)_.
+41. **[x] Animated checkout/cart buttons** _(queued 2026-05-08; stages 1–3 + post-launch fix all landed by 2026-05-12)_.
 
     **Why**: lift the perceived polish of the two highest-conversion
     interactions on the site — the **Place Order** button (terminal
@@ -354,6 +354,30 @@ gets ticked off here.
        flag — pink-themed animation isn't shipped in stage 3.
        OOS / info-only "Read More" branch is unchanged (no animation
        — nothing to add).
+    4. **[x] Post-launch fix — mobile overflow + interrupted-timeline
+       cart freeze** _(landed 2026-05-12, commit 3e22f86)_. Two bugs
+       Magnus reported on mobile product cards:
+       - **Cart icon visually sticking out of the card.** Some mobile
+         browsers (notably iOS Safari) bypass `overflow: hidden` on
+         absolute children that have their own stacking context via
+         `translateZ(0)`. Fix: hide `.cart` + `.shirt` via `opacity: 0`
+         when the button is NOT in its `.active` state — invisible
+         elements can't visually leak regardless of clip behaviour.
+         Also added `contain: paint` to `.button` as belt-and-braces
+         containment.
+       - **Cart freezes "halfway in the middle" after the timeline
+         runs.** GSAP `onComplete` only fires when a timeline
+         completes uninterrupted. A parent re-render during the
+         cart-store update (or React StrictMode double-mount in dev,
+         or virtualised list scroll) killed the timeline mid-flight
+         leaving the cart frozen near `--cart-x: 0` (button centre).
+         Fix: extracted the reset into a `resetIdle()` function wired
+         to BOTH `onComplete` AND `onInterrupt`. Now any kill leaves
+         the cart in clean idle state and the React `active` /
+         `inflight` flags clear so the button is responsive to the
+         next click. Standing memory rule captured in
+         `feedback_gsap_timeline_oninterrupt.md` for future GSAP
+         work.
 
 40. **[x] Storefront — origin-currency display + "see in your currency" toggle** _(landed 2026-05-08)_.
 
