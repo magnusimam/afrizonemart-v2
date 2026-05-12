@@ -1,48 +1,46 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
+import { PNG } from 'pngjs';
 import { loadProductDetail } from '@/lib/products';
+import { SITE_URL } from '@/lib/seo';
 
 /**
  * GET /api/products/[slug]/share-image?variant=og|square&force=1
  *
- * Generates a PNG promotional card for the product, closer to the
+ * Generates a PNG promotional card for the product, modeled on the
  * LARQ Water Bottle reference Magnus shared as the design target.
  *
- * Defaults to `og` (1200×630 landscape) — best for Twitter/Facebook
- * unfurls, WhatsApp link previews, iMessage. `?variant=square`
- * (1080×1080) is available for Instagram Status / WhatsApp Status
- * where portrait/square fits the medium better.
+ * Defaults to `og` (1200×630 landscape). `?variant=square` available
+ * for IG/WhatsApp Status formats. `?force=1` bypasses the cutout
+ * R2 cache when re-rendering for testing.
  *
- * Layout principles taken from LARQ:
- *  - Horizon-split backdrop (navy wall + slightly lighter floor).
- *  - **Translucent glass card** on the left (not opaque white) so it
- *    reads as "overlay on the photo" not "modal over a dark page."
- *  - Card is ~65% of frame height, vertically centered, with the
- *    right edge **overlapping the product** by ~30–60px for depth.
- *  - Product is **tall, vertically centered** on the right —
- *    dominates the frame. Soft elliptical drop-shadow grounds it on
- *    the "floor."
- *  - No bottom accent bar — the horizon line is the only bottom
- *    signal, keeping the bottom airy.
+ * Layout principles:
+ *  - Horizon-split backdrop (navy wall + product-tinted floor).
+ *  - Translucent glass card on the left.
+ *  - Card overlaps product by ~30–60px for depth.
+ *  - Product floats with elliptical drop-shadow.
+ *  - Real Afrizonemart logo top-left (orange Africa + wordmark).
+ *  - Floor gradient tinted with the product's own dominant color so
+ *    each card feels "lit" by its product (Spotify-style). Top wall
+ *    stays brand-anchor navy so the visual identity is consistent.
  *
- * Render paths:
- *  - Floating (cutout.isOriginal === false): product floats on the
- *    backdrop with the elliptical shadow.
- *  - Inset (cutout.isOriginal === true, Noop fallback): product
- *    sits inside a rounded white frame so the rectangular original
- *    looks intentional, not pasted.
- *
- * Satori gotchas this file works around:
- *  1. Backdrops sized with `flex: X%` collapse → explicit px height.
- *  2. Fragment-wrapped absolute children sometimes drop → single
- *     root <div> per helper.
- *  3. Bundled Inter font has no Naira glyph → "NGN 950" not "₦950".
+ * Color extraction approach (Goal B — vibe-matching, not category
+ * coding): we ask Cloudflare to downsize the original product image
+ * to 1×1 via `cdn-cgi/image/width=1,height=1,fit=cover/…`. Cloudflare's
+ * resampler computes the average color across the whole image and
+ * gives it back as a one-pixel PNG. We decode that single pixel and
+ * use the RGB as a subtle tint on the lower portion of the backdrop
+ * gradient. Cost: one extra in-network HTTP fetch (~50ms cold,
+ * counted under existing CF Image Transformations free tier of
+ * 5k/month). Cached at Vercel's edge for hours alongside the
+ * composite PNG, so the second share of the same product within an
+ * hour is zero-recompute.
  */
 export const dynamic = 'force-dynamic';
 
 const NAVY = '#000066';
 const NAVY_LIGHT = '#1a1a8c';
-const NAVY_FLOOR = '#2a2aa3';
+const NAVY_FLOOR_FALLBACK = '#2a2aa3';
 const AMBER = '#FBAC34';
 const GLASS = 'rgba(255, 255, 255, 0.10)';
 const GLASS_BORDER = 'rgba(255, 255, 255, 0.22)';
@@ -50,6 +48,7 @@ const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_SECONDARY = 'rgba(255, 255, 255, 0.78)';
 const TEXT_MUTED = 'rgba(255, 255, 255, 0.55)';
 const STAR_DIM = 'rgba(255, 255, 255, 0.22)';
+const LOGO_URL = `${SITE_URL}/images/logo.png`;
 
 function formatPrice(value: number): string {
   return `NGN ${value.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
@@ -72,6 +71,93 @@ async function fetchCutout(
   } catch {
     return { url: '', isOriginal: true };
   }
+}
+
+/**
+ * Dominant color extraction via Cloudflare's resampler.
+ *
+ * Asks CF to downsize the source image to 1×1 with `fit=cover`. The
+ * resulting single pixel IS the area-averaged color of the input.
+ * Decode that one pixel via pngjs and return RGB.
+ *
+ * Falls back to null on any failure (network, decode error,
+ * transformation domain not on a CF zone). Callers should default
+ * to the static navy floor in that case.
+ *
+ * Uses the original product image, NOT the cutout — the cutout has
+ * alpha-transparent regions that pull the average toward zero and
+ * produce a muddy result. The original packaging has the colors we
+ * actually want to sample.
+ */
+async function extractDominantColor(
+  sourceUrl: string,
+): Promise<{ r: number; g: number; b: number } | null> {
+  // Only works for sources on the CF zone where Image Transformations
+  // is enabled (images.afrizonemart.com). Bail early if not.
+  if (!sourceUrl.startsWith('https://images.afrizonemart.com/')) {
+    return null;
+  }
+  const transformUrl = `https://images.afrizonemart.com/cdn-cgi/image/width=1,height=1,fit=cover,format=png/${sourceUrl}`;
+  try {
+    const res = await fetch(transformUrl, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return await new Promise((resolve) => {
+      new PNG().parse(buffer, (err, png) => {
+        if (err || !png || !png.data || png.data.length < 3) {
+          resolve(null);
+          return;
+        }
+        resolve({ r: png.data[0], g: png.data[1], b: png.data[2] });
+      });
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mix a sampled product color with the navy floor.
+ *
+ * We don't want to use the raw product color (a bright red Dangote
+ * pack would give us a bright red floor — bad). We desaturate and
+ * darken the sample, then mix with the navy floor at ~35% strength.
+ * Result: a subtle warm-or-cool wash on the floor that's still
+ * unmistakably navy-family.
+ */
+function tintedFloor(color: { r: number; g: number; b: number } | null): string {
+  if (!color) return NAVY_FLOOR_FALLBACK;
+  // Mix navy base (42, 42, 163) with a darkened-desaturated product
+  // tint. Bias toward the navy.
+  const mixed = {
+    r: Math.round(42 * 0.65 + color.r * 0.35 * 0.55),
+    g: Math.round(42 * 0.65 + color.g * 0.35 * 0.55),
+    b: Math.round(163 * 0.65 + color.b * 0.35 * 0.55),
+  };
+  return `rgb(${mixed.r}, ${mixed.g}, ${mixed.b})`;
+}
+
+/** Strip HTML tags + collapse whitespace. */
+function plainText(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Pick the best description text for the share card. We prefer the
+ * shortDescription when it's substantial (≥ 80 chars) because it's
+ * usually a curated tagline; otherwise we fall back to the cleaned
+ * longDescription for products where the seller only entered a few
+ * words in the short field.
+ */
+function pickDescription(
+  shortDescription: string | undefined,
+  longDescription: string,
+): string {
+  const sd = (shortDescription ?? '').trim();
+  const ld = plainText(longDescription);
+  if (sd.length >= 80) return sd;
+  if (ld.length > sd.length) return ld;
+  return sd;
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -104,17 +190,21 @@ export async function GET(
     return new Response('Product not found', { status: 404 });
   }
 
-  // Default flipped to landscape (og). Square is opt-in for status
-  // formats. Accept any truthy value of variant=square; everything
-  // else falls through to og.
   const variant =
     req.nextUrl.searchParams.get('variant') === 'square' ? 'square' : 'og';
   const force = req.nextUrl.searchParams.get('force') === '1';
   const width = variant === 'og' ? 1200 : 1080;
   const height = variant === 'og' ? 630 : 1080;
 
-  const cutout = await fetchCutout(params.slug, force);
-  const productImageSrc = cutout.url || product.images[0]?.src || '';
+  // Fetch cutout + dominant color in parallel. Both can fail
+  // independently and we degrade gracefully.
+  const sourceProductImage = product.images[0]?.src ?? '';
+  const [cutout, dominantColor] = await Promise.all([
+    fetchCutout(params.slug, force),
+    sourceProductImage ? extractDominantColor(sourceProductImage) : Promise.resolve(null),
+  ]);
+
+  const productImageSrc = cutout.url || sourceProductImage;
   const isFloating = !!cutout.url && !cutout.isOriginal;
 
   const priceLabel = formatPrice(product.price);
@@ -124,17 +214,12 @@ export async function GET(
       : null;
 
   const shortUrl = `afrizonemart.com/product/${product.slug}`;
-  const description =
-    product.shortDescription ||
-    product.longDescription.replace(/<[^>]+>/g, '').slice(0, 200);
+  const description = pickDescription(product.shortDescription, product.longDescription);
   const truncDesc =
-    description.length > 130 ? `${description.slice(0, 127)}…` : description;
+    description.length > 160 ? `${description.slice(0, 157)}…` : description;
   const truncName =
     product.name.length > 48 ? `${product.name.slice(0, 45)}…` : product.name;
 
-  // Layout — variant-specific dimensions tuned for the LARQ-style
-  // composition: card vertically centered, product tall and biased
-  // right, card overlapping product by ~30–60px.
   let cardLeft: number;
   let cardTop: number;
   let cardWidth: number;
@@ -146,7 +231,6 @@ export async function GET(
   let priceSize: number;
 
   if (variant === 'og') {
-    // 1200 × 630
     cardLeft = 60;
     cardWidth = 620;
     cardHeight = 430;
@@ -157,7 +241,6 @@ export async function GET(
     nameSize = 36;
     priceSize = 44;
   } else {
-    // 1080 × 1080
     cardLeft = 60;
     cardWidth = 460;
     cardHeight = 600;
@@ -169,8 +252,8 @@ export async function GET(
     priceSize = 48;
   }
 
-  // Horizon line — 60% of frame height for the "wall" portion.
   const horizonY = Math.floor(height * 0.62);
+  const floorEnd = tintedFloor(dominantColor);
 
   return new ImageResponse(
     (
@@ -184,8 +267,9 @@ export async function GET(
           backgroundColor: NAVY,
         }}
       >
-        {/* Backdrop wall (top 62%) — explicit px sizing so satori
-            doesn't collapse the flex child. */}
+        {/* Backdrop wall (brand anchor — stays navy regardless of
+            product color so the visual identity reads consistently
+            across every share card) */}
         <div
           style={{
             position: 'absolute',
@@ -197,7 +281,10 @@ export async function GET(
             display: 'flex',
           }}
         />
-        {/* Backdrop floor (bottom 38%) */}
+        {/* Backdrop floor — product-tinted bottom. Top of the floor
+            stays at NAVY_LIGHT (continuity with the wall); bottom
+            shifts toward a desaturated/darkened version of the
+            product's dominant color. Subtle on purpose. */}
         <div
           style={{
             position: 'absolute',
@@ -205,49 +292,33 @@ export async function GET(
             left: 0,
             width: '100%',
             height: `${height - horizonY}px`,
-            background: `linear-gradient(180deg, ${NAVY_LIGHT} 0%, ${NAVY_FLOOR} 100%)`,
+            background: `linear-gradient(180deg, ${NAVY_LIGHT} 0%, ${floorEnd} 100%)`,
             display: 'flex',
           }}
         />
 
-        {/* Brand wordmark top-left */}
+        {/* Real Afrizonemart logo top-left */}
         <div
           style={{
             position: 'absolute',
-            top: 32,
-            left: 56,
+            top: 28,
+            left: 48,
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
           }}
         >
-          <div
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={LOGO_URL}
+            alt=""
+            width={variant === 'og' ? 240 : 260}
+            height={variant === 'og' ? 66 : 72}
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 10,
-              backgroundColor: AMBER,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: NAVY,
-              fontSize: 30,
-              fontWeight: 800,
+              width: variant === 'og' ? 240 : 260,
+              height: variant === 'og' ? 66 : 72,
+              objectFit: 'contain',
             }}
-          >
-            A
-          </div>
-          <div
-            style={{
-              color: TEXT_PRIMARY,
-              fontSize: 22,
-              fontWeight: 700,
-              letterSpacing: 2,
-              display: 'flex',
-            }}
-          >
-            AFRIZONEMART
-          </div>
+          />
         </div>
 
         {/* Origin chip top-right */}
@@ -271,8 +342,9 @@ export async function GET(
           PRODUCT OF {product.origin}
         </div>
 
-        {/* Product image area — rendered BEFORE the card so the
-            card z-orders on top (creates the overlap depth). */}
+        {/* Product image — painted before the card so the card's
+            right edge sits visually on top of the product, creating
+            depth (no z-index needed; satori paints in DOM order). */}
         {productImageSrc ? (
           isFloating ? (
             <FloatingProduct
@@ -291,9 +363,7 @@ export async function GET(
           )
         ) : null}
 
-        {/* Translucent glass info card on the left. Z-orders above
-            product because of render order — gives the overlap
-            depth. */}
+        {/* Translucent glass info card on the left */}
         <div
           style={{
             position: 'absolute',
@@ -310,7 +380,6 @@ export async function GET(
             boxShadow: '0 24px 48px rgba(0, 0, 0, 0.35)',
           }}
         >
-          {/* Eyebrow brand */}
           <div
             style={{
               fontSize: 13,
@@ -324,7 +393,6 @@ export async function GET(
             {product.brand}
           </div>
 
-          {/* Product name */}
           <div
             style={{
               fontSize: nameSize,
@@ -339,7 +407,6 @@ export async function GET(
             {truncName}
           </div>
 
-          {/* Rating row (hidden when no reviews) */}
           {product.rating > 0 ? (
             <div
               style={{
@@ -362,7 +429,6 @@ export async function GET(
             </div>
           ) : null}
 
-          {/* Short description */}
           <div
             style={{
               fontSize: 16,
@@ -375,10 +441,8 @@ export async function GET(
             {truncDesc}
           </div>
 
-          {/* Spacer pushes price + CTA to the bottom of the card */}
           <div style={{ flexGrow: 1, display: 'flex' }} />
 
-          {/* Price row */}
           <div
             style={{
               display: 'flex',
@@ -412,7 +476,6 @@ export async function GET(
             ) : null}
           </div>
 
-          {/* CTA pill + URL */}
           <div
             style={{
               display: 'flex',
@@ -468,9 +531,6 @@ function FloatingProduct({
   right: number;
   top: number;
 }) {
-  // Single absolute container = single root div. Image stacks with
-  // the shadow as a vertical flex; shadow sits where the product
-  // bottom would be, slightly inset.
   const shadowWidth = Math.floor(size * 0.78);
   const shadowHeight = 42;
   return (
