@@ -3,31 +3,40 @@ import { NextRequest } from 'next/server';
 import { loadProductDetail } from '@/lib/products';
 
 /**
- * GET /api/products/[slug]/share-image?variant=square|og&force=1
+ * GET /api/products/[slug]/share-image?variant=og|square&force=1
  *
- * Generates a PNG promotional card for the product. Layout takes its
- * cue from the LARQ Water Bottle reference Magnus shared — horizon-
- * split backdrop, frosted-glass info card on the left, product
- * floating on the right with a soft drop-shadow.
+ * Generates a PNG promotional card for the product, closer to the
+ * LARQ Water Bottle reference Magnus shared as the design target.
  *
- * Two render paths, picked off the cutout response's `isOriginal`:
- *  - Floating (isOriginal:false, real cutout): product floats on the
- *    gradient with a soft elliptical drop-shadow underneath.
- *  - Inset (isOriginal:true, original-image fallback): product sits
- *    inside a rounded white frame so the rectangular original looks
- *    intentional, not pasted onto the backdrop.
+ * Defaults to `og` (1200×630 landscape) — best for Twitter/Facebook
+ * unfurls, WhatsApp link previews, iMessage. `?variant=square`
+ * (1080×1080) is available for Instagram Status / WhatsApp Status
+ * where portrait/square fits the medium better.
  *
- * Variants:
- *  - `square` (default) — 1080×1080 for WhatsApp / IG status / SMS.
- *  - `og`              — 1200×630 for Twitter / Facebook / iMessage.
+ * Layout principles taken from LARQ:
+ *  - Horizon-split backdrop (navy wall + slightly lighter floor).
+ *  - **Translucent glass card** on the left (not opaque white) so it
+ *    reads as "overlay on the photo" not "modal over a dark page."
+ *  - Card is ~65% of frame height, vertically centered, with the
+ *    right edge **overlapping the product** by ~30–60px for depth.
+ *  - Product is **tall, vertically centered** on the right —
+ *    dominates the frame. Soft elliptical drop-shadow grounds it on
+ *    the "floor."
+ *  - No bottom accent bar — the horizon line is the only bottom
+ *    signal, keeping the bottom airy.
  *
- * Satori gotchas this file works around (the v1 hit all three):
- *  1. Backdrops sized with `flex: X%` collapse when the flex child
- *     has no children of its own → use explicit `width/height`.
- *  2. Fragment-wrapped absolute children sometimes drop → every
- *     helper returns a single root <div>.
- *  3. The bundled Inter font has no Naira (U+20A6) glyph → display
- *     prices as "NGN 950" not "₦950" until we load Raleway.
+ * Render paths:
+ *  - Floating (cutout.isOriginal === false): product floats on the
+ *    backdrop with the elliptical shadow.
+ *  - Inset (cutout.isOriginal === true, Noop fallback): product
+ *    sits inside a rounded white frame so the rectangular original
+ *    looks intentional, not pasted.
+ *
+ * Satori gotchas this file works around:
+ *  1. Backdrops sized with `flex: X%` collapse → explicit px height.
+ *  2. Fragment-wrapped absolute children sometimes drop → single
+ *     root <div> per helper.
+ *  3. Bundled Inter font has no Naira glyph → "NGN 950" not "₦950".
  */
 export const dynamic = 'force-dynamic';
 
@@ -35,14 +44,14 @@ const NAVY = '#000066';
 const NAVY_LIGHT = '#1a1a8c';
 const NAVY_FLOOR = '#2a2aa3';
 const AMBER = '#FBAC34';
-const FROST = 'rgba(255, 255, 255, 0.95)';
-const INK = '#2C2C2C';
-const MUTED = '#555555';
-const STAR_DIM = '#D5D5D5';
+const GLASS = 'rgba(255, 255, 255, 0.10)';
+const GLASS_BORDER = 'rgba(255, 255, 255, 0.22)';
+const TEXT_PRIMARY = '#FFFFFF';
+const TEXT_SECONDARY = 'rgba(255, 255, 255, 0.78)';
+const TEXT_MUTED = 'rgba(255, 255, 255, 0.55)';
+const STAR_DIM = 'rgba(255, 255, 255, 0.22)';
 
 function formatPrice(value: number): string {
-  // ASCII "NGN" prefix instead of ₦ — Inter (satori's bundled font)
-  // doesn't include the Naira glyph, renders as tofu.
   return `NGN ${value.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
 }
 
@@ -66,8 +75,6 @@ async function fetchCutout(
 }
 
 function Stars({ rating }: { rating: number }) {
-  // Round to nearest whole star — half-stars are more layout pain
-  // than they're worth at this resolution.
   const filled = Math.max(0, Math.min(5, Math.round(rating)));
   return (
     <div style={{ display: 'flex', gap: 2 }}>
@@ -97,7 +104,11 @@ export async function GET(
     return new Response('Product not found', { status: 404 });
   }
 
-  const variant = req.nextUrl.searchParams.get('variant') === 'og' ? 'og' : 'square';
+  // Default flipped to landscape (og). Square is opt-in for status
+  // formats. Accept any truthy value of variant=square; everything
+  // else falls through to og.
+  const variant =
+    req.nextUrl.searchParams.get('variant') === 'square' ? 'square' : 'og';
   const force = req.nextUrl.searchParams.get('force') === '1';
   const width = variant === 'og' ? 1200 : 1080;
   const height = variant === 'og' ? 630 : 1080;
@@ -117,19 +128,49 @@ export async function GET(
     product.shortDescription ||
     product.longDescription.replace(/<[^>]+>/g, '').slice(0, 200);
   const truncDesc =
-    description.length > 140 ? `${description.slice(0, 137)}…` : description;
+    description.length > 130 ? `${description.slice(0, 127)}…` : description;
   const truncName =
-    product.name.length > 52 ? `${product.name.slice(0, 49)}…` : product.name;
+    product.name.length > 48 ? `${product.name.slice(0, 45)}…` : product.name;
 
-  // Variant-specific dimensions.
-  const cardLeft = 60;
-  const cardTop = variant === 'og' ? 80 : 200;
-  const cardWidth = variant === 'og' ? 520 : 500;
-  const cardHeight = variant === 'og' ? height - 160 : height - 320;
+  // Layout — variant-specific dimensions tuned for the LARQ-style
+  // composition: card vertically centered, product tall and biased
+  // right, card overlapping product by ~30–60px.
+  let cardLeft: number;
+  let cardTop: number;
+  let cardWidth: number;
+  let cardHeight: number;
+  let productRight: number;
+  let productSize: number;
+  let productTop: number;
+  let nameSize: number;
+  let priceSize: number;
 
-  const productAreaSize = variant === 'og' ? 440 : 500;
-  const productAreaRight = variant === 'og' ? 80 : 80;
-  const productAreaTop = variant === 'og' ? 100 : 220;
+  if (variant === 'og') {
+    // 1200 × 630
+    cardLeft = 60;
+    cardWidth = 620;
+    cardHeight = 430;
+    cardTop = Math.floor((height - cardHeight) / 2);
+    productRight = 60;
+    productSize = 500;
+    productTop = Math.floor((height - productSize) / 2);
+    nameSize = 36;
+    priceSize = 44;
+  } else {
+    // 1080 × 1080
+    cardLeft = 60;
+    cardWidth = 460;
+    cardHeight = 600;
+    cardTop = Math.floor((height - cardHeight) / 2);
+    productRight = 60;
+    productSize = 600;
+    productTop = Math.floor((height - productSize) / 2);
+    nameSize = 38;
+    priceSize = 48;
+  }
+
+  // Horizon line — 60% of frame height for the "wall" portion.
+  const horizonY = Math.floor(height * 0.62);
 
   return new ImageResponse(
     (
@@ -143,15 +184,15 @@ export async function GET(
           backgroundColor: NAVY,
         }}
       >
-        {/* Backdrop wall (top 62%). Explicit width+height — satori
-            collapses flex-only sized divs with no children. */}
+        {/* Backdrop wall (top 62%) — explicit px sizing so satori
+            doesn't collapse the flex child. */}
         <div
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             width: '100%',
-            height: `${Math.floor(height * 0.62)}px`,
+            height: `${horizonY}px`,
             background: `linear-gradient(180deg, ${NAVY} 0%, ${NAVY_LIGHT} 100%)`,
             display: 'flex',
           }}
@@ -160,10 +201,10 @@ export async function GET(
         <div
           style={{
             position: 'absolute',
-            top: `${Math.floor(height * 0.62)}px`,
+            top: `${horizonY}px`,
             left: 0,
             width: '100%',
-            height: `${height - Math.floor(height * 0.62)}px`,
+            height: `${height - horizonY}px`,
             background: `linear-gradient(180deg, ${NAVY_LIGHT} 0%, ${NAVY_FLOOR} 100%)`,
             display: 'flex',
           }}
@@ -173,7 +214,7 @@ export async function GET(
         <div
           style={{
             position: 'absolute',
-            top: 44,
+            top: 32,
             left: 56,
             display: 'flex',
             alignItems: 'center',
@@ -198,7 +239,7 @@ export async function GET(
           </div>
           <div
             style={{
-              color: 'white',
+              color: TEXT_PRIMARY,
               fontSize: 22,
               fontWeight: 700,
               letterSpacing: 2,
@@ -213,15 +254,15 @@ export async function GET(
         <div
           style={{
             position: 'absolute',
-            top: 52,
+            top: 40,
             right: 56,
             display: 'flex',
             alignItems: 'center',
             padding: '10px 18px',
             borderRadius: 999,
-            backgroundColor: 'rgba(255,255,255,0.18)',
-            border: '1px solid rgba(255,255,255,0.3)',
-            color: 'white',
+            backgroundColor: 'rgba(255,255,255,0.14)',
+            border: `1px solid ${GLASS_BORDER}`,
+            color: TEXT_PRIMARY,
             fontSize: 16,
             fontWeight: 700,
             letterSpacing: 1.5,
@@ -230,26 +271,29 @@ export async function GET(
           PRODUCT OF {product.origin}
         </div>
 
-        {/* Product image area — single root div per variant */}
+        {/* Product image area — rendered BEFORE the card so the
+            card z-orders on top (creates the overlap depth). */}
         {productImageSrc ? (
           isFloating ? (
             <FloatingProduct
               src={productImageSrc}
-              size={productAreaSize}
-              right={productAreaRight}
-              top={productAreaTop}
+              size={productSize}
+              right={productRight}
+              top={productTop}
             />
           ) : (
             <InsetProduct
               src={productImageSrc}
-              size={productAreaSize}
-              right={productAreaRight}
-              top={productAreaTop}
+              size={productSize}
+              right={productRight}
+              top={productTop}
             />
           )
         ) : null}
 
-        {/* Frosted info card on the left */}
+        {/* Translucent glass info card on the left. Z-orders above
+            product because of render order — gives the overlap
+            depth. */}
         <div
           style={{
             position: 'absolute',
@@ -259,21 +303,21 @@ export async function GET(
             height: cardHeight,
             display: 'flex',
             flexDirection: 'column',
-            padding: '36px 36px 32px 36px',
-            borderRadius: 24,
-            backgroundColor: FROST,
-            boxShadow: '0 30px 60px rgba(0, 0, 0, 0.35)',
+            padding: '34px 34px 30px 34px',
+            borderRadius: 22,
+            backgroundColor: GLASS,
+            border: `1px solid ${GLASS_BORDER}`,
+            boxShadow: '0 24px 48px rgba(0, 0, 0, 0.35)',
           }}
         >
           {/* Eyebrow brand */}
           <div
             style={{
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 700,
-              color: NAVY,
+              color: TEXT_SECONDARY,
               letterSpacing: 3,
               textTransform: 'uppercase',
-              opacity: 0.7,
               display: 'flex',
             }}
           >
@@ -283,10 +327,10 @@ export async function GET(
           {/* Product name */}
           <div
             style={{
-              fontSize: variant === 'og' ? 38 : 44,
+              fontSize: nameSize,
               fontWeight: 800,
-              color: NAVY,
-              lineHeight: 1.1,
+              color: TEXT_PRIMARY,
+              lineHeight: 1.08,
               marginTop: 8,
               marginBottom: 14,
               display: 'flex',
@@ -295,7 +339,7 @@ export async function GET(
             {truncName}
           </div>
 
-          {/* Rating row */}
+          {/* Rating row (hidden when no reviews) */}
           {product.rating > 0 ? (
             <div
               style={{
@@ -306,7 +350,13 @@ export async function GET(
               }}
             >
               <Stars rating={product.rating} />
-              <div style={{ fontSize: 14, color: MUTED, display: 'flex' }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  color: TEXT_SECONDARY,
+                  display: 'flex',
+                }}
+              >
                 {product.rating.toFixed(1)} ({product.reviewCount.toLocaleString()} reviews)
               </div>
             </div>
@@ -316,16 +366,16 @@ export async function GET(
           <div
             style={{
               fontSize: 16,
-              color: INK,
+              color: TEXT_SECONDARY,
               lineHeight: 1.45,
-              marginBottom: 22,
+              marginBottom: 18,
               display: 'flex',
             }}
           >
             {truncDesc}
           </div>
 
-          {/* Spacer to push the price + CTA to the bottom */}
+          {/* Spacer pushes price + CTA to the bottom of the card */}
           <div style={{ flexGrow: 1, display: 'flex' }} />
 
           {/* Price row */}
@@ -334,14 +384,14 @@ export async function GET(
               display: 'flex',
               alignItems: 'baseline',
               gap: 14,
-              marginBottom: 18,
+              marginBottom: 16,
             }}
           >
             <div
               style={{
-                fontSize: variant === 'og' ? 44 : 52,
+                fontSize: priceSize,
                 fontWeight: 800,
-                color: NAVY,
+                color: TEXT_PRIMARY,
                 display: 'flex',
               }}
             >
@@ -352,7 +402,7 @@ export async function GET(
                 style={{
                   fontSize: 22,
                   fontWeight: 500,
-                  color: '#999',
+                  color: TEXT_MUTED,
                   textDecoration: 'line-through',
                   display: 'flex',
                 }}
@@ -362,7 +412,7 @@ export async function GET(
             ) : null}
           </div>
 
-          {/* CTA + URL */}
+          {/* CTA pill + URL */}
           <div
             style={{
               display: 'flex',
@@ -376,7 +426,7 @@ export async function GET(
                 borderRadius: 999,
                 backgroundColor: AMBER,
                 color: NAVY,
-                fontSize: 18,
+                fontSize: 17,
                 fontWeight: 800,
                 letterSpacing: 1,
                 display: 'flex',
@@ -387,8 +437,7 @@ export async function GET(
             <div
               style={{
                 fontSize: 13,
-                color: NAVY,
-                opacity: 0.65,
+                color: TEXT_MUTED,
                 display: 'flex',
               }}
             >
@@ -396,27 +445,12 @@ export async function GET(
             </div>
           </div>
         </div>
-
-        {/* Amber accent bar bottom */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            bottom: 0,
-            width: '100%',
-            height: 8,
-            backgroundColor: AMBER,
-            display: 'flex',
-          }}
-        />
       </div>
     ),
     {
       width,
       height,
       headers: {
-        // Short browser cache, longer CDN cache. Use ?force=1 to
-        // bust both when testing template changes.
         'Cache-Control': 'public, max-age=60, s-maxage=3600, stale-while-revalidate=86400',
       },
     },
@@ -434,12 +468,11 @@ function FloatingProduct({
   right: number;
   top: number;
 }) {
+  // Single absolute container = single root div. Image stacks with
+  // the shadow as a vertical flex; shadow sits where the product
+  // bottom would be, slightly inset.
   const shadowWidth = Math.floor(size * 0.78);
-  const shadowHeight = 48;
-  const shadowOffsetFromTop = top + size - 24;
-
-  // Single root div wrapping shadow + image. Satori is more reliable
-  // with a single absolute container than two siblings or a Fragment.
+  const shadowHeight = 42;
   return (
     <div
       style={{
@@ -469,14 +502,12 @@ function FloatingProduct({
         style={{
           width: shadowWidth,
           height: shadowHeight,
-          marginTop: -shadowHeight + 12,
+          marginTop: -shadowHeight + 10,
           background:
             'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 70%)',
           display: 'flex',
         }}
       />
-      {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
-      {shadowOffsetFromTop > 0 ? null : null}
     </div>
   );
 }
@@ -492,7 +523,7 @@ function InsetProduct({
   right: number;
   top: number;
 }) {
-  const pad = 32;
+  const pad = 28;
   return (
     <div
       style={{
@@ -503,7 +534,7 @@ function InsetProduct({
         height: size,
         backgroundColor: 'white',
         borderRadius: 24,
-        boxShadow: '0 30px 60px rgba(0, 0, 0, 0.35)',
+        boxShadow: '0 24px 48px rgba(0, 0, 0, 0.35)',
         padding: pad,
         display: 'flex',
         alignItems: 'center',

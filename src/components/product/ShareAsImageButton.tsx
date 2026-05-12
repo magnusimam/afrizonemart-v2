@@ -64,8 +64,11 @@ function ShareAsImageButtonInner({
     if (state === 'busy') return;
     setState('busy');
     try {
+      // No variant query → inherits the route's default (landscape
+      // 1200×630, the LARQ-style aspect). Add `?variant=square` if
+      // we ever want IG/WhatsApp Status fit instead.
       const res = await fetch(
-        `/api/products/${encodeURIComponent(slug)}/share-image?variant=square`,
+        `/api/products/${encodeURIComponent(slug)}/share-image`,
       );
       if (!res.ok) throw new Error(`generation failed: ${res.status}`);
       const blob = await res.blob();
