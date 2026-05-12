@@ -46,7 +46,7 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
-44. **[ ] Continental Rewards (Afrizone Coin loyalty program)** _(queued 2026-05-12)_.
+44. **[x] Continental Rewards (Afrizone Coin loyalty program)** _(4 PRs shipped 2026-05-12)_.
 
     **Why**: from FEATURES_BACKLOG since 2026-05-09. Promoted now
     because Magnus signed off on the full design 2026-05-12 after a
@@ -108,25 +108,25 @@ gets ticked off here.
       `coinExpiryMonths`, `spendWindowMonths`, `updatedBy`.
 
     **Build plan (4 PRs, ~1–1.5 days each):**
-    1. **[ ] PR 1 — Schema + LoyaltyConfig + admin scaffolding.**
+    1. **[x] PR 1 — Schema + LoyaltyConfig + admin scaffolding.**
        Prisma models + migration. Admin pages
        `/admin/loyalty/config` (every economic knob, audit-logged)
        and `/admin/loyalty/accounts` (list customers, drill into
        transactions, manual `ADMIN_ADJUSTMENT` endpoint).
        No customer-facing surfaces yet.
-    2. **[ ] PR 2 — Auto-enrollment + Earn flow + Customer
+    2. **[x] PR 2 — Auto-enrollment + Earn flow + Customer
        dashboard.** Subscribe to `order.paid` event; create
        `LoyaltyAccount` on first paid order; award welcome bonus +
        tier-appropriate coins. `GET /api/loyalty/me`. Replace
        `/account/rewards` 404 page with real balance + tier +
        progress-to-next-tier + ledger view. Dashboard "Points" tile
        shows real coin balance.
-    3. **[ ] PR 3 — Redemption.** "Pay with Afrizone Coin" PDP
+    3. **[x] PR 3 — Redemption.** "Pay with Afrizone Coin" PDP
        button (option A: adds product to cart with coin-redeem
        intent). Cart/checkout integration with toggle + amount
        slider. `POST /api/loyalty/redeem` atomic with `placeOrder`.
        Server-side enforcement of min 30 / max 50% / balance.
-    4. **[ ] PR 4 — Expiry cron + refund clawback + tier
+    4. **[x] PR 4 — Expiry cron + refund clawback + tier
        recompute.** Daily cron expires coins past `expiresAt` with
        FIFO `EXPIRY` ledger entries. Subscribe to `order.refunded`
        for `REFUND_REVERSAL`. Tier recompute on the same daily cron

@@ -11,7 +11,19 @@ This is **not** a bug list. Bugs go to GitHub issues. This is for
 
 ---
 
-## Continental Rewards (loyalty / points)
+## Continental Rewards (loyalty / points) — ✅ SHIPPED 2026-05-12
+
+**Status:** SHIPPED — full 4-PR workstream landed 2026-05-12 as
+tracker item #44. Customers auto-enrol on first paid order, earn
+Afrizone Coins (5/10/20/40/80 per order by tier), redeem at
+checkout (max 50% of subtotal, min 30 coins). Daily cron handles
+expiry + tier recompute. Refund clawback wired. Admin can
+reconfigure every economic knob from /admin/loyalty/config.
+
+(Original Apr-launch scope record retained below for historical
+context.)
+
+## Continental Rewards (loyalty / points) — original scope
 
 **Status:** Deferred — placeholder card on `/account` and "Coming
 Soon" tile in dashboard quick-actions.
