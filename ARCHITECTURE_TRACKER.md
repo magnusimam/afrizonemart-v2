@@ -46,6 +46,32 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+45. **[ ] ProductVariant model — fix cart/checkout for bundle selections** _(in progress 2026-05-13)_.
+
+    **Why**: production cart was failing silently — PDP add-to-cart built a
+    synthetic productId (`${slug}-${bundle}-${variant}`) but the cart sync
+    endpoint validates that productId exists as a real `Product.id`. Result:
+    server cart stayed empty, checkout said "Cart is empty" even though the
+    local Zustand cart showed items. Hotfix would be to send `product.id`,
+    but that loses bundle-specific pricing (which is already lost: server
+    `shape()` uses `product.price` not the selected bundle price). The
+    long-term fix is real `ProductVariant` rows so bundles are first-class
+    SKUs with their own price + stock, and so freeform variants (size /
+    colour) ride along as a display-only label on the cart/order line.
+
+    **Scope:**
+    - Schema: `ProductVariant` table; `CartItem.productVariantId` +
+      `variantLabel`; `OrderItem.productVariantId` + `variantLabel` +
+      `bundleLabel` + `unitsPerPack` snapshots.
+    - Migration backfills one default variant per existing Product from
+      `attributes.bundles` (or from `Product.price` for products without
+      bundles); updates existing CartItem/OrderItem rows.
+    - API: cart service validates variantId + uses variant price; orders
+      service writes variant snapshot; product detail API returns variants
+      with real IDs.
+    - Storefront: ProductInfo.tsx uses real variantId; cart store storage
+      key bumped so poisoned local carts are nuked on next load.
+
 44. **[x] Continental Rewards (Afrizone Coin loyalty program)** _(4 PRs shipped 2026-05-12)_.
 
     **Why**: from FEATURES_BACKLOG since 2026-05-09. Promoted now

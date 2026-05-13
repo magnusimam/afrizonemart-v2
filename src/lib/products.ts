@@ -2,6 +2,11 @@ import { fetchProduct, fetchProducts, ApiError } from '@/lib/api/products';
 import type { ApiProduct, ApiReview } from '@/lib/api/types';
 
 export interface ProductBundle {
+  /// Tracker #45 — real ProductVariant.id from the API. Sent to the
+  /// cart endpoint when the customer adds this bundle. Optional only
+  /// for safety during the migration; loadProductDetail always
+  /// populates it now.
+  variantId?: string;
   units: number;
   label: string;
   price: number;
@@ -39,6 +44,10 @@ export interface ProductReview {
 }
 
 export interface ProductDetail {
+  /// Tracker #45 — id of the product's default variant. Used as the
+  /// productVariantId when the PDP has no bundle selector (single
+  /// SKU products).
+  defaultVariantId?: string;
   slug: string;
   name: string;
   brand: string;
@@ -108,6 +117,34 @@ function reviewFromApi(r: ApiReview): ProductReview {
   };
 }
 
+/// Tracker #45 — build the PDP bundle selector from the variants the
+/// API returned. Returns null when the product only has its default
+/// variant; the caller falls back to the legacy attributes.bundles
+/// JSON in that case so freshly-imported products still render.
+function bundlesFromVariants(api: ApiProduct): ProductBundle[] | null {
+  const variants = api.variants ?? [];
+  const nonDefault = variants.filter((v) => !v.isDefault);
+  if (nonDefault.length === 0) return null;
+  return nonDefault
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((v) => {
+      const compare = v.comparePriceNgn ?? v.priceNgn;
+      const savings =
+        compare > v.priceNgn
+          ? Math.round(((compare - v.priceNgn) / compare) * 100)
+          : undefined;
+      return {
+        variantId: v.id,
+        units: v.unitsPerPack,
+        label: v.label,
+        price: v.priceNgn,
+        comparePrice: compare,
+        savings,
+      };
+    });
+}
+
 function imagesFromApi(api: ApiProduct): ProductImage[] {
   // SEO-rich alt text: name + brand + category + origin + Afrizonemart.
   // Lifts ranking in Google Image Search vs the bare product name.
@@ -170,7 +207,13 @@ export async function loadProductDetail(
       comparePrice: compare,
       discountPercent: api.discountPercent ?? undefined,
       variants: a.variants,
-      bundles: a.bundles ?? [],
+      /// Tracker #45 — prefer real ProductVariant rows when present.
+      /// Falls back to the legacy attributes.bundles JSON for safety
+      /// in case a stale deploy hits a freshly-migrated DB.
+      bundles: bundlesFromVariants(api) ?? a.bundles ?? [],
+      defaultVariantId:
+        api.variants?.find((v) => v.isDefault)?.id ??
+        api.variants?.[0]?.id,
       features: a.features ?? [],
       specifications: a.specifications ?? [],
       shipping: STANDARD_SHIPPING,

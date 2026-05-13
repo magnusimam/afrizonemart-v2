@@ -32,6 +32,17 @@ export interface Category {
 
 export interface CartItem {
   productId: string;
+  /// Tracker #45 — server-side variant the cart line points at. Required
+  /// for cart sync (server validates this exists). Optional in the type
+  /// only for backwards-compat during the migration window; new items
+  /// added from the storefront always set it.
+  productVariantId?: string;
+  /// Display label for the bundle that produced this cart line (e.g.
+  /// "Carton (12)"). Stored locally so the cart UI keeps showing what
+  /// the customer picked.
+  bundleLabel?: string;
+  /// Freeform variant (size/colour). Display-only.
+  variantLabel?: string;
   slug: string;
   name: string;
   price: number;

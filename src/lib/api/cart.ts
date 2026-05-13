@@ -2,6 +2,12 @@ import { apiFetchAuthed } from './client';
 
 export interface CartLine {
   productId: string;
+  /// Tracker #45 — server-side variant id, always present on lines
+  /// coming back from the API.
+  productVariantId: string;
+  bundleLabel: string;
+  variantLabel: string | null;
+  unitsPerPack: number;
   slug: string;
   name: string;
   price: number;
@@ -22,8 +28,13 @@ export interface CartView {
   couponFreeShipping: boolean;
 }
 
+/// Tracker #45 — send productVariantId for new flows; productId still
+/// accepted by the API for cards added from list views, where the
+/// storefront only knows the product, not the variant.
 export interface CartInputItem {
-  productId: string;
+  productVariantId?: string;
+  productId?: string;
+  variantLabel?: string | null;
   quantity: number;
 }
 

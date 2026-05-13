@@ -9,15 +9,48 @@ import type { CartItem } from '@/types';
 const SYNC_DEBOUNCE_MS = 400;
 
 function toLocalCartItem(line: CartLine): CartItem {
+  /// Tracker #45 — local cart key combines variantId + freeform
+  /// variant label so two different variant selections for the same
+  /// SKU are distinct local rows. Matches the key produced by
+  /// ProductInfo.handleAddToCart.
+  const localKey = line.variantLabel
+    ? `${line.productVariantId}::${line.variantLabel}`
+    : line.productVariantId;
+  const displayVariant = [line.bundleLabel, line.variantLabel]
+    .filter(Boolean)
+    .join(' · ');
   return {
-    productId: line.productId,
+    productId: localKey,
+    productVariantId: line.productVariantId,
+    bundleLabel: line.bundleLabel,
+    variantLabel: line.variantLabel ?? undefined,
     slug: line.slug,
     name: line.name,
     price: line.price,
     comparePrice: line.comparePrice ?? undefined,
     image: line.image ?? '',
     origin: line.origin ?? undefined,
+    variant: displayVariant || undefined,
     quantity: line.quantity,
+  };
+}
+
+function toServerInput(i: CartItem) {
+  /// Tracker #45 — prefer variant id (set by PDP). Fall back to the
+  /// local productId when it looks like a real Product.id (no `::`
+  /// separator from the local key scheme); a slug-style key never
+  /// matches a real id and is dropped server-side with a 400.
+  if (i.productVariantId) {
+    return {
+      productVariantId: i.productVariantId,
+      variantLabel: i.variantLabel ?? null,
+      quantity: i.quantity,
+    };
+  }
+  return {
+    productId: i.productId,
+    variantLabel: i.variantLabel ?? null,
+    quantity: i.quantity,
   };
 }
 
@@ -62,7 +95,7 @@ export function CartSyncProvider({ children }: { children: React.ReactNode }) {
         } else if (items.length > 0) {
           // Server is empty but the guest session has items — push them
           // up so the new session keeps them.
-          await replaceCart(items.map((i) => ({ productId: i.productId, quantity: i.quantity })));
+          await replaceCart(items.map(toServerInput));
         }
       } catch {
         // Network or auth blip — try again next mount.
@@ -83,9 +116,7 @@ export function CartSyncProvider({ children }: { children: React.ReactNode }) {
     }
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
-      void replaceCart(
-        items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-      ).catch(() => {
+      void replaceCart(items.map(toServerInput)).catch(() => {
         // Server-side validation could fail (e.g. stale productId after a
         // catalog edit). Surface in tracker followup; for now swallow.
       });

@@ -44,13 +44,16 @@ interface ProductInfoProps {
 }
 
 export function ProductInfo({ product }: ProductInfoProps) {
-  // Imported / partially-filled products may not have any bundles. We
-  // synthesize a single "default" bundle from the product price so the
-  // BundleSelector + add-to-cart flow keeps working.
+  /// Tracker #45 — Imported / partially-filled products may not have any
+  /// bundles. We synthesize a single "default" bundle from the product
+  /// price so the BundleSelector + add-to-cart flow keeps working, and
+  /// we point it at the product's default ProductVariant (defaultVariantId)
+  /// so the cart sync endpoint accepts the line.
   const bundles = product.bundles.length > 0
     ? product.bundles
     : [
         {
+          variantId: product.defaultVariantId,
           label: '1 unit',
           price: product.price,
           units: 1,
@@ -76,10 +79,21 @@ export function ProductInfo({ product }: ProductInfoProps) {
   const totalPrice = selectedBundle.price * quantity;
 
   const handleAddToCart = () => {
-    const variantLabel = [selectedBundle.label, variant].filter(Boolean).join(' · ');
+    const displayVariant = [selectedBundle.label, variant].filter(Boolean).join(' · ');
+    /// Tracker #45 — productId is the slug used by the local store as a
+    /// uniqueness key. The server-side cart key is productVariantId.
+    /// We compose the local key from the variantId + freeform variant so
+    /// "Carton (12) · Red" and "Carton (12) · Blue" become separate
+    /// cart lines locally even though the server-side variant row is
+    /// the same.
+    const variantId = selectedBundle.variantId ?? product.defaultVariantId ?? '';
+    const localKey = variant ? `${variantId}::${variant}` : variantId;
     addItem(
       {
-        productId: `${product.slug}-${selectedBundle.label}-${variant}`,
+        productId: localKey || product.slug,
+        productVariantId: variantId || undefined,
+        bundleLabel: selectedBundle.label,
+        variantLabel: variant || undefined,
         slug: product.slug,
         name: product.name,
         price: selectedBundle.price,
@@ -87,7 +101,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
         discountPercent: selectedBundle.savings ?? product.discountPercent,
         image: product.images[0]?.src ?? '',
         origin: product.origin,
-        variant: variantLabel,
+        variant: displayVariant,
       },
       quantity,
     );

@@ -54,7 +54,13 @@ export const useCartStore = create<CartState>()(
         })),
       clear: () => set({ items: [], coinRedeemRequest: 0 }),
     }),
-    { name: 'azm-cart' },
+    /// Tracker #45 — storage key bumped from 'azm-cart' to 'azm-cart-v2'.
+    /// Old key stored synthetic productIds (`${slug}-${bundle}-${variant}`)
+    /// that no longer match anything server-side. Bumping the key
+    /// means every existing visitor lands on a fresh, clean cart the
+    /// next time they hit the site, so the broken-checkout bug can't
+    /// linger in stale localStorage.
+    { name: 'azm-cart-v2' },
   ),
 );
 

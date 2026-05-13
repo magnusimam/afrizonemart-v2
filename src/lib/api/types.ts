@@ -64,6 +64,21 @@ export interface ApiReview {
   updatedAt: string;
 }
 
+/// Tracker #45 — first-class variant row. Returned on the product
+/// detail response so the storefront PDP add-to-cart can send a real
+/// productVariantId to the cart sync endpoint.
+export interface ApiProductVariant {
+  id: string;
+  productId: string;
+  label: string;
+  priceNgn: number;
+  comparePriceNgn: number | null;
+  unitsPerPack: number;
+  inStock: boolean;
+  sortOrder: number;
+  isDefault: boolean;
+}
+
 export interface ApiProduct {
   id: string;
   slug: string;
@@ -92,6 +107,9 @@ export interface ApiProduct {
   categoryId: string | null;
   category: ApiCategory | null;
   reviews?: ApiReview[];
+  /// Variants are included on the product detail endpoint, not on
+  /// list endpoints.
+  variants?: ApiProductVariant[];
   createdAt: string;
   updatedAt: string;
 }
