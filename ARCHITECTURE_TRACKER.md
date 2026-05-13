@@ -46,6 +46,37 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+47. **[x] Order lifecycle event re-wire — no more "confirmed" email for failed payments** _(shipped 2026-05-13)_.
+
+    **Why**: Magnus did a failed payment and still got an "Order
+    confirmed" email. Root cause: `order.placed` (which fires on
+    order-creation, before any gateway call) had a notifications
+    subscriber sending OrderConfirmed regardless of payment outcome.
+    Webhook leak: also, `payment.failed` event didn't exist, so a
+    failed Squad payment produced no signal — order sat stuck and
+    no customer email went out. Third gap: admin manually flipping
+    a bank-transfer order to PAID never emitted `order.paid`, so
+    those customers got no email either.
+
+    **Fix:**
+    - `order.placed` → no email for online-pay methods. For
+      BANK_TRANSFER / CASH_ON_DELIVERY, sends the new
+      "Order received — awaiting payment" email with live bank
+      account details.
+    - `order.paid` → sends `OrderConfirmed` + `PaymentReceived`
+      emails. Three trigger paths (Squad webhook / verify-redirect
+      poll / admin manual mark-PAID) all funnel through one
+      `applyWebhookOutcome` so subscribers don't fork.
+    - `payment.failed` (new event) → sends `PaymentFailed` email
+      with the gateway-supplied reason (e.g. "Merchant not
+      configured for BIN"). Order stays PENDING_PAYMENT so the
+      customer can retry.
+    - `source` field on `order.paid` / `payment.failed` so audit
+      log + analytics can tell where the flip came from.
+    - Lifecycle map written down in
+      `afrizonemart-api/ORDER_LIFECYCLE.md` so the wiring stays
+      visible. Any new subscriber must update it in the same commit.
+
 46. **[x] Admin-editable payment methods + bank accounts** _(shipped 2026-05-13)_.
 
     Done. Admin surface at `/admin/payment-methods` — toggle each
