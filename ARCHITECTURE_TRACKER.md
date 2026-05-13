@@ -46,6 +46,141 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+## 📊 Marketing & ML Data Infrastructure (queued 2026-05-13)
+
+Magnus asked for a data-infrastructure audit so the marketing team can
+work with customer + order data (emails, phones, behaviour signals)
+and we can start building our own email-marketing / ads / ML
+algorithms in-house. The list below is the build-out queue, in
+priority order — implement one at a time, top down.
+
+**Current state recap (so future-you doesn't re-audit):**
+- Orders + customers + payments + cart + wishlist + loyalty all live
+  in Postgres on Railway. PII fields ready to query: `User.email`,
+  `User.phone`, `User.name`, `UserAddress.*`, `Order.shipPhone`,
+  `Order.shipCity`, `Order.shipCountry`. Full data map lives in this
+  file's section on schemas and in the conversation that produced
+  these tracker items.
+- `Notification` table captures every email we've sent (with
+  Resend's message id), but Resend's open/click/bounce signals are
+  not captured back.
+- Event bus is in-process. `product.viewed`, `cart.updated`,
+  `user.logged_in` events fire but nothing persists them.
+- `/admin/reports` already gives sales-over-time, top-products,
+  top-customers, low-stock.
+- No marketing-opt-in column, no event log, no campaign log, no
+  segment builder, no CSV export, no data warehouse, no marketing-
+  automation tool wired.
+
+48. **[ ] Marketing consent flags on User**
+
+    **Why**: every email blast today risks landing on a customer
+    who never agreed. GDPR / NDPR exposure. Foundation for
+    everything else in this section — can't legally segment-and-
+    blast without it.
+
+    **Scope**: `User.marketingOptIn` + `User.smsOptIn` boolean
+    columns (default false). Checkbox on signup + on
+    `/account/profile`. Unsubscribe link in every marketing email
+    that flips it back off. Backfill rule: existing users default
+    to false (don't grandfather-opt-in retroactively).
+
+49. **[ ] Resend webhook intake — open / click / bounce signals**
+
+    **Why**: we send emails through Resend but don't know who
+    opens them, who clicks, who bounces. ML algorithms can't learn
+    "Magnus reads our emails at 7am Tuesday" without that signal.
+    Marketing can't measure campaign effectiveness.
+
+    **Scope**: `EmailEvent` table (or extend `Notification`) for
+    `delivered / opened / clicked / bounced / complained` events.
+    New `POST /api/webhooks/resend` endpoint. Resend signs webhooks
+    with a secret; verify in the controller (same pattern as the
+    GT Squad replay-guard).
+
+50. **[ ] Persistent AnalyticsEvent stream**
+
+    **Why**: `product.viewed`, `cart.updated`, `user.logged_in`,
+    `order.placed`, `order.paid` all fire on the event bus but
+    nothing writes them down. A recommendation engine / RFM
+    segmentation / churn prediction needs persistent behavioural
+    history — can't ML on signals that evaporated.
+
+    **Scope**: `AnalyticsEvent` table
+    `{ id, userId?, eventType, properties Json, occurredAt }`. New
+    subscriber in `analytics/subscriber.ts` listening to every bus
+    event and writing a row. Indexed by `(userId, occurredAt)` and
+    `(eventType, occurredAt)`. Retention policy: keep 18 months,
+    archive older to cheap storage when we add a warehouse.
+
+51. **[ ] CustomerSegment builder + CSV export**
+
+    **Why**: marketing wants standing lists like "Lagos VIPs",
+    "lapsed 60 days", "wishlisted but never bought", "Continental
+    VIP tier". Today they'd write SQL each time or ping us. With
+    a segment builder they self-serve.
+
+    **Scope**: `CustomerSegment` table storing a query definition
+    (JSON predicate over User + Order rollups). Admin UI at
+    `/admin/segments`. Each segment has: name, predicate, computed
+    count, CSV-export button. Predicate language is narrow at
+    first (status / country / spend / last-order / loyalty-tier
+    / has-product) — add fields as marketing asks.
+
+52. **[ ] Campaign + CampaignDelivery tables — send history**
+
+    **Why**: if marketing sends "10% off Lagos VIPs", today we
+    have no record they got that campaign, what subject line was
+    used, whether it converted. ML needs that feedback loop to
+    learn what works.
+
+    **Scope**: `Campaign` (name, subject, segmentId, template,
+    sentAt, sentByUserId) + `CampaignDelivery` (campaignId,
+    userId, status, openedAt, clickedAt, orderId-if-converted).
+    Conversion attribution joins `CampaignDelivery.userId` to
+    `Order.userId` with a 7-day window after `sentAt`. Reads from
+    the EmailEvent table populated by #49.
+
+53. **[ ] Product affinity rollup — "customers also bought"**
+
+    **Why**: classic cross-sell mechanic, also feeds personalised
+    email recs. Easy first ML win because the math is just
+    co-occurrence counting.
+
+    **Scope**: nightly cron computes a `ProductAffinity` table
+    `(productA, productB, lift)` from `OrderItem` co-occurrence in
+    PAID orders. Storefront PDP renders a "Frequently bought
+    together" rail. Marketing emails can pull a list per user
+    from the products they've purchased.
+
+54. **[ ] Marketing-automation tool — pick + wire**
+
+    **Why**: building our own send infrastructure on top of Resend
+    works for transactional, but marketing wants drag-and-drop
+    campaign editors, A/B testing, scheduling, audience-based
+    drip flows. Cheap path: open-source Listmonk + our Resend SMTP.
+    Hosted: Klaviyo (ecommerce-native, expensive) or Customer.io
+    (cheaper, generic).
+
+    **Scope**: decision first (separate doc), then pipe
+    `user.registered`, `order.paid`, `cart.abandoned`,
+    `payment.failed` events to the chosen tool via their HTTP
+    ingest API. Customer profile sync (one-way: our DB →
+    automation tool) keyed by email.
+
+55. **[ ] Data-warehouse mirror — long-term, when volume justifies it**
+
+    **Why**: when daily order volume crosses ~500/day, marketing
+    queries on prod Postgres compete with checkout traffic.
+    Mirror to a warehouse for analytics.
+
+    **Scope**: BigQuery free tier or ClickHouse Cloud. Nightly
+    Prisma → Parquet → warehouse, OR change-data-capture via
+    Postgres logical replication. Deferred until volume hits the
+    threshold — premature today.
+
+---
+
 47. **[x] Order lifecycle event re-wire — no more "confirmed" email for failed payments** _(shipped 2026-05-13)_.
 
     **Why**: Magnus did a failed payment and still got an "Order
