@@ -46,7 +46,22 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
-45. **[ ] ProductVariant model — fix cart/checkout for bundle selections** _(in progress 2026-05-13)_.
+45. **[x] ProductVariant model — fix cart/checkout for bundle selections** _(shipped 2026-05-13)_.
+
+    Done. API on Railway (`0fbdcc4`, `ccea6a5`), storefront on Vercel
+    (`d6ac46b`). Migration `20260513120000_product_variants` ran
+    cleanly — verified by `GET /api/products/:slug` now returning a
+    `variants[]` array. Memory at `project_product_variants_2026_05_13.md`
+    captures the invariants + future-work pointers.
+
+    Two follow-up tracker items to file later:
+    - Admin variant editor UI — until then bundles are still edited
+      via `attributes.bundles` JSON and `syncProductVariants()`
+      mirrors changes through.
+    - Per-variant stock + per-variant images — schema columns already
+      exist (`ProductVariant.inStock`); admin UI doesn't expose them.
+
+
 
     **Why**: production cart was failing silently — PDP add-to-cart built a
     synthetic productId (`${slug}-${bundle}-${variant}`) but the cart sync
