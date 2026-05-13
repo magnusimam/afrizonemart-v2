@@ -32,6 +32,11 @@ export default function ProfilePage() {
   // Hydrate form once the auth store rehydrates from cookie/refresh.
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  /// Tracker #48 — marketing consent toggles live alongside the
+  /// rest of the profile form so the dirty-check + save-button
+  /// trigger on changes to either flag.
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [smsOptIn, setSmsOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -40,6 +45,8 @@ export default function ProfilePage() {
     if (user) {
       setName(user.name ?? '');
       setPhone(user.phone ?? '');
+      setMarketingOptIn(user.marketingOptIn ?? false);
+      setSmsOptIn(user.smsOptIn ?? false);
     }
   }, [user]);
 
@@ -51,7 +58,11 @@ export default function ProfilePage() {
     return { first: f ?? '', last: rest.join(' ') };
   }, [user?.name]);
 
-  const dirty = (user?.name ?? '') !== name || (user?.phone ?? '') !== phone;
+  const dirty =
+    (user?.name ?? '') !== name ||
+    (user?.phone ?? '') !== phone ||
+    (user?.marketingOptIn ?? false) !== marketingOptIn ||
+    (user?.smsOptIn ?? false) !== smsOptIn;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,6 +79,10 @@ export default function ProfilePage() {
             ? { phone: phone.trim() }
             : {}
           : {}),
+        ...((user?.marketingOptIn ?? false) !== marketingOptIn
+          ? { marketingOptIn }
+          : {}),
+        ...((user?.smsOptIn ?? false) !== smsOptIn ? { smsOptIn } : {}),
       });
       setUser(updated);
       setSuccess('Profile updated.');
@@ -159,6 +174,48 @@ export default function ProfilePage() {
                     need it changed.
                   </span>
                 </Field>
+              </div>
+            </Section>
+
+            <Section
+              title="Communication Preferences"
+              caption="Decide how Afrizonemart reaches out. Transactional emails (orders, shipping, receipts) are sent regardless — these toggles only affect marketing."
+            >
+              <div className="flex flex-col gap-3">
+                <label className="flex items-start gap-3 rounded-input border border-border bg-page p-3">
+                  <input
+                    type="checkbox"
+                    checked={marketingOptIn}
+                    onChange={(e) => setMarketingOptIn(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-navy"
+                  />
+                  <span className="flex flex-col leading-snug">
+                    <span className="font-raleway text-sm font-bold text-navy">
+                      Marketing emails
+                    </span>
+                    <span className="font-sans text-xs text-muted">
+                      Deals, new arrivals, restock alerts, African-product
+                      spotlights. One-click unsubscribe in every email.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 rounded-input border border-border bg-page p-3">
+                  <input
+                    type="checkbox"
+                    checked={smsOptIn}
+                    onChange={(e) => setSmsOptIn(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-navy"
+                  />
+                  <span className="flex flex-col leading-snug">
+                    <span className="font-raleway text-sm font-bold text-navy">
+                      SMS / WhatsApp
+                    </span>
+                    <span className="font-sans text-xs text-muted">
+                      Time-sensitive deals + delivery updates by SMS. You can
+                      reply STOP any time to opt out.
+                    </span>
+                  </span>
+                </label>
               </div>
             </Section>
 

@@ -19,6 +19,12 @@ export interface AuthUser {
   /// ADMIN gets every capability. STAFF gets per-user grants. SELLER gets
   /// role defaults. CUSTOMER gets none.
   permissions: string[];
+  /// Tracker #48 — marketing consent flags. Surfaced so the
+  /// profile page can render the current state without an extra
+  /// fetch, and so future feature gates ("only show newsletter
+  /// banner to opted-in users") have the signal locally.
+  marketingOptIn: boolean;
+  smsOptIn: boolean;
   createdAt: string;
 }
 
@@ -155,6 +161,10 @@ export interface RegisterInput {
   email: string;
   password: string;
   name?: string;
+  /// Tracker #48 — marketing opt-in checkbox on signup. Default
+  /// false; only sent true when the customer explicitly ticks the box.
+  marketingOptIn?: boolean;
+  smsOptIn?: boolean;
 }
 
 export interface LoginInput {
@@ -200,6 +210,10 @@ export interface UpdateMeInput {
   /// and rejects with 400 on bad input or 409 if already taken by
   /// another account.
   phone?: string;
+  /// Tracker #48 — marketing consent toggles. Pass either to
+  /// update; omit to leave unchanged.
+  marketingOptIn?: boolean;
+  smsOptIn?: boolean;
 }
 
 /**

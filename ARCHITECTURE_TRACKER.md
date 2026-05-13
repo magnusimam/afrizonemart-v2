@@ -72,18 +72,37 @@ priority order — implement one at a time, top down.
   segment builder, no CSV export, no data warehouse, no marketing-
   automation tool wired.
 
-48. **[ ] Marketing consent flags on User**
+48. **[x] Marketing consent flags on User** _(shipped 2026-05-13)_.
 
-    **Why**: every email blast today risks landing on a customer
-    who never agreed. GDPR / NDPR exposure. Foundation for
-    everything else in this section — can't legally segment-and-
-    blast without it.
+    Schema: `User.marketingOptIn` + `User.smsOptIn`, default false,
+    no grandfathering. `PublicUser` carries them so the storefront
+    has the live state without a second fetch.
 
-    **Scope**: `User.marketingOptIn` + `User.smsOptIn` boolean
-    columns (default false). Checkbox on signup + on
-    `/account/profile`. Unsubscribe link in every marketing email
-    that flips it back off. Backfill rule: existing users default
-    to false (don't grandfather-opt-in retroactively).
+    API surface:
+    - `POST /api/auth/register` accepts both flags (optional).
+    - `PATCH /api/auth/me` accepts both flags.
+    - New `GET /api/marketing/unsubscribe?token=<signed>` — public,
+      no auth. HMAC-signed stateless token = `userId.channel.sig`
+      signed with `JWT_SECRET`. Idempotent (clicking twice is fine).
+
+    Storefront:
+    - Signup form: opt-in checkbox (unticked by default).
+    - `/account/profile`: two toggles for email + SMS.
+    - New `/unsubscribe?token=` landing page that POSTs the token
+      and confirms back to the customer.
+
+    Email infrastructure prep:
+    - `_marketing-layout.tsx` template wrapper — adds the "you're
+      receiving this because…" footer + one-click unsubscribe link
+      that every future marketing email uses. Transactional emails
+      (OrderConfirmed / PasswordReset / etc.) stay on the regular
+      `EmailLayout` — they don't need the footer.
+    - `buildUnsubscribeUrl(userId, 'email'|'sms')` helper available
+      for any marketing campaign sender.
+
+    Files: `afrizonemart-api/src/modules/marketing/{routes,controller,unsubscribe.service}.ts`, `src/modules/notifications/templates/_marketing-layout.tsx`, `src/modules/auth/{auth.schema,service,repository,google.service,phone.service}.ts`, `afrizonemart-v2/src/app/unsubscribe/page.tsx`, `(auth)/register/page.tsx`, `(shop)/account/profile/page.tsx`, `src/lib/api/auth.ts`.
+
+
 
 49. **[ ] Resend webhook intake — open / click / bounce signals**
 

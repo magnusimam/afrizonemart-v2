@@ -22,6 +22,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [country, setCountry] = useState('NG');
   const [showPwd, setShowPwd] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +56,10 @@ export default function RegisterPage() {
         email,
         password,
         name: fullName || undefined,
+        /// Tracker #48 — only send true when the customer ticked the
+        /// box. Defaulting to false on the server too means a missing
+        /// field never opts anyone in.
+        marketingOptIn: marketingOptIn || undefined,
       });
       setSession(result);
       router.push('/account');
@@ -222,6 +227,19 @@ export default function RegisterPage() {
             Privacy Policy
           </Link>
           .
+        </label>
+
+        {/* Tracker #48 — marketing opt-in. Unticked by default; only
+            sent to the API when the customer explicitly ticks it. */}
+        <label className="flex items-start gap-2 font-sans text-xs leading-relaxed text-charcoal">
+          <input
+            type="checkbox"
+            checked={marketingOptIn}
+            onChange={(e) => setMarketingOptIn(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-navy"
+          />
+          Send me deals, restock alerts, and African-product spotlights by
+          email. You can unsubscribe with one click any time.
         </label>
 
         <button
