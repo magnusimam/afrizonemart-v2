@@ -46,6 +46,51 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+46. **[x] Admin-editable payment methods + bank accounts** _(shipped 2026-05-13)_.
+
+    Done. Admin surface at `/admin/payment-methods` — toggle each
+    method on/off, edit copy + per-type details JSON (USSD codes /
+    crypto wallets / mobile-money providers / POD cities+fee),
+    manage Bank Accounts separately. Storefront checkout reads from
+    `GET /api/payment-methods` and drops the decorative card / USSD /
+    MM / crypto on-page forms in favour of a short "redirecting to
+    Squad" notice for those methods. Bank Transfer + Pay-on-Delivery
+    are the only methods with real on-page content.
+
+    **First admin action Magnus should do now:** open
+    `/admin/payment-methods` → Bank Accounts → New account → enter
+    the real GT account. Until then the bank-transfer flow shows a
+    "not configured yet" placeholder instead of the old placeholder
+    `0123456789` that customers were transferring to.
+
+
+
+    **Why**: checkout's payment page is mostly hardcoded — the bank
+    transfer "GTBank · 0123456789" is a placeholder so customers
+    transferring there reach a non-existent account; USSD codes,
+    mobile-money providers, crypto wallets, and the method
+    descriptions all live in `src/lib/checkout-data.ts`. Magnus needs
+    a real admin surface to fix the bank details + toggle methods
+    on/off (e.g. hide Crypto until ready). Decision 2026-05-13:
+    full editor + multi-currency bank accounts + drop decorative
+    card/USSD/MM/crypto forms (those fields are discarded anyway —
+    Squad's hosted checkout collects the real ones).
+
+    **Scope:**
+    - Schema: `PaymentMethodConfig` (one row per method, with
+      per-type `details` JSON) + `PaymentBankAccount` (per
+      currency/country).
+    - Migration seeds the 6 current methods with matching labels +
+      descriptions, leaves bank accounts empty for Magnus to fill in.
+    - API: public `GET /api/payment-methods?country=&currency=` for
+      the checkout reader; admin CRUD for both tables.
+    - Admin UI: new `/admin/payment-methods` page.
+    - Storefront: `PaymentMethodSelector` + `PaymentMethodForm`
+      read from API. Decorative card/USSD/MM/crypto forms replaced
+      with a short "you'll be redirected to Squad" notice. Bank
+      transfer shows the live account details; Pay on Delivery
+      shows configured cities + fee.
+
 45. **[x] ProductVariant model — fix cart/checkout for bundle selections** _(shipped 2026-05-13)_.
 
     Done. API on Railway (`0fbdcc4`, `ccea6a5`), storefront on Vercel

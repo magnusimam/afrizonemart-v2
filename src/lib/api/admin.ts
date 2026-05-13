@@ -2124,3 +2124,109 @@ export function adminAdjustLoyaltyAccount(
     body: JSON.stringify({ delta, reason }),
   });
 }
+
+// ===== Tracker #46 — Customer-facing payment methods =====
+//
+// Distinct from /admin/payment-gateways (gateway credentials).
+// These manage what the customer sees on /checkout/payment + the
+// bank-transfer accounts they're shown.
+
+export type AdminPaymentMethodCode =
+  | 'CARD'
+  | 'MOBILE_MONEY'
+  | 'BANK_TRANSFER'
+  | 'USSD'
+  | 'CRYPTO'
+  | 'PAY_ON_DELIVERY';
+
+export interface AdminPaymentMethod {
+  id: string;
+  code: AdminPaymentMethodCode;
+  label: string;
+  description: string;
+  icon: string;
+  isActive: boolean;
+  isPopular: boolean;
+  sortOrder: number;
+  details: Record<string, unknown>;
+}
+
+export interface AdminPaymentMethodUpdate {
+  label: string;
+  description: string;
+  icon: string;
+  isActive: boolean;
+  isPopular: boolean;
+  sortOrder: number;
+  details: Record<string, unknown>;
+}
+
+export interface AdminPaymentBankAccount {
+  id: string;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  currency: string;
+  country: string | null;
+  instructions: string | null;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface AdminPaymentBankAccountInput {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  currency: string;
+  country: string | null;
+  instructions: string | null;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export function adminListPaymentMethods(): Promise<{ items: AdminPaymentMethod[] }> {
+  return apiFetchAuthed('/api/admin/payment-methods');
+}
+
+export function adminUpdatePaymentMethod(
+  id: string,
+  body: AdminPaymentMethodUpdate,
+): Promise<AdminPaymentMethod> {
+  return apiFetchAuthed(`/api/admin/payment-methods/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminListPaymentBankAccounts(): Promise<{ items: AdminPaymentBankAccount[] }> {
+  return apiFetchAuthed('/api/admin/payment-methods/bank-accounts');
+}
+
+export function adminCreatePaymentBankAccount(
+  body: AdminPaymentBankAccountInput,
+): Promise<AdminPaymentBankAccount> {
+  return apiFetchAuthed('/api/admin/payment-methods/bank-accounts', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminUpdatePaymentBankAccount(
+  id: string,
+  body: AdminPaymentBankAccountInput,
+): Promise<AdminPaymentBankAccount> {
+  return apiFetchAuthed(
+    `/api/admin/payment-methods/bank-accounts/${encodeURIComponent(id)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function adminDeletePaymentBankAccount(id: string): Promise<void> {
+  return apiFetchAuthed(
+    `/api/admin/payment-methods/bank-accounts/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  );
+}

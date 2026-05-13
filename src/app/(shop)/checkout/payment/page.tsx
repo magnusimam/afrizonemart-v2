@@ -24,6 +24,11 @@ import { HttpApiError } from '@/lib/api/client';
 import { placeOrder, type PaymentMethodId as ApiPaymentMethod } from '@/lib/api/orders';
 import { initPayment } from '@/lib/api/payments';
 import { listPublicGateways } from '@/lib/api/admin';
+import {
+  fetchPublicPaymentMethods,
+  type PaymentBankAccount,
+  type PaymentMethodConfig,
+} from '@/lib/api/payment-methods';
 import { useCheckoutStore } from '@/stores/checkoutStore';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import {
@@ -74,6 +79,12 @@ export default function PaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [serverCart, setServerCart] = useState<CartView | null>(null);
   const [activeGateways, setActiveGateways] = useState<string[]>([]);
+  /// Tracker #46 — methods + bank accounts come from the API now.
+  /// Null while loading; empty after a failure or before any are
+  /// configured. PaymentMethodSelector renders a friendly placeholder
+  /// in both cases.
+  const [methods, setMethods] = useState<PaymentMethodConfig[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<PaymentBankAccount[]>([]);
 
   /// Phase 11.4 — animated Place Order button kill-switch (Principle
   /// #2). Default true so the animation ships visible; admin can flip
@@ -94,6 +105,37 @@ export default function PaymentPage() {
       }
     })();
   }, []);
+
+  /// Tracker #46 — load the live method config + matching bank
+  /// accounts for the customer's shipping country. The currency
+  /// is fixed to NGN for now (matches Order.currency in placeOrder);
+  /// when multi-currency checkout lands this becomes the order's
+  /// currency.
+  useEffect(() => {
+    const country = shipping?.country ?? null;
+    void (async () => {
+      try {
+        const r = await fetchPublicPaymentMethods({ currency: 'NGN', country });
+        setMethods(r.methods);
+        setBankAccounts(r.bankAccounts);
+      } catch {
+        /* fail-soft — selector shows the empty-state notice */
+      }
+    })();
+  }, [shipping?.country]);
+
+  const selectedConfig =
+    methods.find((m) => {
+      const map: Record<string, string> = {
+        CARD: 'card',
+        MOBILE_MONEY: 'mobile-money',
+        BANK_TRANSFER: 'bank-transfer',
+        USSD: 'ussd',
+        CRYPTO: 'crypto',
+        PAY_ON_DELIVERY: 'pay-on-delivery',
+      };
+      return map[m.code] === selected;
+    }) ?? null;
 
   useEffect(() => {
     setHydrated(true);
@@ -268,7 +310,11 @@ export default function PaymentPage() {
                       </p>
                     }
                   >
-                    <PaymentMethodSelector value={selected} onChange={handleSelectMethod} />
+                    <PaymentMethodSelector
+                      methods={methods}
+                      value={selected}
+                      onChange={handleSelectMethod}
+                    />
                   </SafeBoundary>
                   {activeGateways.length > 0 && (
                     <p className="mt-3 flex flex-wrap items-center gap-2 font-sans text-[11px] text-muted">
@@ -294,7 +340,12 @@ export default function PaymentPage() {
                         </p>
                       }
                     >
-                      <PaymentMethodForm method={selected} total={total} />
+                      <PaymentMethodForm
+                        method={selected}
+                        total={total}
+                        config={selectedConfig}
+                        bankAccounts={bankAccounts}
+                      />
                     </SafeBoundary>
                   </Section>
                 ) : null}

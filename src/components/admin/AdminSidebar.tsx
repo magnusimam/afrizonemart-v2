@@ -61,6 +61,7 @@ const NAV: NavItem[] = [
   { href: '/admin/coupons', label: 'Discounts', icon: PercentCircle, cap: 'coupons.write' },
   { href: '/admin/shipping', label: 'Shipping', icon: Truck, cap: 'shipping.write' },
   { href: '/admin/payment-gateways', label: 'Payment Gateways', icon: CreditCard, cap: 'payment-gateways.write' },
+  { href: '/admin/payment-methods', label: 'Payment Methods', icon: CreditCard, cap: 'payment-gateways.write' },
   { href: '/admin/reports', label: 'Reports', icon: BarChart3, cap: 'reports.read' },
   { href: '/admin/webhooks', label: 'Webhooks', icon: Plug, cap: 'webhooks.write' },
   { href: '/admin/notifications', label: 'Notifications', icon: Mail, cap: 'notifications.write' },

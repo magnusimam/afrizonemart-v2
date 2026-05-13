@@ -1,210 +1,112 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Copy, Hash, Smartphone, Wallet } from 'lucide-react';
-import {
-  COUNTRIES,
-  COUNTRY_CODES,
-  getCountry,
-} from '@/lib/countries';
-import {
-  MOBILE_MONEY_PROVIDERS,
-  NIGERIAN_BANKS,
-  USSD_CODES,
-  type PaymentMethodId,
-} from '@/lib/checkout-data';
+import { Check, Copy, Hash, Lock, Smartphone, Truck, Wallet } from 'lucide-react';
+import type { PaymentMethodId } from '@/lib/checkout-data';
+import type {
+  PaymentBankAccount,
+  PaymentMethodConfig,
+} from '@/lib/api/payment-methods';
 
-const inputClass =
-  'w-full rounded-input border border-border bg-white px-3 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none';
+/// Tracker #46 — every form on this page now reads from the API.
+///
+/// The card / mobile-money / USSD / crypto fields used to be
+/// collected on this page and discarded — Squad's hosted checkout
+/// captures the real details after redirect. They've been replaced
+/// with a short notice so the customer understands what happens
+/// next and isn't confused by data-entry that goes nowhere.
+///
+/// Bank-transfer + pay-on-delivery are the only methods that keep
+/// real on-page content because the displayed values are
+/// load-bearing (the customer literally has to transfer to the
+/// displayed account number) — both now driven by admin config.
 
 interface Props {
   method: PaymentMethodId;
   total: number;
+  config: PaymentMethodConfig | null;
+  bankAccounts: PaymentBankAccount[];
 }
 
-export function PaymentMethodForm({ method, total }: Props) {
+export function PaymentMethodForm({ method, total, config, bankAccounts }: Props) {
   switch (method) {
     case 'card':
-      return <CardForm />;
+      return <GatewayRedirectNotice label="card" />;
     case 'mobile-money':
-      return <MobileMoneyForm />;
+      return <GatewayRedirectNotice label="mobile money" />;
     case 'bank-transfer':
-      return <BankTransferDetails total={total} />;
+      return <BankTransferDetails total={total} accounts={bankAccounts} />;
     case 'ussd':
-      return <UssdInstructions total={total} />;
+      return <UssdInstructions total={total} config={config} />;
     case 'crypto':
-      return <CryptoPayment />;
+      return <CryptoPayment config={config} />;
     case 'pay-on-delivery':
-      return <PayOnDeliveryConfirm />;
+      return <PayOnDeliveryConfirm config={config} />;
     default:
       return null;
   }
 }
 
-function CardForm() {
-  const [number, setNumber] = useState('');
-  const formatted = number
-    .replace(/\D/g, '')
-    .slice(0, 19)
-    .replace(/(.{4})/g, '$1 ')
-    .trim();
-
-  const brand = detectCardBrand(number);
-
+/// Replaces the old CardForm / MobileMoneyForm — card / mobile-money
+/// fields are collected by Squad on the next page, not us.
+function GatewayRedirectNotice({ label }: { label: string }) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <Field label="Card Number" required className="md:col-span-2">
-        <div className="relative">
-          <input
-            required
-            type="text"
-            value={formatted}
-            onChange={(e) => setNumber(e.target.value)}
-            placeholder="1234 5678 9012 3456"
-            inputMode="numeric"
-            maxLength={23}
-            className={inputClass}
-          />
-          {brand ? (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-input bg-navy/5 px-2 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
-              {brand}
-            </span>
-          ) : null}
-        </div>
-      </Field>
-      <Field label="Cardholder Name" required>
-        <input required type="text" placeholder="As shown on card" className={inputClass} autoComplete="cc-name" />
-      </Field>
-      <Field label="Expiry (MM/YY)" required>
-        <input
-          required
-          type="text"
-          placeholder="MM/YY"
-          maxLength={5}
-          className={inputClass}
-          autoComplete="cc-exp"
-        />
-      </Field>
-      <Field label="CVV" required>
-        <input
-          required
-          type="text"
-          placeholder="3-4 digits"
-          maxLength={4}
-          inputMode="numeric"
-          className={inputClass}
-          autoComplete="cc-csc"
-        />
-      </Field>
-      <p className="font-sans text-xs text-muted md:col-span-2">
-        🔒 Your card details are encrypted and processed securely. We never store your full card number.
-      </p>
+    <div className="flex items-start gap-3 rounded-card border-2 border-navy/15 bg-navy/5 p-4">
+      <Lock size={20} className="mt-0.5 shrink-0 text-navy" aria-hidden />
+      <div className="flex flex-col gap-1">
+        <p className="font-raleway text-sm font-bold text-navy">
+          You&apos;ll enter your {label} details on the next screen
+        </p>
+        <p className="font-sans text-xs leading-relaxed text-charcoal">
+          When you tap Pay, we&apos;ll send you to our secure payment partner
+          to complete this {label} payment. Your details never touch our
+          servers.
+        </p>
+      </div>
     </div>
   );
 }
 
-function detectCardBrand(num: string): string | null {
-  const n = num.replace(/\D/g, '');
-  if (!n) return null;
-  if (n.startsWith('4')) return 'Visa';
-  if (/^5[1-5]/.test(n) || /^2[2-7]/.test(n)) return 'Mastercard';
-  if (/^3[47]/.test(n)) return 'Amex';
-  if (n.startsWith('5061') || n.startsWith('6500')) return 'Verve';
-  return null;
-}
-
-function MobileMoneyForm() {
-  const [countryCode, setCountryCode] = useState<string>('NG');
-  const country = getCountry(countryCode);
-  const providers = MOBILE_MONEY_PROVIDERS.filter((p) =>
-    p.countries.includes(countryCode as never),
-  );
-  const [provider, setProvider] = useState<string>(providers[0]?.code ?? '');
-
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <Field label="Country" required>
-        <select
-          required
-          value={countryCode}
-          onChange={(e) => {
-            setCountryCode(e.target.value);
-            const ps = MOBILE_MONEY_PROVIDERS.filter((p) =>
-              p.countries.includes(e.target.value as never),
-            );
-            setProvider(ps[0]?.code ?? '');
-          }}
-          className={`${inputClass} cursor-pointer`}
-        >
-          {COUNTRY_CODES.filter((c) =>
-            MOBILE_MONEY_PROVIDERS.some((p) => p.countries.includes(c)),
-          ).map((c) => (
-            <option key={c} value={c}>
-              {COUNTRIES[c].flag} {COUNTRIES[c].name}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Provider" required>
-        {providers.length > 0 ? (
-          <select
-            required
-            value={provider}
-            onChange={(e) => setProvider(e.target.value)}
-            className={`${inputClass} cursor-pointer`}
-          >
-            {providers.map((p) => (
-              <option key={p.code} value={p.code}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            disabled
-            placeholder="No mobile money providers in this country"
-            className={inputClass}
-          />
-        )}
-      </Field>
-      <Field label="Phone Number" required className="md:col-span-2">
-        <div className="flex gap-2">
-          <span className="flex shrink-0 items-center gap-1 rounded-input border border-border bg-page px-3 font-sans text-sm">
-            <span aria-hidden>{country?.flag}</span>
-            <span className="text-charcoal">{country?.dial}</span>
-          </span>
-          <input
-            required
-            type="tel"
-            placeholder="80 1234 5678"
-            className={inputClass}
-          />
-        </div>
-      </Field>
-      <p className="flex items-center gap-2 font-sans text-xs text-muted md:col-span-2">
-        <Smartphone size={14} aria-hidden />
-        On submit you&apos;ll receive a payment prompt on your phone — approve to complete the order.
-      </p>
-    </div>
-  );
-}
-
-function BankTransferDetails({ total }: { total: number }) {
+function BankTransferDetails({
+  total,
+  accounts,
+}: {
+  total: number;
+  accounts: PaymentBankAccount[];
+}) {
   const reference = `AZM-${Date.now().toString().slice(-8)}`;
+  if (accounts.length === 0) {
+    return (
+      <div className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
+        Bank transfer isn&apos;t fully configured yet. Please pick another
+        payment method, or contact support.
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-card border border-border bg-page p-4">
-        <p className="mb-3 font-raleway text-sm font-bold text-navy">
-          Transfer to this account
-        </p>
-        <dl className="flex flex-col gap-2.5">
-          <Row label="Bank" value="GTBank" />
-          <Row label="Account Name" value="Afrizonemart Distribution Ltd" />
-          <Row label="Account Number" value="0123456789" copyable />
-          <Row label="Amount" value={`NGN ${total.toLocaleString()}`} />
-          <Row label="Payment Reference" value={reference} copyable highlight />
-        </dl>
-      </div>
+      {accounts.map((acc) => (
+        <div key={acc.id} className="rounded-card border border-border bg-page p-4">
+          <p className="mb-3 font-raleway text-sm font-bold text-navy">
+            Transfer to this account
+          </p>
+          <dl className="flex flex-col gap-2.5">
+            <Row label="Bank" value={acc.bankName} />
+            <Row label="Account Name" value={acc.accountName} />
+            <Row label="Account Number" value={acc.accountNumber} copyable />
+            <Row
+              label="Amount"
+              value={`${acc.currency} ${total.toLocaleString()}`}
+            />
+            <Row label="Payment Reference" value={reference} copyable highlight />
+            {acc.instructions ? (
+              <p className="mt-1 font-sans text-xs leading-relaxed text-muted">
+                {acc.instructions}
+              </p>
+            ) : null}
+          </dl>
+        </div>
+      ))}
       <p className="font-sans text-xs text-muted">
         ⚠️ Use the exact reference above so we can match your transfer to this order automatically.
       </p>
@@ -212,24 +114,45 @@ function BankTransferDetails({ total }: { total: number }) {
   );
 }
 
-function UssdInstructions({ total }: { total: number }) {
-  const [bank, setBank] = useState(NIGERIAN_BANKS[0]);
-  const code = USSD_CODES[bank]?.replace('[Amount]', total.toString()) ?? null;
+function UssdInstructions({
+  total,
+  config,
+}: {
+  total: number;
+  config: PaymentMethodConfig | null;
+}) {
+  const codes =
+    (config?.details?.codes as Record<string, string> | undefined) ?? {};
+  const banks = Object.keys(codes);
+  const [bank, setBank] = useState(banks[0] ?? '');
+  const codeTemplate = bank ? codes[bank] : null;
+  const code = codeTemplate?.replace('[Amount]', total.toString()) ?? null;
+
+  if (banks.length === 0) {
+    return (
+      <div className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
+        No USSD codes configured. Try Bank Transfer or Card instead.
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      <Field label="Your Bank" required>
+      <label className="flex flex-col gap-1.5">
+        <span className="font-raleway text-xs font-bold uppercase tracking-btn text-navy">
+          Your Bank
+          <span className="text-danger"> *</span>
+        </span>
         <select
-          required
           value={bank}
           onChange={(e) => setBank(e.target.value)}
-          className={`${inputClass} cursor-pointer`}
+          className="w-full rounded-input border border-border bg-white px-3 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none cursor-pointer"
         >
-          {NIGERIAN_BANKS.map((b) => (
+          {banks.map((b) => (
             <option key={b}>{b}</option>
           ))}
         </select>
-      </Field>
+      </label>
 
       {code ? (
         <div className="rounded-card border-2 border-navy/20 bg-amber/15 p-4 text-center">
@@ -244,95 +167,108 @@ function UssdInstructions({ total }: { total: number }) {
             Then enter your PIN when prompted. We&apos;ll verify within 30 seconds.
           </p>
         </div>
-      ) : (
-        <p className="font-sans text-sm text-muted">
-          USSD instructions for this bank are coming soon. Try Bank Transfer instead.
-        </p>
-      )}
+      ) : null}
     </div>
   );
 }
 
-function CryptoPayment() {
-  const [coin, setCoin] = useState<'BTC' | 'USDT' | 'ETH'>('USDT');
-  const addresses = {
-    BTC: 'bc1q4afrizonemart7example8address9',
-    USDT: '0x7Afri80zoneMart9Example4Address1Usdt',
-    ETH: '0x7Afri80zoneMart9Example4Address1Eth0',
-  };
+interface CryptoWallet {
+  coin: string;
+  address: string;
+  label?: string;
+}
+
+function CryptoPayment({ config }: { config: PaymentMethodConfig | null }) {
+  const wallets =
+    (config?.details?.wallets as CryptoWallet[] | undefined) ?? [];
+  const [coin, setCoin] = useState<string>(wallets[0]?.coin ?? '');
+  const selected = wallets.find((w) => w.coin === coin) ?? wallets[0] ?? null;
+
+  if (wallets.length === 0) {
+    return (
+      <div className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
+        Crypto payments aren&apos;t available right now. Try another method.
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <Field label="Cryptocurrency" required>
-        <div className="grid grid-cols-3 gap-2">
-          {(['BTC', 'USDT', 'ETH'] as const).map((c) => (
+      <label className="flex flex-col gap-1.5">
+        <span className="font-raleway text-xs font-bold uppercase tracking-btn text-navy">
+          Cryptocurrency
+          <span className="text-danger"> *</span>
+        </span>
+        <div
+          className="grid gap-2"
+          style={{ gridTemplateColumns: `repeat(${Math.min(wallets.length, 3)}, minmax(0, 1fr))` }}
+        >
+          {wallets.map((w) => (
             <button
-              key={c}
+              key={w.coin}
               type="button"
-              onClick={() => setCoin(c)}
-              aria-pressed={coin === c}
+              onClick={() => setCoin(w.coin)}
+              aria-pressed={coin === w.coin}
               className={`rounded-btn border-2 py-2 font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${
-                coin === c
+                coin === w.coin
                   ? 'border-navy bg-navy text-white'
                   : 'border-border bg-white text-navy hover:border-navy'
               }`}
             >
-              {c}
+              {w.coin}
             </button>
           ))}
         </div>
-      </Field>
-      <Field label="Wallet Address (send to)" className="md:col-span-2">
-        <Row value={addresses[coin]} copyable label="" />
-      </Field>
+      </label>
+      {selected ? (
+        <label className="flex flex-col gap-1.5 md:col-span-2">
+          <span className="font-raleway text-xs font-bold uppercase tracking-btn text-navy">
+            Wallet Address (send to)
+          </span>
+          <Row value={selected.address} copyable />
+        </label>
+      ) : null}
       <p className="flex items-center gap-2 font-sans text-xs text-muted md:col-span-2">
         <Wallet size={14} aria-hidden />
-        Send the exact total in {coin}. We&apos;ll confirm 1 confirmation usually within 5 minutes.
+        Send the exact total in {selected?.coin ?? 'crypto'}. We&apos;ll
+        confirm 1 confirmation usually within 5 minutes.
       </p>
     </div>
   );
 }
 
-function PayOnDeliveryConfirm() {
+interface PayOnDeliveryDetails {
+  feeNgn?: number;
+  cities?: string[];
+}
+
+function PayOnDeliveryConfirm({ config }: { config: PaymentMethodConfig | null }) {
+  const details = (config?.details as PayOnDeliveryDetails | undefined) ?? {};
+  const cities = details.cities ?? [];
+  const fee = details.feeNgn ?? 0;
   return (
     <div className="rounded-card border-2 border-success/30 bg-success/10 p-5">
       <div className="mb-2 flex items-center gap-2">
-        <Check size={20} className="text-success" aria-hidden />
+        <Truck size={20} className="text-success" aria-hidden />
         <p className="font-raleway text-base font-bold text-success">
           Pay on Delivery selected
         </p>
       </div>
       <p className="font-sans text-sm leading-relaxed text-charcoal">
-        Our courier will collect payment in cash or by card terminal at delivery. Available within Lagos, Nairobi, and Accra. A small NGN500 service fee applies.
+        Our courier will collect payment in cash or by card terminal at delivery.
+        {cities.length > 0
+          ? ` Available within ${cities.join(', ')}.`
+          : ''}
+        {fee > 0
+          ? ` A small NGN${fee.toLocaleString()} service fee applies.`
+          : ''}
       </p>
     </div>
   );
 }
 
-function Field({
-  label,
-  required,
-  className = '',
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className={`flex flex-col gap-1.5 ${className}`}>
-      {label ? (
-        <span className="font-raleway text-xs font-bold uppercase tracking-btn text-navy">
-          {label}
-          {required ? <span className="text-danger"> *</span> : null}
-        </span>
-      ) : null}
-      {children}
-    </label>
-  );
-}
-
+/// Local Row helper — was previously shared with the old card form
+/// that's been retired.
 function Row({
   label,
   value,
@@ -372,7 +308,7 @@ function Row({
           <button
             type="button"
             onClick={handleCopy}
-            aria-label={`Copy ${label}`}
+            aria-label={`Copy ${label ?? 'value'}`}
             className="flex h-7 w-7 items-center justify-center rounded-input bg-navy text-white transition-colors hover:bg-amber hover:text-navy"
           >
             {copied ? <Check size={12} aria-hidden /> : <Copy size={12} aria-hidden />}
@@ -382,3 +318,6 @@ function Row({
     </div>
   );
 }
+
+// Suppress unused warning if Smartphone icon ever needed re-instated.
+void Smartphone;
