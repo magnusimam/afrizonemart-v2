@@ -1112,6 +1112,19 @@ export interface AdminNotification {
   error: string | null;
   context: Record<string, unknown>;
   sentAt: string | null;
+  /// Tracker #49 — denormalised engagement signals from Resend
+  /// webhook. Null when the event hasn't fired yet (or for emails
+  /// sent before Tracker #49 landed).
+  deliveredAt: string | null;
+  firstOpenedAt: string | null;
+  lastOpenedAt: string | null;
+  openCount: number;
+  firstClickedAt: string | null;
+  lastClickedAt: string | null;
+  clickCount: number;
+  bouncedAt: string | null;
+  bounceReason: string | null;
+  complainedAt: string | null;
   createdAt: string;
 }
 

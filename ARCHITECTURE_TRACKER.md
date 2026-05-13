@@ -104,18 +104,40 @@ priority order — implement one at a time, top down.
 
 
 
-49. **[ ] Resend webhook intake — open / click / bounce signals**
+49. **[x] Resend webhook intake — open / click / bounce signals** _(shipped 2026-05-13)_.
 
-    **Why**: we send emails through Resend but don't know who
-    opens them, who clicks, who bounces. ML algorithms can't learn
-    "Magnus reads our emails at 7am Tuesday" without that signal.
-    Marketing can't measure campaign effectiveness.
+    Schema: new `EmailEvent` table for the full event log + 8
+    denormalised summary columns on `Notification`
+    (deliveredAt / firstOpenedAt / lastOpenedAt / openCount /
+    firstClickedAt / lastClickedAt / clickCount / bouncedAt /
+    bounceReason / complainedAt).
 
-    **Scope**: `EmailEvent` table (or extend `Notification`) for
-    `delivered / opened / clicked / bounced / complained` events.
-    New `POST /api/webhooks/resend` endpoint. Resend signs webhooks
-    with a secret; verify in the controller (same pattern as the
-    GT Squad replay-guard).
+    API: `POST /api/notifications/webhooks/resend`. Svix-style
+    HMAC-SHA256 verification of `${svix-id}.${svix-timestamp}.${body}`
+    with `RESEND_WEBHOOK_SECRET`. 5-minute timestamp tolerance.
+    Constant-time signature compare. Multi-key rotation supported
+    (`v1,<sig> v1,<sig>` header). InboundWebhookEvent replay guard
+    keyed on `svix-id`.
+
+    Event mapping: `email.sent | delivered | delivery_delayed |
+    opened | clicked | bounced | complained` → `EmailEventType` enum
+    rows + denorm-update on the linked Notification row.
+
+    Admin: `/admin/notifications` now renders an Engagement column
+    with chips for Delivered / Opened ×N / Clicked ×N / Bounced /
+    Complaint. Detail tooltip on each chip shows the timestamp +
+    bounce reason where applicable.
+
+    **Operator action needed once deployed:**
+    1. Add a webhook endpoint in Resend dashboard pointing at
+       `https://api.afrizonemart.com/api/notifications/webhooks/resend`.
+    2. Copy the signing secret Resend gives you.
+    3. Set `RESEND_WEBHOOK_SECRET=<secret>` in Railway and redeploy.
+    4. Enable the event types: `email.delivered`, `email.opened`,
+       `email.clicked`, `email.bounced`, `email.complained`. (Sent +
+       delayed are optional — they're handled if enabled.)
+    5. Send a test email from `/admin/email-templates` and watch the
+       Engagement column populate.
 
 50. **[ ] Persistent AnalyticsEvent stream**
 

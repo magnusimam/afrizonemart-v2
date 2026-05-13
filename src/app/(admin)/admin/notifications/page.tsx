@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { RefreshCcw } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCheck,
+  Eye,
+  MailCheck,
+  MousePointerClick,
+  RefreshCcw,
+  ShieldAlert,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { Column, DataTable } from '@/components/admin/DataTable';
 import { toast } from '@/components/admin/Toast';
@@ -114,6 +123,69 @@ export default function AdminNotificationsPage() {
       ),
     },
     {
+      key: 'engagement',
+      header: 'Engagement',
+      render: (n) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {n.deliveredAt && (
+            <EngagementChip
+              tone="ok"
+              Icon={MailCheck}
+              label="Delivered"
+              detail={new Date(n.deliveredAt).toLocaleString()}
+            />
+          )}
+          {n.openCount > 0 && (
+            <EngagementChip
+              tone="ok"
+              Icon={Eye}
+              label={`Opened ×${n.openCount}`}
+              detail={
+                n.lastOpenedAt
+                  ? `Last: ${new Date(n.lastOpenedAt).toLocaleString()}`
+                  : undefined
+              }
+            />
+          )}
+          {n.clickCount > 0 && (
+            <EngagementChip
+              tone="ok"
+              Icon={MousePointerClick}
+              label={`Clicked ×${n.clickCount}`}
+              detail={
+                n.lastClickedAt
+                  ? `Last: ${new Date(n.lastClickedAt).toLocaleString()}`
+                  : undefined
+              }
+            />
+          )}
+          {n.bouncedAt && (
+            <EngagementChip
+              tone="bad"
+              Icon={AlertTriangle}
+              label="Bounced"
+              detail={n.bounceReason ?? new Date(n.bouncedAt).toLocaleString()}
+            />
+          )}
+          {n.complainedAt && (
+            <EngagementChip
+              tone="bad"
+              Icon={ShieldAlert}
+              label="Complaint"
+              detail={new Date(n.complainedAt).toLocaleString()}
+            />
+          )}
+          {!n.deliveredAt &&
+            n.openCount === 0 &&
+            n.clickCount === 0 &&
+            !n.bouncedAt &&
+            !n.complainedAt && (
+              <span className="font-sans text-[11px] text-muted">—</span>
+            )}
+        </div>
+      ),
+    },
+    {
       key: 'error',
       header: 'Error',
       render: (n) =>
@@ -200,3 +272,36 @@ export default function AdminNotificationsPage() {
     </div>
   );
 }
+
+/// Tracker #49 — small chip for the engagement column. `tone` decides
+/// the accent colour; pass `detail` for an on-hover tooltip with the
+/// timestamp / reason.
+function EngagementChip({
+  tone,
+  Icon,
+  label,
+  detail,
+}: {
+  tone: 'ok' | 'bad';
+  Icon: LucideIcon;
+  label: string;
+  detail?: string;
+}) {
+  const styles =
+    tone === 'ok'
+      ? 'border-success/30 bg-success/10 text-success'
+      : 'border-danger/30 bg-danger/10 text-danger';
+  return (
+    <span
+      title={detail}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-btn ${styles}`}
+    >
+      <Icon size={10} aria-hidden />
+      {label}
+    </span>
+  );
+}
+
+// Suppress unused-import warning if the success icon gets removed
+// later.
+void CheckCheck;
