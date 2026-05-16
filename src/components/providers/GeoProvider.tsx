@@ -9,6 +9,14 @@ interface GeoState {
   currency: string; // ISO-4217, defaults to 'NGN'
   fx: FxSnapshot | null;
   ready: boolean;
+  /// 2026-05-16 — true once the visitor has explicitly chosen a
+  /// currency from the header dropdown. Defaults to false even
+  /// after edge-middleware sets `azm_currency` from IP. The
+  /// DisplayPrice component uses this to decide: when false, show
+  /// each product in its origin country's currency (so the
+  /// platform doesn't feel Nigerian-first); when true, show every
+  /// price in the visitor's selected currency.
+  currencyUserSet: boolean;
   setCurrency: (code: string) => void;
 }
 
@@ -37,6 +45,12 @@ interface GeoProviderProps {
 export function GeoProvider({ initialCountry, initialCurrency, children }: GeoProviderProps) {
   const [country, setCountry] = useState(initialCountry ?? 'NG');
   const [currency, setCurrencyState] = useState(initialCurrency ?? 'NGN');
+  /// 2026-05-16 — `azm_currency_user` is set ONLY when the visitor
+  /// picks from the header dropdown. The edge middleware never
+  /// writes it. That's how DisplayPrice knows whether to honour
+  /// the per-product origin currency (default) or override
+  /// everything with the dropdown's value (explicit).
+  const [currencyUserSet, setCurrencyUserSet] = useState(false);
   const [fx, setFx] = useState<FxSnapshot | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -44,8 +58,10 @@ export function GeoProvider({ initialCountry, initialCurrency, children }: GeoPr
   useEffect(() => {
     const cookieCountry = readCookie('azm_country');
     const cookieCurrency = readCookie('azm_currency');
+    const cookieUserSet = readCookie('azm_currency_user');
     if (cookieCountry) setCountry(cookieCountry);
     if (cookieCurrency) setCurrencyState(cookieCurrency);
+    if (cookieUserSet === '1') setCurrencyUserSet(true);
 
     let cancelled = false;
     fetchFxRates().then((snap) => {
@@ -61,11 +77,13 @@ export function GeoProvider({ initialCountry, initialCurrency, children }: GeoPr
   const setCurrency = useCallback((code: string) => {
     const upper = code.toUpperCase();
     setCurrencyState(upper);
+    setCurrencyUserSet(true);
     writeCookie('azm_currency', upper);
+    writeCookie('azm_currency_user', '1');
   }, []);
 
   return (
-    <GeoContext.Provider value={{ country, currency, fx, ready, setCurrency }}>
+    <GeoContext.Provider value={{ country, currency, fx, ready, currencyUserSet, setCurrency }}>
       {children}
     </GeoContext.Provider>
   );
@@ -81,6 +99,7 @@ export function useGeo(): GeoState {
       currency: 'NGN',
       fx: null,
       ready: false,
+      currencyUserSet: false,
       setCurrency: () => undefined,
     };
   }
