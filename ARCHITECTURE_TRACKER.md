@@ -46,6 +46,69 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+## 🚨 Payment reconciliation cron — paid-but-stuck orders (2026-05-16)
+
+**Critical bug:** Magnus paid ₦2000 on Squad on 2026-05-15. Money was
+debited; Squad emailed the receipt; our DB still shows
+`PENDING_PAYMENT`. Diagnostic found **4 PENDING_PAYMENT orders**
+spanning two days, including one where Squad confirms
+`transaction_status=success`.
+
+**Two stacked failures:**
+1. **Squad webhook never reached us.** `InboundWebhookEvent` has zero
+   rows with `provider='squad'`. Either Squad's dashboard webhook URL
+   isn't pointed at `https://api.afrizonemart.com/api/payments/webhook`,
+   or signature is failing before we record it. Operator task — set in
+   Squad dashboard.
+2. **Verify-after-redirect path was broken in code.** `Payment.gateway`
+   stores `'squad'` (provider key from `GtSquadGateway.id`).
+   `gatewayById('squad')` was doing `findUnique({ where: { id: 'squad' } })`
+   — looking for a config with **primary key** `'squad'`. Config IDs
+   are cuids, so findUnique always missed. Fell through to a legacy
+   env fallback that wasn't set in prod, then to
+   `assertStubAllowed()` which throws. Every customer who paid since
+   we moved to DB-config Squad got stuck.
+
+**Fixes shipped:**
+- `gatewayById` now tries primary-key lookup AND provider-key lookup
+  (`findFirst({ where: { provider: id, isActive: true } })`).
+- `applyWebhookOutcome` accepts a third `source` value:
+  `'reconciliation_cron'`. Plumbed into `order.paid` /
+  `payment.failed` events for analytics.
+- New `reconcilePendingOrder(orderId, source)` server-side helper in
+  `payments/service.ts`.
+- New `startPaymentReconciliationCron` in
+  `payments/reconciliation-cron.ts`. Sweeps every 5 minutes: finds
+  every PENDING_PAYMENT older than 2 minutes with INITIATED Payment,
+  asks the gateway, applies the outcome.
+- One-off `scripts/reconcile-pending-orders.ts` to clear the 4 stuck
+  orders immediately.
+
+**The defense-in-depth invariant going forward:**
+Three independent paths can flip `PENDING_PAYMENT → PAID`:
+1. **Gateway webhook** — sub-second when gateway fires it.
+2. **Verify-after-redirect** — sub-second when customer reaches our
+   success page.
+3. **Reconciliation cron** — every 5 min, catches everything the
+   first two missed. Guarantees bounded worst-case latency.
+
+All three funnel through `applyWebhookOutcome`. Subscribers (loyalty,
+notifications, webhooks outbound) see one canonical `order.paid` /
+`payment.failed` event regardless of which path triggered it.
+
+**Operator action needed:**
+1. Squad dashboard → Webhooks → set the endpoint to
+   `https://api.afrizonemart.com/api/payments/webhook` if not already
+   set. (The cron will catch everything either way, but the webhook
+   gives sub-second feedback to the success page.)
+2. Once API deploys, run
+   `railway run --service api npx tsx scripts/reconcile-pending-orders.ts`
+   to clear the 4 currently-stuck orders.
+3. Set `SENTRY_DSN` on the API service so future
+   `assertStubAllowed` crashes page us instead of being silent.
+
+---
+
 ## 🔧 Bugfix batch 2026-05-16 — signup UX + silent env drift
 
 Three bugs surfaced together: (1) Magnus didn't get the 20-coin
