@@ -12,15 +12,27 @@ import {
   type EmailTemplate,
 } from '@/lib/api/admin';
 
+/// 2026-05-16 — full list of every email type the API actually
+/// dispatches. Keep this in sync with the `type:` strings in
+/// `afrizonemart-api/src/modules/notifications/dispatcher.ts`. The
+/// admin clicks "Initialise" on any row to create an EmailTemplate
+/// DB row that overrides the hardcoded React template.
 const KNOWN_EVENTS: Array<{ type: string; defaultName: string; defaultSubject: string }> = [
+  // ---- Order lifecycle ----
+  { type: 'order.awaiting_payment', defaultName: 'Order received (bank transfer / COD)', defaultSubject: 'Order {orderNumber} received — awaiting payment' },
   { type: 'order.confirmed', defaultName: 'Order confirmation', defaultSubject: 'Order {orderNumber} confirmed' },
   { type: 'payment.received', defaultName: 'Payment received', defaultSubject: 'Payment received for {orderNumber}' },
+  { type: 'payment.failed', defaultName: 'Payment failed', defaultSubject: "Payment couldn't be processed for {orderNumber}" },
   { type: 'order.shipped', defaultName: 'Order shipped', defaultSubject: 'Your order {orderNumber} has shipped' },
   { type: 'order.delivered', defaultName: 'Order delivered', defaultSubject: 'Your order {orderNumber} has been delivered' },
   { type: 'order.cancelled', defaultName: 'Order cancelled', defaultSubject: 'Order {orderNumber} cancelled' },
   { type: 'order.refunded', defaultName: 'Refund issued', defaultSubject: 'Refund issued for {orderNumber}' },
+  // ---- Account / auth ----
   { type: 'user.welcome', defaultName: 'Welcome email', defaultSubject: 'Welcome to Afrizonemart' },
   { type: 'password.reset', defaultName: 'Password reset', defaultSubject: 'Reset your Afrizonemart password' },
+  { type: 'staff.invite', defaultName: 'Staff invite', defaultSubject: "You've been invited to Afrizonemart admin" },
+  // ---- Re-engagement ----
+  { type: 'cart.abandoned', defaultName: 'Abandoned cart reminder', defaultSubject: 'You left items in your Afrizonemart cart' },
 ];
 
 export default function AdminEmailTemplatesPage() {
