@@ -9,6 +9,11 @@ import { getMyLoyalty, type LoyaltyMeResponse } from '@/lib/api/loyalty';
 import { useAuthStore } from '@/stores/authStore';
 import { formatPriceNGN } from '@/lib/format';
 import type { LoyaltyTier, LoyaltyTransactionType } from '@/lib/api/admin';
+import { TierLadder } from '@/components/account/rewards/TierLadder';
+import { TierProgressBar } from '@/components/account/rewards/TierProgressBar';
+import { OrdersToNextTier } from '@/components/account/rewards/OrdersToNextTier';
+import { ExpiringCoinsBanner } from '@/components/account/rewards/ExpiringCoinsBanner';
+import { AnimatedCoinCounter } from '@/components/account/rewards/AnimatedCoinCounter';
 
 const TIER_LABELS: Record<LoyaltyTier, string> = {
   BLUE: 'Continental Blue',
@@ -185,13 +190,28 @@ function EnrolledView({
 }: {
   data: Extract<LoyaltyMeResponse, { enrolled: true }>;
 }) {
-  const { account, transactions, tierProgress, rollingSpend, config } = data;
+  const {
+    account,
+    transactions,
+    tierProgress,
+    rollingSpend,
+    rollingPaidOrders,
+    expiring,
+    config,
+  } = data;
   const tone = TIER_TONES[account.currentTier];
   const coinValueNgn = formatPriceNGN(account.coinBalance * config.coinValueNgn);
-  const isTopTier = tierProgress.nextTier === null;
 
   return (
     <>
+      {/* 2026-05-16 Phase 1 gamification — expiring coins banner sits
+          above the tier card so the urgency catches the eye before
+          the celebratory tier copy. Renders nothing when no batch
+          is expiring soon. */}
+      <SafeBoundary name="rewards:expiring-banner" fallback={null}>
+        <ExpiringCoinsBanner expiring={expiring ?? null} coinValueNgn={config.coinValueNgn} />
+      </SafeBoundary>
+
       <section
         className={`overflow-hidden rounded-card p-6 shadow-card md:p-8 ${tone}`}
       >
@@ -201,13 +221,17 @@ function EnrolledView({
         <h2 className="mt-1 font-raleway text-2xl font-bold md:text-3xl">
           {TIER_LABELS[account.currentTier]}
         </h2>
+
         <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3">
-          <Stat label="Coin balance" value={account.coinBalance.toLocaleString()} />
-          <Stat
-            label="Worth at checkout"
-            value={coinValueNgn}
-            small
-          />
+          <div>
+            <p className="font-raleway text-[10px] font-bold uppercase tracking-btn opacity-80 md:text-xs">
+              Coin balance
+            </p>
+            <p className="mt-0.5 font-raleway text-2xl font-bold md:text-3xl">
+              <AnimatedCoinCounter value={account.coinBalance} />
+            </p>
+          </div>
+          <Stat label="Worth at checkout" value={coinValueNgn} small />
           <Stat
             label="Lifetime earned"
             value={account.lifetimeCoinsEarned.toLocaleString()}
@@ -215,33 +239,44 @@ function EnrolledView({
           />
         </div>
 
-        {!isTopTier ? (
-          <div className="mt-6">
-            <div className="mb-2 flex items-baseline justify-between font-sans text-xs">
-              <span className="font-bold opacity-90">
-                Progress to {TIER_LABELS[tierProgress.nextTier!]}
-              </span>
-              <span className="opacity-80">
-                {formatPriceNGN(tierProgress.ngnUntilNextTier)} to go
-              </span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-white/20">
-              <div
-                className="h-full rounded-full bg-amber transition-all duration-500"
-                style={{ width: `${tierProgress.percentToNextTier}%` }}
-              />
-            </div>
-            <p className="mt-2 font-sans text-xs opacity-80">
-              {formatPriceNGN(rollingSpend)} spent in the last{' '}
-              {config.spendWindowMonths} months.
-            </p>
-          </div>
-        ) : (
-          <p className="mt-6 font-sans text-sm opacity-90">
-            You&apos;ve reached the top tier. Every order earns at the maximum
-            rate.
-          </p>
-        )}
+        {/* 2026-05-16 — full 5-step tier ladder. Replaces nothing —
+            adds the journey context the previous bar lacked. */}
+        <div className="mt-6">
+          <SafeBoundary name="rewards:tier-ladder" fallback={null}>
+            <TierLadder currentTier={account.currentTier} config={config} />
+          </SafeBoundary>
+        </div>
+
+        {/* 2026-05-16 — progress bar with all tier tick marks +
+            "you are here" dot. Logarithmic axis so the geometric
+            thresholds (₦0 / ₦80k / ₦500k / ₦1M / ₦10M) are
+            evenly spaced. */}
+        <div className="mt-5">
+          <SafeBoundary name="rewards:tier-progress" fallback={null}>
+            <TierProgressBar
+              currentTier={account.currentTier}
+              nextTier={tierProgress.nextTier}
+              rollingSpend={rollingSpend}
+              ngnUntilNextTier={tierProgress.ngnUntilNextTier}
+              config={config}
+            />
+          </SafeBoundary>
+        </div>
+
+        {/* 2026-05-16 — "how many more orders" projection from the
+            customer's actual rolling-window AOV. Magnus' specific ask. */}
+        <div className="mt-5">
+          <SafeBoundary name="rewards:orders-to-next" fallback={null}>
+            <OrdersToNextTier
+              rollingSpend={rollingSpend}
+              rollingPaidOrders={rollingPaidOrders ?? 0}
+              ngnUntilNextTier={tierProgress.ngnUntilNextTier}
+              nextTierLabel={
+                tierProgress.nextTier ? TIER_LABELS[tierProgress.nextTier] : null
+              }
+            />
+          </SafeBoundary>
+        </div>
       </section>
 
       <section className="rounded-card border border-border bg-white p-5 md:p-6">

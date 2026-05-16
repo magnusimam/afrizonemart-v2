@@ -55,6 +55,14 @@ export interface LoyaltyMeAccountDto {
   enrolledAt: string;
 }
 
+/// 2026-05-16 — Phase 1 gamification additions: rollingPaidOrders +
+/// expiring batch. Both optional so an older API build still hydrates
+/// the page without crashing the new components.
+export interface ExpiringCoinsDto {
+  coins: number;
+  expiresAt: string;
+}
+
 export type LoyaltyMeResponse =
   | {
       enrolled: false;
@@ -65,7 +73,9 @@ export type LoyaltyMeResponse =
       account: LoyaltyMeAccountDto;
       transactions: LoyaltyTransactionDto[];
       rollingSpend: number;
+      rollingPaidOrders?: number;
       tierProgress: LoyaltyTierProgressDto;
+      expiring?: ExpiringCoinsDto | null;
       config: PublicLoyaltyConfigDto;
     };
 
