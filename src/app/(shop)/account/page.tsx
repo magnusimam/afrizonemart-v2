@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Heart, MapPin, Package, Sparkles, User } from 'lucide-react';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
+import { AccountMobileNav } from '@/components/account/AccountMobileNav';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
 import { formatPriceNGN } from '@/lib/format';
 import { listOrders, type Order } from '@/lib/api/orders';
@@ -110,6 +111,13 @@ export default function AccountDashboardPage() {
             )}
           </div>
 
+          {/* 2026-05-16 mobile-first — sidebar hidden under lg:,
+              this chip row gives mobile customers one-tap nav between
+              account pages without burning vertical real estate. */}
+          <SafeBoundary name="account:mobile-nav" fallback={null}>
+            <AccountMobileNav active="/account" />
+          </SafeBoundary>
+
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
             <div className="lg:col-span-3">
               <SafeBoundary name="account:sidebar" fallback={null}>
@@ -121,8 +129,8 @@ export default function AccountDashboardPage() {
               </SafeBoundary>
             </div>
 
-            <div className="flex flex-col gap-6 lg:col-span-9">
-              <section className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            <div className="flex flex-col gap-5 lg:col-span-9 lg:gap-6">
+              <section className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
                 <StatCard Icon={Package} label="Orders" value={orderCount.toString()} />
                 <StatCard
                   Icon={Heart}
@@ -167,13 +175,20 @@ export default function AccountDashboardPage() {
                 ) : (
                   <div className="flex flex-col gap-3">
                     {recentOrders.map((o) => (
+                      /* 2026-05-16 mobile-first — order row used
+                         flex-wrap so on narrow screens the status
+                         badge and price would awkwardly wrap below
+                         the order number. Switched to a 2-column
+                         layout: left column has order number + date,
+                         right column stacks price (top) + status
+                         (below). Stays single-row on every viewport. */
                       <Link
                         key={o.id}
                         href={`/account/orders/${o.orderNumber}`}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border p-3 transition-colors hover:bg-page md:p-4"
+                        className="flex items-start justify-between gap-3 rounded-card border border-border p-3 transition-colors hover:bg-page md:items-center md:p-4"
                       >
-                        <div className="flex flex-col gap-1">
-                          <span className="font-raleway text-sm font-bold text-navy md:text-base">
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <span className="truncate font-raleway text-sm font-bold text-navy md:text-base">
                             {o.orderNumber}
                           </span>
                           <span className="font-sans text-xs text-muted">
@@ -182,11 +197,11 @@ export default function AccountDashboardPage() {
                             {o.items.length === 1 ? '' : 's'}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <OrderStatusBadge status={statusToUi(o.status)} />
+                        <div className="flex shrink-0 flex-col items-end gap-1 md:flex-row md:items-center md:gap-3">
                           <span className="font-raleway text-sm font-bold text-navy md:text-base">
                             {formatPriceNGN(o.total)}
                           </span>
+                          <OrderStatusBadge status={statusToUi(o.status)} />
                         </div>
                       </Link>
                     ))}
@@ -241,16 +256,21 @@ function StatCard({
   amber?: boolean;
 }) {
   return (
+    /* 2026-05-16 mobile-first — tighter padding so 4 cards fit
+       comfortably across phones, slightly smaller value font on
+       the smallest screens so big numbers (5-digit coin balances)
+       don't wrap to 2 lines. */
     <div
-      className={`flex flex-col gap-2 rounded-card p-4 shadow-card md:p-5 ${
+      className={`flex flex-col gap-1.5 rounded-card p-3 shadow-card md:gap-2 md:p-5 ${
         amber ? 'bg-amber text-navy' : 'border border-border bg-white text-navy'
       }`}
     >
-      <Icon size={22} strokeWidth={1.75} aria-hidden />
-      <span className="font-raleway text-xs font-semibold uppercase tracking-btn">
+      <Icon size={18} strokeWidth={1.75} aria-hidden className="md:hidden" />
+      <Icon size={22} strokeWidth={1.75} aria-hidden className="hidden md:block" />
+      <span className="font-raleway text-[10px] font-semibold uppercase tracking-btn md:text-xs">
         {label}
       </span>
-      <span className="font-raleway text-2xl font-bold leading-none md:text-3xl">
+      <span className="font-raleway text-xl font-bold leading-none md:text-3xl">
         {value}
       </span>
     </div>

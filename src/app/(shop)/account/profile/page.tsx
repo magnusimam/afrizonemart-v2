@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
+import { AccountMobileNav } from '@/components/account/AccountMobileNav';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { COUNTRIES, COUNTRY_CODES } from '@/lib/countries';
 import { friendlyAuthError, updateMe } from '@/lib/api/auth';
@@ -104,6 +105,10 @@ export default function ProfilePage() {
   return (
     <main className="bg-page pb-12">
       <div className="mx-auto max-w-site px-4 py-6 md:py-10">
+        <SafeBoundary name="account:mobile-nav" fallback={null}>
+          <AccountMobileNav active="/account/profile" />
+        </SafeBoundary>
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-3">
             <SafeBoundary name="account:sidebar" fallback={null}>

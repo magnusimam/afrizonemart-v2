@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Coins, Gift, Hourglass, Sparkles } from 'lucide-react';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
+import { AccountMobileNav } from '@/components/account/AccountMobileNav';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { getMyLoyalty, type LoyaltyMeResponse } from '@/lib/api/loyalty';
 import { useAuthStore } from '@/stores/authStore';
@@ -85,6 +86,10 @@ export default function RewardsPage() {
           </p>
         </div>
 
+        <SafeBoundary name="account:mobile-nav" fallback={null}>
+          <AccountMobileNav active="/account/rewards" />
+        </SafeBoundary>
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-3">
             <SafeBoundary name="account:sidebar" fallback={null}>
@@ -96,7 +101,7 @@ export default function RewardsPage() {
             </SafeBoundary>
           </div>
 
-          <div className="flex flex-col gap-6 lg:col-span-9">
+          <div className="flex flex-col gap-5 lg:col-span-9 lg:gap-6">
             {loading ? (
               <section className="rounded-card border border-border bg-white p-6 font-sans text-sm text-muted">
                 Loading your rewards…
@@ -213,28 +218,32 @@ function EnrolledView({
         <ExpiringCoinsBanner expiring={expiring ?? null} coinValueNgn={config.coinValueNgn} />
       </SafeBoundary>
 
+      {/* 2026-05-16 mobile-first — tighter padding on phone (p-5)
+          and the value font drops to text-3xl from text-2xl-vs-3xl
+          on the headline, so even a 6-digit coin balance fits a
+          360px viewport without wrapping. */}
       <section
-        className={`overflow-hidden rounded-card p-6 shadow-card md:p-8 ${tone}`}
+        className={`overflow-hidden rounded-card p-5 shadow-card md:p-8 ${tone}`}
       >
         <p className="font-raleway text-xs font-bold uppercase tracking-btn opacity-90">
           Current tier
         </p>
-        <h2 className="mt-1 font-raleway text-2xl font-bold md:text-3xl">
+        <h2 className="mt-1 font-raleway text-xl font-bold leading-tight md:text-3xl">
           {TIER_LABELS[account.currentTier]}
         </h2>
 
-        <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3">
+        <div className="mt-4 grid grid-cols-3 gap-3 md:mt-5 md:gap-4">
           <div>
-            <p className="font-raleway text-[10px] font-bold uppercase tracking-btn opacity-80 md:text-xs">
+            <p className="font-raleway text-[9px] font-bold uppercase tracking-btn opacity-80 md:text-xs">
               Coin balance
             </p>
-            <p className="mt-0.5 font-raleway text-2xl font-bold md:text-3xl">
+            <p className="mt-0.5 font-raleway text-xl font-bold leading-none md:text-3xl">
               <AnimatedCoinCounter value={account.coinBalance} />
             </p>
           </div>
-          <Stat label="Worth at checkout" value={coinValueNgn} small />
+          <Stat label="Worth" value={coinValueNgn} small />
           <Stat
-            label="Lifetime earned"
+            label="Lifetime"
             value={account.lifetimeCoinsEarned.toLocaleString()}
             small
           />
@@ -365,13 +374,16 @@ function Stat({
   small?: boolean;
 }) {
   return (
-    <div>
-      <p className="font-raleway text-[10px] font-bold uppercase tracking-btn opacity-80 md:text-xs">
+    /* 2026-05-16 mobile-first — min-w-0 + truncate so currency
+       strings ("NGN 50,000") don't overflow the narrow grid cell
+       on phones. */
+    <div className="min-w-0">
+      <p className="font-raleway text-[9px] font-bold uppercase tracking-btn opacity-80 md:text-xs">
         {label}
       </p>
       <p
-        className={`mt-0.5 font-raleway font-bold ${
-          small ? 'text-base md:text-lg' : 'text-2xl md:text-3xl'
+        className={`mt-0.5 truncate font-raleway font-bold ${
+          small ? 'text-sm md:text-lg' : 'text-xl md:text-3xl'
         }`}
       >
         {value}

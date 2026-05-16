@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Package, Search } from 'lucide-react';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
+import { AccountMobileNav } from '@/components/account/AccountMobileNav';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
 import { formatPriceNGN } from '@/lib/format';
 import { listOrders, type Order } from '@/lib/api/orders';
@@ -66,6 +67,10 @@ export default function OrdersPage() {
     <>
       <main className="bg-page pb-12">
         <div className="mx-auto max-w-site px-4 py-6 md:py-10">
+          <SafeBoundary name="account:mobile-nav" fallback={null}>
+            <AccountMobileNav active="/account/orders" />
+          </SafeBoundary>
+
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
             <div className="lg:col-span-3">
               <SafeBoundary name="account:sidebar" fallback={null}>

@@ -41,7 +41,11 @@ export function AccountSidebar({
   const initials = `${userFirstName.charAt(0)}${userLastName.charAt(0)}`;
 
   return (
-    <aside className="lg:sticky lg:top-4">
+    /* 2026-05-16 — hidden on mobile; the AccountMobileNav chip row
+       covers navigation there. The sidebar's vertical density made
+       sense on desktop but ate ~280px of the mobile viewport above
+       any actual content. */
+    <aside className="hidden lg:sticky lg:top-4 lg:block">
       <div className="flex flex-col gap-2 rounded-card border border-border bg-white p-4 shadow-card md:p-5">
         <div className="flex items-center gap-3 border-b border-border pb-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-navy font-raleway text-base font-bold text-white">

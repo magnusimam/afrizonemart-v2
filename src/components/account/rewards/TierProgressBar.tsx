@@ -84,7 +84,11 @@ export function TierProgressBar({
           aria-label={`Your spend: ${formatPriceNGN(rollingSpend)}`}
         />
       </div>
-      <div className="flex items-baseline justify-between font-sans text-xs">
+      {/* 2026-05-16 mobile-first — labels wrap vertically below ~480px
+          so the "₦80,000 spent" + "₦40,000 to Gold" copy doesn't
+          collide and either gets ellipsised or shoves the layout
+          wider than the viewport. */}
+      <div className="flex flex-col gap-0.5 font-sans text-xs sm:flex-row sm:items-baseline sm:justify-between">
         <span className="opacity-90">
           <strong>{formatPriceNGN(rollingSpend)}</strong> spent in the last{' '}
           {config.spendWindowMonths} months

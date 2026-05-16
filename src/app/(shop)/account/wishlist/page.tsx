@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Heart, Loader2 } from 'lucide-react';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
+import { AccountMobileNav } from '@/components/account/AccountMobileNav';
 import { ProductCardPlaceholder } from '@/components/product/ProductCardPlaceholder';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import {
@@ -81,6 +82,10 @@ export default function WishlistPage() {
   return (
     <main className="bg-page pb-12">
       <div className="mx-auto max-w-site px-4 py-6 md:py-10">
+        <SafeBoundary name="account:mobile-nav" fallback={null}>
+          <AccountMobileNav active="/account/wishlist" />
+        </SafeBoundary>
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-3">
             <SafeBoundary name="account:sidebar" fallback={null}>

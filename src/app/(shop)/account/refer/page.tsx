@@ -10,6 +10,7 @@ import {
   Users,
 } from 'lucide-react';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
+import { AccountMobileNav } from '@/components/account/AccountMobileNav';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import {
   getReferralSummary,
@@ -107,6 +108,10 @@ export default function ReferAFriendPage() {
             get coins on their first paid order.
           </p>
         </div>
+
+        <SafeBoundary name="account:mobile-nav" fallback={null}>
+          <AccountMobileNav active="/account/refer" />
+        </SafeBoundary>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-3">

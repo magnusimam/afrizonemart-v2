@@ -94,25 +94,31 @@ function Tile({
   rightValue: string;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 rounded-card bg-white/10 p-3 backdrop-blur md:p-4">
-      <div className="flex items-center gap-2.5">
-        <Receipt size={18} className="text-amber" aria-hidden />
-        <div className="flex flex-col leading-tight">
-          <span className="font-raleway text-[10px] font-bold uppercase tracking-btn opacity-80">
+    /* 2026-05-16 mobile-first — min-w-0 + truncate on every flex
+       child so the value cells don't push the tile wider than the
+       container on narrow phones (e.g. "Place your first order"
+       label + "~12 more orders" value). */
+    <div className="grid grid-cols-2 gap-2 rounded-card bg-white/10 p-3 backdrop-blur md:gap-3 md:p-4">
+      <div className="flex min-w-0 items-center gap-2 md:gap-2.5">
+        <Receipt size={16} className="shrink-0 text-amber md:hidden" aria-hidden />
+        <Receipt size={18} className="hidden shrink-0 text-amber md:block" aria-hidden />
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span className="font-raleway text-[9px] font-bold uppercase tracking-btn opacity-80 md:text-[10px]">
             {leftLabel}
           </span>
-          <span className="font-raleway text-sm font-bold md:text-base">
+          <span className="truncate font-raleway text-xs font-bold md:text-base">
             {leftValue}
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-2.5">
-        <TrendingUp size={18} className="text-amber" aria-hidden />
-        <div className="flex flex-col leading-tight">
-          <span className="font-raleway text-[10px] font-bold uppercase tracking-btn opacity-80">
+      <div className="flex min-w-0 items-center gap-2 md:gap-2.5">
+        <TrendingUp size={16} className="shrink-0 text-amber md:hidden" aria-hidden />
+        <TrendingUp size={18} className="hidden shrink-0 text-amber md:block" aria-hidden />
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span className="font-raleway text-[9px] font-bold uppercase tracking-btn opacity-80 md:text-[10px]">
             {rightLabel}
           </span>
-          <span className="font-raleway text-sm font-bold md:text-base">
+          <span className="truncate font-raleway text-xs font-bold md:text-base">
             {rightValue}
           </span>
         </div>

@@ -47,37 +47,50 @@ export function TierLadder({ currentTier, config }: TierLadderProps) {
     { tier: 'DORIME', label: TIER_LABELS.DORIME, threshold: config.tier5DorimeThreshold },
   ];
   const currentIdx = steps.findIndex((s) => s.tier === currentTier);
+  /// 2026-05-16 mobile-first — compact NGN ("80k" / "1M") so 5
+  /// thresholds across a 320px viewport don't overflow.
+  const compactNgn = (n: number): string => {
+    if (n === 0) return 'Start';
+    if (n >= 1_000_000) return `₦${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+    if (n >= 1_000) return `₦${Math.round(n / 1_000)}k`;
+    return `₦${n}`;
+  };
 
   return (
     <div className="relative">
       {/* Connecting rail */}
-      <div className="absolute left-0 right-0 top-4 h-0.5 bg-white/20 md:top-5" aria-hidden />
+      <div className="absolute left-0 right-0 top-3.5 h-0.5 bg-white/20 md:top-5" aria-hidden />
       <ol className="relative grid grid-cols-5 gap-1">
         {steps.map((s, i) => {
           const earned = i < currentIdx;
           const current = i === currentIdx;
           const isTopForCurrent = current && i === steps.length - 1;
           return (
-            <li key={s.tier} className="flex flex-col items-center text-center">
+            <li key={s.tier} className="flex min-w-0 flex-col items-center text-center">
               <span
                 className={[
-                  'relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all md:h-10 md:w-10',
+                  'relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all md:h-10 md:w-10',
                   earned ? 'border-amber bg-amber text-navy' : '',
                   current ? 'border-white bg-white text-navy shadow-md ring-4 ring-amber/40' : '',
                   !earned && !current ? 'border-white/30 bg-white/5 text-white/60' : '',
                 ].join(' ')}
               >
                 {earned ? (
-                  <Check size={14} aria-hidden />
+                  <Check size={12} aria-hidden className="md:hidden" />
                 ) : current ? (
-                  <span className="font-raleway text-xs font-bold">{i + 1}</span>
+                  <span className="font-raleway text-[10px] font-bold md:text-xs">{i + 1}</span>
                 ) : (
-                  <Lock size={12} aria-hidden />
+                  <Lock size={10} aria-hidden className="md:hidden" />
                 )}
+                {earned ? (
+                  <Check size={14} aria-hidden className="hidden md:block" />
+                ) : !current ? (
+                  <Lock size={12} aria-hidden className="hidden md:block" />
+                ) : null}
               </span>
               <span
                 className={[
-                  'mt-2 font-raleway text-[10px] font-bold uppercase tracking-btn md:text-xs',
+                  'mt-1.5 w-full truncate font-raleway text-[9px] font-bold uppercase tracking-btn md:mt-2 md:text-xs',
                   current ? 'text-white' : earned ? 'text-amber' : 'text-white/60',
                 ].join(' ')}
               >
@@ -85,15 +98,21 @@ export function TierLadder({ currentTier, config }: TierLadderProps) {
               </span>
               <span
                 className={[
-                  'font-mono text-[9px] md:text-[10px]',
+                  'w-full truncate font-mono text-[9px] md:text-[10px]',
                   current || earned ? 'text-white/80' : 'text-white/40',
                 ].join(' ')}
               >
-                {s.threshold === 0
-                  ? 'Start'
-                  : isTopForCurrent
-                    ? 'Top'
-                    : formatPriceNGN(s.threshold)}
+                {/* Compact on mobile, full NGN on desktop. */}
+                <span className="md:hidden">
+                  {isTopForCurrent ? 'Top' : compactNgn(s.threshold)}
+                </span>
+                <span className="hidden md:inline">
+                  {s.threshold === 0
+                    ? 'Start'
+                    : isTopForCurrent
+                      ? 'Top'
+                      : formatPriceNGN(s.threshold)}
+                </span>
               </span>
             </li>
           );
