@@ -46,6 +46,58 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+## 🔧 Bugfix batch 2026-05-16 — signup UX + silent env drift
+
+Three bugs surfaced together: (1) Magnus didn't get the 20-coin
+welcome bonus at signup, (2) signing back in after signing out
+appeared broken, (3) Google sign-in button vanished from /login
+and /register. Root causes were distinct — logged separately so
+neither pattern can recur silently.
+
+**[x] Welcome bonus moved to signup**
+
+Originally fired on first paid order (per the PR 2 spec). Customer
+expectation — and every comparable loyalty program — gives the
+bonus at signup as the registration incentive. Moved the trigger
+to `user.registered`. Earn-time fallback retained for users who
+registered before this fix.
+
+Files: `afrizonemart-api/src/modules/loyalty/{welcome-bonus.service,subscriber,earn}.ts`. Backfill: `scripts/backfill-welcome-bonuses.ts` — run once via `railway run --service api npx tsx scripts/backfill-welcome-bonuses.ts`.
+
+**[x] Storefront config watchdog**
+
+The probable cause of bugs (2) and (3): Vercel env vars
+(`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`) were
+empty / dropped on a recent build. Login fetches went to the
+default `http://localhost:4000` fallback (silent failure); the
+Google button silently returned `null`. Neither produced a
+visible signal.
+
+Fix: new `ConfigWatchdog` component mounted in the root layout.
+On first render it reads every `NEXT_PUBLIC_*` var from the
+central registry in `lib/public-env.ts` and shows a loud banner
++ Sentry alert when any required var is missing. Banner is
+dismiss-able per session, persists across navigations until
+dismissed.
+
+**Convention going forward**: every new `process.env.NEXT_PUBLIC_*`
+read must add an entry to `PUBLIC_ENV` in `lib/public-env.ts`. The
+watchdog keeps catching the next env drift without code changes.
+
+**Operator action needed:**
+- Open Vercel → afrizonemart-web → Settings → Environment Variables.
+- Verify the following are set on the **Production** environment:
+  - `NEXT_PUBLIC_API_URL` = `https://api.afrizonemart.com`
+  - `NEXT_PUBLIC_SITE_URL` = `https://afrizonemart.com`
+  - `NEXT_PUBLIC_GOOGLE_CLIENT_ID` = the OAuth client id from
+    Google Cloud Console
+  - `NEXT_PUBLIC_SENTRY_DSN` (optional)
+  - `NEXT_PUBLIC_GTM_ID` (optional)
+- Redeploy after any change — `NEXT_PUBLIC_*` are baked at build
+  time, not picked up at runtime.
+
+---
+
 ## 📊 Marketing & ML Data Infrastructure (queued 2026-05-13)
 
 Magnus asked for a data-infrastructure audit so the marketing team can

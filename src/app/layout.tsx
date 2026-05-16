@@ -11,6 +11,7 @@ import {
   GoogleTagManagerNoScript,
 } from '@/components/providers/GoogleTagManager';
 import { GeoBanner } from '@/components/common/GeoBanner';
+import { ConfigWatchdog } from '@/components/common/ConfigWatchdog';
 import { SiteJsonLd } from '@/components/seo/SiteJsonLd';
 import {
   SITE_DEFAULT_DESCRIPTION,
@@ -120,6 +121,11 @@ export default function RootLayout({
             <GeoProvider initialCountry={country} initialCurrency={currency}>
               <CartSyncProvider>
                 <GeoBanner />
+                {/* 2026-05-16 — surfaces missing NEXT_PUBLIC_* env
+                    vars as a loud banner. Drops a Sentry alert on
+                    first render if anything required is empty. See
+                    `lib/public-env.ts` for the registry. */}
+                <ConfigWatchdog />
                 {children}
                 <GoogleTranslate />
               </CartSyncProvider>
