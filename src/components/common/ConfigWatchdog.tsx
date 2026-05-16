@@ -29,17 +29,29 @@ export function ConfigWatchdog() {
   useEffect(() => {
     const snapshot = readPublicEnvSnapshot();
     const diff = diffPublicEnv(snapshot);
-    if (diff.required.length > 0 || diff.optional.length > 0) {
+    if (
+      diff.required.length > 0 ||
+      diff.optional.length > 0 ||
+      diff.corrupted.length > 0
+    ) {
       setReport(diff);
       // Sentry breadcrumb if available — lazy import so this doesn't
       // pull Sentry into pages that don't need it (memory:
       // feedback_no_eager_sentry_in_client_components).
-      if (diff.required.length > 0) {
+      if (diff.required.length > 0 || diff.corrupted.length > 0) {
         void (async () => {
           try {
             const Sentry = await import('@sentry/nextjs');
+            const missingPart =
+              diff.required.length > 0
+                ? `missing: ${diff.required.map((s) => s.key).join(', ')}`
+                : '';
+            const corruptedPart =
+              diff.corrupted.length > 0
+                ? `corrupted: ${diff.corrupted.map((c) => c.spec.key).join(', ')}`
+                : '';
             Sentry.captureMessage(
-              `Public env vars missing: ${diff.required.map((s) => s.key).join(', ')}`,
+              `Public env config issue — ${[missingPart, corruptedPart].filter(Boolean).join('; ')}`,
               'warning',
             );
           } catch {
@@ -60,7 +72,12 @@ export function ConfigWatchdog() {
   }, []);
 
   if (!report || dismissed) return null;
-  if (report.required.length === 0 && report.optional.length === 0) return null;
+  if (
+    report.required.length === 0 &&
+    report.optional.length === 0 &&
+    report.corrupted.length === 0
+  )
+    return null;
 
   const handleDismiss = () => {
     setDismissed(true);
@@ -71,7 +88,7 @@ export function ConfigWatchdog() {
     }
   };
 
-  const hasCritical = report.required.length > 0;
+  const hasCritical = report.required.length > 0 || report.corrupted.length > 0;
 
   return (
     <div
@@ -107,6 +124,26 @@ export function ConfigWatchdog() {
             <div key={spec.key} className="rounded bg-white/60 p-2">
               <code className="font-mono text-[11px] font-bold">{spec.key}</code>
               <p className="mt-0.5">{spec.affects}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {report.corrupted.length > 0 && (
+        <div className="mb-2 flex flex-col gap-1.5 font-sans text-xs leading-snug">
+          <p className="font-semibold">
+            These vars have stray whitespace — re-set them WITHOUT a
+            trailing newline:
+          </p>
+          {report.corrupted.map(({ spec, rawLength, trimmedLength }) => (
+            <div key={spec.key} className="rounded bg-white/60 p-2">
+              <code className="font-mono text-[11px] font-bold">{spec.key}</code>
+              <p className="mt-0.5">
+                {spec.affects}{' '}
+                <span className="font-mono text-[10px] opacity-70">
+                  ({rawLength - trimmedLength} stray char
+                  {rawLength - trimmedLength === 1 ? '' : 's'})
+                </span>
+              </p>
             </div>
           ))}
         </div>

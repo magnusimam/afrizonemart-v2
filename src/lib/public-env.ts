@@ -87,6 +87,13 @@ export function readPublicEnvSnapshot(): Record<PublicEnvKey, string | null> {
 export interface MissingEnvReport {
   required: PublicEnvSpec[];
   optional: PublicEnvSpec[];
+  /// 2026-05-16 — values that aren't empty but have leading/trailing
+  /// whitespace. Caught a real production bug:
+  /// `NEXT_PUBLIC_API_URL="https://api.afrizonemart.com\n"` made every
+  /// fetch go to a broken URL because the trailing newline got
+  /// appended to the URL. The old watchdog passed because the value
+  /// was non-empty.
+  corrupted: Array<{ spec: PublicEnvSpec; rawLength: number; trimmedLength: number }>;
 }
 
 export function diffPublicEnv(
@@ -94,11 +101,25 @@ export function diffPublicEnv(
 ): MissingEnvReport {
   const required: PublicEnvSpec[] = [];
   const optional: PublicEnvSpec[] = [];
+  const corrupted: MissingEnvReport['corrupted'] = [];
   for (const spec of PUBLIC_ENV) {
     const value = snapshot[spec.key];
-    if (value && value.trim().length > 0) continue;
-    if (spec.required) required.push(spec);
-    else optional.push(spec);
+    if (!value || value.trim().length === 0) {
+      if (spec.required) required.push(spec);
+      else optional.push(spec);
+      continue;
+    }
+    /// Non-empty but the trimmed length differs → stray whitespace
+    /// snuck in (typically from `echo "..."` setting the env or a
+    /// dashboard paste with a trailing newline). Surface it so the
+    /// operator can re-set without the noise.
+    if (value.trim().length !== value.length) {
+      corrupted.push({
+        spec,
+        rawLength: value.length,
+        trimmedLength: value.trim().length,
+      });
+    }
   }
-  return { required, optional };
+  return { required, optional, corrupted };
 }
