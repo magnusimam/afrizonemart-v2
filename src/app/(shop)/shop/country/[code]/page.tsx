@@ -7,12 +7,7 @@ import { ApiProductCard } from '@/components/product/ApiProductCard';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { Flag } from '@/components/common/Flag';
 import { fetchProducts } from '@/lib/api/products';
-import {
-  COUNTRIES,
-  COUNTRY_CODES,
-  getCountryBySlug,
-  type CountryCode,
-} from '@/lib/countries';
+import { COUNTRY_CODES, getCountryBySlug, type CountryCode } from '@/lib/countries';
 
 interface PageProps {
   params: { code: string };
@@ -58,7 +53,6 @@ export default async function ShopByCountryPage({ params, searchParams }: PagePr
   const products = productsResponse?.items ?? [];
   const totalProducts = productsResponse?.pagination.total ?? 0;
   const totalPages = productsResponse?.pagination.pages ?? 1;
-  const otherCountries = COUNTRY_CODES.filter((c) => c !== code).slice(0, 8);
 
   return (
     <>
@@ -118,7 +112,12 @@ export default async function ShopByCountryPage({ params, searchParams }: PagePr
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
             <div className="lg:col-span-3">
               <SafeBoundary name="country:filters" fallback={null}>
-                <FiltersSidebar />
+                {/* The page URL already pins the country; showing the
+                    picker here would let a visitor uncheck their way
+                    into an empty grid. Country switching lives in the
+                    "Browse other countries" CTA at the bottom of the
+                    page + the header nav. */}
+                <FiltersSidebar showCountryFilter={false} />
               </SafeBoundary>
             </div>
 
@@ -189,26 +188,28 @@ export default async function ShopByCountryPage({ params, searchParams }: PagePr
             </div>
           </div>
 
+          {/* Single CTA into the all-countries directory — replaces the
+              previous 8-tile grid (showed an arbitrary slice of the 53
+              other nations and felt incomplete now that we cover every
+              African country). The directory at /shop/countries is the
+              canonical place to browse all of them. */}
           <section className="mt-12 md:mt-16">
-            <h2 className="mb-4 font-raleway text-xl font-bold text-navy md:text-2xl">
-              Discover other African countries
-            </h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:gap-4 lg:grid-cols-8">
-              {otherCountries.map((c) => {
-                const cc = COUNTRIES[c];
-                return (
-                  <Link
-                    key={c}
-                    href={`/shop/country/${cc.slug}`}
-                    className="flex flex-col items-center gap-2 rounded-card border border-border bg-white p-4 shadow-card transition-shadow hover:shadow-card-hover"
-                  >
-                    <Flag code={cc.code} title={cc.name} size="lg" className="!h-7 !w-auto rounded-md" />
-                    <span className="font-raleway text-xs font-bold text-navy">
-                      {cc.name}
-                    </span>
-                  </Link>
-                );
-              })}
+            <div className="flex flex-col items-center gap-3 rounded-card border border-border bg-white p-8 text-center shadow-card md:flex-row md:justify-between md:gap-6 md:p-10 md:text-left">
+              <div className="flex flex-col gap-1">
+                <h2 className="font-raleway text-xl font-bold text-navy md:text-2xl">
+                  Browse other countries
+                </h2>
+                <p className="font-sans text-sm text-muted md:text-base">
+                  Discover authentic, locally-made products from all{' '}
+                  {COUNTRY_CODES.length} African nations.
+                </p>
+              </div>
+              <Link
+                href="/shop/countries"
+                className="rounded-full bg-navy px-6 py-2.5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-amber hover:text-navy"
+              >
+                See all {COUNTRY_CODES.length} countries →
+              </Link>
             </div>
           </section>
         </div>

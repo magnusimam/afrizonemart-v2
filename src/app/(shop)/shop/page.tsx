@@ -9,21 +9,31 @@ import { fetchProducts } from '@/lib/api/products';
 
 const PAGE_SIZE = 48;
 
+function buildShopQuery(input: { page: number; origin?: string }): string {
+  const sp = new URLSearchParams();
+  sp.set('page', String(input.page));
+  if (input.origin) sp.set('origin', input.origin);
+  return sp.toString();
+}
+
 interface PageProps {
-  searchParams: { page?: string };
+  searchParams: { page?: string; origin?: string };
 }
 
 export default async function ShopPage({ searchParams }: PageProps) {
   // Real products from the API. No fake fallback — if there's nothing
   // in the catalog, the page renders an empty state. searchParams.page
-  // drives pagination; first-time visitors land on page 1.
+  // drives pagination; `origin` is a CSV of ISO-2 codes coming from the
+  // sidebar country filter (`?origin=NG,KE,ZA`).
   const requestedPage = Number.parseInt(searchParams.page ?? '1', 10);
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const origin = searchParams.origin?.trim() || undefined;
 
   const productsResponse = await fetchProducts({
     limit: PAGE_SIZE,
     page,
     sort: 'newest',
+    origin,
   }).catch(() => null);
   const products = productsResponse?.items ?? [];
   const totalProducts = productsResponse?.pagination.total ?? 0;
@@ -76,10 +86,12 @@ export default async function ShopPage({ searchParams }: PageProps) {
               {totalProducts === 0 ? (
                 <div className="rounded-card border border-border bg-white px-6 py-16 text-center">
                   <p className="font-raleway text-lg font-bold text-navy">
-                    No products yet
+                    {origin ? 'No products match your filters' : 'No products yet'}
                   </p>
                   <p className="mt-1 font-sans text-sm text-muted">
-                    Our catalog is being built — check back soon.
+                    {origin
+                      ? 'Try removing a country from the filter on the left.'
+                      : 'Our catalog is being built — check back soon.'}
                   </p>
                 </div>
               ) : (
@@ -104,7 +116,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
                       <div className="flex items-center gap-2">
                         {page > 1 ? (
                           <Link
-                            href={`/shop?page=${page - 1}`}
+                            href={`/shop?${buildShopQuery({ page: page - 1, origin })}`}
                             className="rounded-btn border border-border bg-white px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-charcoal hover:border-navy hover:text-navy"
                           >
                             ← Previous
@@ -116,7 +128,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
                         )}
                         {page < totalPages ? (
                           <Link
-                            href={`/shop?page=${page + 1}`}
+                            href={`/shop?${buildShopQuery({ page: page + 1, origin })}`}
                             className="rounded-btn bg-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
                           >
                             Next →

@@ -109,6 +109,46 @@ notifications, webhooks outbound) see one canonical `order.paid` /
 
 ---
 
+## 🌍 [x] Country discovery + filter wiring (2026-05-16)
+
+Follow-up to the 54-country expansion. Audit revealed the country
+filter on every page was decorative (no `onChange`, no `onClick` on
+Apply), and the header nav's "Shop By Country" hardcoded to
+`/shop/country/nigeria` — re-creating the Nigeria-first feel we
+just spent the morning removing.
+
+**What landed**
+
+- **Header + mobile menu**: "Shop By Country" now points to
+  `/shop/countries` (the new directory of all 54) instead of
+  `/shop/country/nigeria`. Fresh visitors land on the picker.
+- **API multi-origin**: `?origin=` on `/api/products` now accepts
+  CSV (`NG,KE,ZA`). Schema transforms to `string[]`; repository
+  branches on `.length === 1 ? = code : { in: codes }`. Single-value
+  callers (country page) unaffected.
+- **FiltersSidebar wired**: country group is now URL-bound multi-
+  select. Reads `?origin=` from `useSearchParams`, toggle pushes
+  via `router.replace(..., { scroll: false })`. Page param drops on
+  toggle so a narrower filter never strands the visitor on an
+  empty page 7. Other groups (category / price / rating / availability)
+  still decorative — separate workstream.
+- **Country page sidebar**: passes `showCountryFilter={false}`.
+  The URL already pins the country; showing the picker there let
+  visitors uncheck themselves into an empty grid.
+- **Country page footer**: replaced the arbitrary 8-tile "Discover
+  other African countries" with a single CTA card linking to
+  `/shop/countries`. Felt incomplete now that we cover all 54;
+  the directory is the canonical place to browse.
+
+**Convention going forward**
+
+`/shop/countries` is the canonical country picker. Every
+"browse all countries" affordance across the site links there.
+Direct deep-links to `/shop/country/<slug>` are fine for marquees,
+cards, and search results — but the global nav never preselects.
+
+---
+
 ## 🌍 [x] All 54 African nations (2026-05-16)
 
 Storefront covered 21 featured countries; Magnus directed full

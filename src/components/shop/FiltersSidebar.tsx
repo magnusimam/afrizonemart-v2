@@ -1,7 +1,9 @@
 'use client';
 
+import { useCallback, useMemo } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Star, X } from 'lucide-react';
-import { COUNTRIES, COUNTRY_CODES } from '@/lib/countries';
+import { COUNTRIES, COUNTRY_CODES, type CountryCode } from '@/lib/countries';
 
 const categories = [
   'For Her', 'For Him', 'Beer, Wines & Spirit', 'Interior Decor',
@@ -11,9 +13,59 @@ const categories = [
 
 interface FiltersSidebarProps {
   onClose?: () => void;
+  /**
+   * Whether to render the "Made In (Country of Origin)" filter group.
+   * Defaults true on /shop. Country pages (/shop/country/<slug>) pass
+   * false — the URL already pins the country and showing the picker
+   * there would let visitors uncheck themselves into an empty grid.
+   */
+  showCountryFilter?: boolean;
 }
 
-export function FiltersSidebar({ onClose }: FiltersSidebarProps) {
+export function FiltersSidebar({ onClose, showCountryFilter = true }: FiltersSidebarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Active country selection comes from the URL — single source of
+  // truth, survives reloads + share-this-page links. `?origin=NG,KE`.
+  const selectedCountries = useMemo<Set<CountryCode>>(() => {
+    const raw = searchParams.get('origin');
+    if (!raw) return new Set();
+    const codes = raw
+      .split(',')
+      .map((s) => s.trim().toUpperCase())
+      .filter((s): s is CountryCode => s.length === 2 && s in COUNTRIES);
+    return new Set(codes);
+  }, [searchParams]);
+
+  const toggleCountry = useCallback(
+    (code: CountryCode) => {
+      const next = new Set(selectedCountries);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+
+      const params = new URLSearchParams(searchParams.toString());
+      if (next.size === 0) params.delete('origin');
+      else params.set('origin', Array.from(next).join(','));
+      // Reset pagination — a narrower filter shouldn't drop the
+      // visitor onto an empty page 7.
+      params.delete('page');
+
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [selectedCountries, searchParams, router, pathname],
+  );
+
+  const clearCountries = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('origin');
+    params.delete('page');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, router, pathname]);
+
   return (
     <aside className="flex flex-col gap-4 rounded-card border border-border bg-white p-4 shadow-card md:p-5">
       <header className="flex items-center justify-between gap-3 border-b border-border pb-3">
@@ -23,6 +75,7 @@ export function FiltersSidebar({ onClose }: FiltersSidebarProps) {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={clearCountries}
             className="font-raleway text-[10px] font-bold uppercase tracking-btn text-amber hover:underline md:text-xs"
           >
             Clear all
@@ -53,19 +106,29 @@ export function FiltersSidebar({ onClose }: FiltersSidebarProps) {
         </ul>
       </FilterGroup>
 
-      <FilterGroup title="Made In (Country of Origin)">
-        <ul className="flex flex-col gap-2 max-h-64 overflow-y-auto">
-          {COUNTRY_CODES.map((c) => (
-            <li key={c}>
-              <label className="flex cursor-pointer items-center gap-2 font-sans text-sm text-charcoal">
-                <input type="checkbox" className="h-4 w-4 cursor-pointer accent-navy" />
-                <span aria-hidden>{COUNTRIES[c].flag}</span>
-                {COUNTRIES[c].name}
-              </label>
-            </li>
-          ))}
-        </ul>
-      </FilterGroup>
+      {showCountryFilter && (
+        <FilterGroup title="Made In (Country of Origin)">
+          <ul className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+            {COUNTRY_CODES.map((c) => {
+              const isOn = selectedCountries.has(c);
+              return (
+                <li key={c}>
+                  <label className="flex cursor-pointer items-center gap-2 font-sans text-sm text-charcoal">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 cursor-pointer accent-navy"
+                      checked={isOn}
+                      onChange={() => toggleCountry(c)}
+                    />
+                    <span aria-hidden>{COUNTRIES[c].flag}</span>
+                    {COUNTRIES[c].name}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </FilterGroup>
+      )}
 
       <FilterGroup title="Price Range">
         <div className="flex flex-col gap-3">

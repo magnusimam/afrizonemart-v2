@@ -15,7 +15,7 @@ import { SafeBoundary } from '@/components/common/SafeBoundary';
 // Static nav items rendered AFTER the All Categories dropdown
 // (desktop only — mobile shows everything in the drawer instead).
 const navItems = [
-  { label: 'Shop By Country', href: '/shop/country/nigeria' },
+  { label: 'Shop By Country', href: '/shop/countries' },
   { label: 'Special Discounts', href: '/special-discount' },
   { label: '₦1k Store', href: '/shop/1k-store' },
   { label: "Today's Deals", href: '/deals' },
