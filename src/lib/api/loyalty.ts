@@ -37,6 +37,21 @@ export interface PublicLoyaltyConfigDto {
   tier3VipThreshold: number;
   tier4AmbassadorThreshold: number;
   tier5DorimeThreshold: number;
+  /// 2026-05-16 Phase 2 perks. Optional in the storefront type so
+  /// a stale build hitting an older API doesn't crash.
+  birthdayBonusBlue?: number;
+  birthdayBonusGold?: number;
+  birthdayBonusVip?: number;
+  birthdayBonusAmbassador?: number;
+  birthdayBonusDorime?: number;
+  referralCapBlue?: number;
+  referralCapGold?: number;
+  referralCapVip?: number;
+  referralCapAmbassador?: number;
+  referralCapDorime?: number;
+  referralPercent?: number;
+  referralHoldDays?: number;
+  refereeCouponNgn?: number;
 }
 
 export interface LoyaltyTierProgressDto {
@@ -81,4 +96,36 @@ export type LoyaltyMeResponse =
 
 export function getMyLoyalty(): Promise<LoyaltyMeResponse> {
   return apiFetchAuthed('/api/loyalty/me');
+}
+
+/// 2026-05-16 Phase 2 — refer-a-friend summary. Returns the
+/// customer's stable referral code + counts of pending/scheduled/
+/// paid referrals + the live cap so the share page copy stays
+/// accurate when admin tunes the config.
+export interface ReferralSummaryDto {
+  code: string;
+  totalReferred: number;
+  pending: number;
+  scheduled: number;
+  paidOut: number;
+  totalCoinsEarned: number;
+  capPerReferral: number;
+  percentOfFirstOrder: number;
+  holdDays: number;
+}
+
+export function getReferralSummary(): Promise<ReferralSummaryDto> {
+  return apiFetchAuthed('/api/loyalty/referral-summary');
+}
+
+/// Referee's "₦500 off first order" coupon. Lazy-created server-side
+/// on first call. 404 if the user wasn't referred by anyone.
+export interface RefereeCouponDto {
+  code: string;
+  valueNgn: number;
+  expiresAt: string;
+}
+
+export function getRefereeCoupon(): Promise<RefereeCouponDto> {
+  return apiFetchAuthed('/api/loyalty/referral-coupon');
 }

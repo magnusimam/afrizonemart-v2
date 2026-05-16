@@ -14,6 +14,7 @@ import { TierProgressBar } from '@/components/account/rewards/TierProgressBar';
 import { OrdersToNextTier } from '@/components/account/rewards/OrdersToNextTier';
 import { ExpiringCoinsBanner } from '@/components/account/rewards/ExpiringCoinsBanner';
 import { AnimatedCoinCounter } from '@/components/account/rewards/AnimatedCoinCounter';
+import { PerksLadder } from '@/components/account/rewards/PerksLadder';
 
 const TIER_LABELS: Record<LoyaltyTier, string> = {
   BLUE: 'Continental Blue',
@@ -278,6 +279,12 @@ function EnrolledView({
           </SafeBoundary>
         </div>
       </section>
+
+      {/* 2026-05-16 Phase 2 — perks ladder. Locked perks rendered
+          dimmed (not hidden) so the customer sees what's coming. */}
+      <SafeBoundary name="rewards:perks-ladder" fallback={null}>
+        <PerksLadder currentTier={account.currentTier} config={config} />
+      </SafeBoundary>
 
       <section className="rounded-card border border-border bg-white p-5 md:p-6">
         <header className="mb-4 flex items-center justify-between">

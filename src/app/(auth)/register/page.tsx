@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { type FormEvent, useEffect, useState } from 'react';
+import { Eye, EyeOff, Gift } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { COUNTRIES, COUNTRY_CODES, getCountry } from '@/lib/countries';
@@ -11,9 +11,37 @@ import { friendlyAuthError, registerUser, type AuthResult } from '@/lib/api/auth
 import { PASSWORD_RULE_HINT, validatePasswordStrength } from '@/lib/auth/password';
 import { useAuthStore } from '@/stores/authStore';
 
+const REFERRAL_STORAGE_KEY = 'azm-referral-code';
+
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setSession = useAuthStore((s) => s.setSession);
+
+  /// 2026-05-16 Phase 2 — capture ?ref=<code> if it's on the URL,
+  /// or rehydrate from sessionStorage (so a customer can land on
+  /// /products via the referral link, browse around, then sign up
+  /// and still get attributed). Cleared from storage on successful
+  /// signup.
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  useEffect(() => {
+    const fromUrl = searchParams?.get('ref');
+    if (fromUrl) {
+      setReferralCode(fromUrl);
+      try {
+        sessionStorage.setItem(REFERRAL_STORAGE_KEY, fromUrl);
+      } catch {
+        /* SSR / private mode */
+      }
+    } else {
+      try {
+        const stored = sessionStorage.getItem(REFERRAL_STORAGE_KEY);
+        if (stored) setReferralCode(stored);
+      } catch {
+        /* SSR / private mode */
+      }
+    }
+  }, [searchParams]);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -60,7 +88,16 @@ export default function RegisterPage() {
         /// box. Defaulting to false on the server too means a missing
         /// field never opts anyone in.
         marketingOptIn: marketingOptIn || undefined,
+        /// 2026-05-16 Phase 2 — referral attribution. Server silently
+        /// ignores unknown codes; signup never fails because of a bad
+        /// ref.
+        referralCode: referralCode ?? undefined,
       });
+      try {
+        sessionStorage.removeItem(REFERRAL_STORAGE_KEY);
+      } catch {
+        /* SSR / private mode */
+      }
       setSession(result);
       router.push('/account');
     } catch (err) {
@@ -84,6 +121,20 @@ export default function RegisterPage() {
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {referralCode && (
+          /* 2026-05-16 — confirmation that a referral is being
+             tracked. Doesn't validate the code (server does);
+             just tells the customer they'll get the ₦500-off
+             welcome coupon on first paid order. */
+          <div className="flex items-start gap-2 rounded-card border border-amber bg-amber/10 p-3 font-sans text-xs text-charcoal">
+            <Gift size={16} className="mt-0.5 shrink-0 text-amber" aria-hidden />
+            <span>
+              You&apos;re signing up with a referral code (
+              <code className="font-mono">{referralCode}</code>). When you
+              place your first paid order you&apos;ll get ₦500 off automatically.
+            </span>
+          </div>
+        )}
         {error && (
           <div
             role="alert"

@@ -25,6 +25,11 @@ export interface AuthUser {
   /// banner to opted-in users") have the signal locally.
   marketingOptIn: boolean;
   smsOptIn: boolean;
+  /// 2026-05-16 Phase 2 — captured for the birthday-bonus cron.
+  /// Stored as ISO yyyy-mm-dd (UTC midnight) when set; null
+  /// otherwise. Optional in the type so older API builds don't
+  /// crash this field.
+  birthDate?: string | null;
   createdAt: string;
 }
 
@@ -165,6 +170,10 @@ export interface RegisterInput {
   /// false; only sent true when the customer explicitly ticks the box.
   marketingOptIn?: boolean;
   smsOptIn?: boolean;
+  /// 2026-05-16 Phase 2 — referral code captured from `?ref=` on
+  /// the landing URL. Server validates + attributes silently;
+  /// unknown codes don't fail signup.
+  referralCode?: string;
 }
 
 export interface LoginInput {
@@ -214,6 +223,8 @@ export interface UpdateMeInput {
   /// update; omit to leave unchanged.
   marketingOptIn?: boolean;
   smsOptIn?: boolean;
+  /// 2026-05-16 Phase 2 — ISO yyyy-mm-dd; pass null to clear.
+  birthDate?: string | null;
 }
 
 /**

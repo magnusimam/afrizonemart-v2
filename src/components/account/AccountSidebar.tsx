@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import {
+  Coins,
   Heart,
   LayoutDashboard,
   LogOut,
   MapPin,
   Package,
+  Share2,
   User,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -18,6 +20,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/account', label: 'Dashboard', Icon: LayoutDashboard },
   { href: '/account/orders', label: 'Orders', Icon: Package },
+  { href: '/account/rewards', label: 'Rewards', Icon: Coins },
+  { href: '/account/refer', label: 'Refer a friend', Icon: Share2 },
   { href: '/account/wishlist', label: 'Wishlist', Icon: Heart },
   { href: '/account/addresses', label: 'Addresses', Icon: MapPin },
   { href: '/account/profile', label: 'Profile', Icon: User },

@@ -37,6 +37,9 @@ export default function ProfilePage() {
   /// trigger on changes to either flag.
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [smsOptIn, setSmsOptIn] = useState(false);
+  /// 2026-05-16 Phase 2 — birth date drives the loyalty birthday
+  /// bonus cron. Empty string = not set / clear.
+  const [birthDate, setBirthDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export default function ProfilePage() {
       setPhone(user.phone ?? '');
       setMarketingOptIn(user.marketingOptIn ?? false);
       setSmsOptIn(user.smsOptIn ?? false);
+      setBirthDate(user.birthDate ?? '');
     }
   }, [user]);
 
@@ -62,7 +66,8 @@ export default function ProfilePage() {
     (user?.name ?? '') !== name ||
     (user?.phone ?? '') !== phone ||
     (user?.marketingOptIn ?? false) !== marketingOptIn ||
-    (user?.smsOptIn ?? false) !== smsOptIn;
+    (user?.smsOptIn ?? false) !== smsOptIn ||
+    (user?.birthDate ?? '') !== birthDate;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -83,6 +88,9 @@ export default function ProfilePage() {
           ? { marketingOptIn }
           : {}),
         ...((user?.smsOptIn ?? false) !== smsOptIn ? { smsOptIn } : {}),
+        ...((user?.birthDate ?? '') !== birthDate
+          ? { birthDate: birthDate ? birthDate : null }
+          : {}),
       });
       setUser(updated);
       setSuccess('Profile updated.');
@@ -173,6 +181,19 @@ export default function ProfilePage() {
                     haven&apos;t built yet. Reach out to support if you
                     need it changed.
                   </span>
+                </Field>
+                <Field
+                  label="Birthday"
+                  hint="Used for your Continental Rewards birthday bonus. Only the month + day matter."
+                >
+                  <input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    max={new Date().toISOString().slice(0, 10)}
+                    className={inputClass}
+                    autoComplete="bday"
+                  />
                 </Field>
               </div>
             </Section>
