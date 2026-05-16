@@ -1,6 +1,11 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { COUNTRIES, COUNTRY_CODES, type CountryCode } from '@/lib/countries';
+import {
+  COUNTRIES,
+  COUNTRY_CODES,
+  FEATURED_COUNTRY_CODES,
+  type CountryCode,
+} from '@/lib/countries';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 
 /**
@@ -25,7 +30,12 @@ export function ShopByCountrySection({
   headline = 'Shop By Country',
   countryCodes,
 }: Props = {}) {
-  const codes = countryCodes && countryCodes.length > 0 ? countryCodes : COUNTRY_CODES;
+  // 2026-05-16 — homepage marquee now leans on a curated FEATURED list
+  // (18 countries, 9 per row) so the visual stays balanced; the full
+  // 54-nation reach is one tap away via the "See all 54" CTA below.
+  // Callers can still pass an explicit subset (page builder use case).
+  const codes =
+    countryCodes && countryCodes.length > 0 ? countryCodes : FEATURED_COUNTRY_CODES;
   const half = Math.ceil(codes.length / 2);
   const rowA = codes.slice(0, half);
   const rowB = codes.slice(half);
@@ -41,7 +51,7 @@ export function ShopByCountrySection({
       <div className="bg-white py-8 md:py-10">
         <div className="mx-auto max-w-site px-4">
           <p className="mx-auto mb-6 max-w-2xl text-center font-sans text-sm leading-relaxed text-muted md:mb-8 md:text-base">
-            Discover authentic, locally-made products from {COUNTRY_CODES.length}+
+            Discover authentic, locally-made products from all {COUNTRY_CODES.length}{' '}
             African nations — each verified by Afrizonemart and delivered worldwide.
           </p>
         </div>
@@ -58,12 +68,18 @@ export function ShopByCountrySection({
         </div>
 
         <div className="mx-auto max-w-site px-4">
-          <div className="mt-6 flex justify-center md:mt-8">
+          <div className="mt-6 flex flex-col items-center gap-3 md:mt-8 md:flex-row md:justify-center md:gap-4">
+            <Link
+              href="/shop/countries"
+              className="rounded-full bg-navy px-6 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-amber hover:text-navy"
+            >
+              See all {COUNTRY_CODES.length} countries →
+            </Link>
             <Link
               href="/shop"
               className="rounded-full border-2 border-navy bg-white px-6 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white"
             >
-              Explore All Products Across Africa →
+              Explore All Products
             </Link>
           </div>
         </div>

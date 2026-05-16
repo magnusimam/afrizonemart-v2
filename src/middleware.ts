@@ -19,25 +19,21 @@ import type { NextRequest } from 'next/server';
  * so the customer sees the canonical price.
  */
 const COUNTRY_TO_CURRENCY: Record<string, string> = {
-  NG: 'NGN',
-  US: 'USD',
-  GB: 'GBP',
-  CA: 'CAD',
-  AU: 'AUD',
-  KE: 'KES',
-  GH: 'GHS',
-  ZA: 'ZAR',
-  UG: 'UGX',
-  TZ: 'TZS',
-  RW: 'RWF',
-  EG: 'EGP',
-  MA: 'MAD',
-  // Eurozone
+  // --- Non-Africa fallbacks for diaspora traffic ---
+  US: 'USD', GB: 'GBP', CA: 'CAD', AU: 'AUD',
   FR: 'EUR', DE: 'EUR', ES: 'EUR', IT: 'EUR', NL: 'EUR', BE: 'EUR',
   IE: 'EUR', PT: 'EUR', AT: 'EUR', FI: 'EUR', GR: 'EUR',
-  // CFA franc zones
-  SN: 'XOF', CI: 'XOF', BF: 'XOF', ML: 'XOF', NE: 'XOF', TG: 'XOF', BJ: 'XOF',
-  CM: 'XAF', GA: 'XAF', CG: 'XAF', CF: 'XAF', TD: 'XAF', GQ: 'XAF',
+
+  // --- All 54 African nations (kept in sync with src/lib/countries.ts) ---
+  DZ: 'DZD', AO: 'AOA', BJ: 'XOF', BW: 'BWP', BF: 'XOF', BI: 'BIF',
+  CV: 'CVE', CM: 'XAF', CF: 'XAF', TD: 'XAF', KM: 'KMF', CG: 'XAF',
+  CD: 'CDF', CI: 'XOF', DJ: 'DJF', EG: 'EGP', GQ: 'XAF', ER: 'ERN',
+  SZ: 'SZL', ET: 'ETB', GA: 'XAF', GM: 'GMD', GH: 'GHS', GN: 'GNF',
+  GW: 'XOF', KE: 'KES', LS: 'LSL', LR: 'LRD', LY: 'LYD', MG: 'MGA',
+  MW: 'MWK', ML: 'XOF', MR: 'MRU', MU: 'MUR', MA: 'MAD', MZ: 'MZN',
+  NA: 'NAD', NE: 'XOF', NG: 'NGN', RW: 'RWF', ST: 'STN', SN: 'XOF',
+  SC: 'SCR', SL: 'SLE', SO: 'SOS', ZA: 'ZAR', SS: 'SSP', SD: 'SDG',
+  TZ: 'TZS', TG: 'XOF', TN: 'TND', UG: 'UGX', ZM: 'ZMW', ZW: 'USD',
 };
 
 const COUNTRY_COOKIE = 'azm_country';

@@ -109,6 +109,53 @@ notifications, webhooks outbound) see one canonical `order.paid` /
 
 ---
 
+## 🌍 [x] All 54 African nations (2026-05-16)
+
+Storefront covered 21 featured countries; Magnus directed full
+continental expansion. Deep audit first, then a single-day
+implementation pass.
+
+**Audit (touch points)**
+- `src/lib/countries.ts` is the single source for ISO code, name,
+  flag, dial code, slug, currency. Every dropdown (signup, checkout,
+  profile, address form, admin product origin, admin filter) and
+  every flag display (cards, PDP, reviews, cart, headers) reads
+  from it. Sitemap + Shop-by-Country marquee also read it.
+- Edge middleware (`src/middleware.ts`) `COUNTRY_TO_CURRENCY` maps
+  geo-IP to default currency — was missing ~33 entries.
+- FX fallback rates (`afrizonemart-api/src/modules/fx/service.ts`
+  + `src/lib/api/fx.ts`) — upstream `open.er-api.com` already
+  covers all 54, but cold-start fallbacks were sparse.
+- Sitemap had a hand-rolled 21-slug list (also had a typo:
+  `cote-d-ivoire` vs the real slug `cote-divoire`).
+- `africa-map-data.ts` already had 55 entries — no change needed.
+
+**What landed**
+- `countries.ts` rewritten: every UN-recognised African state
+  (DZ→ZW), each with ISO-4217 currency. Added `FEATURED_COUNTRY_CODES`
+  (18) so the homepage marquee stays visually balanced; the full
+  reach is one tap away.
+- New `/shop/countries` directory page — alphabetised, featured
+  row + all-54 grid, mobile-first 2→3→4→6 columns.
+- `ShopByCountrySection` now uses the featured subset by default
+  and surfaces a "See all 54 countries →" CTA.
+- Edge middleware `COUNTRY_TO_CURRENCY` extended to all 54.
+- FX fallback tables on both client + API expanded to cover every
+  African currency.
+- Sitemap reads `COUNTRY_CODES` so new countries auto-publish.
+
+**Resilience notes**
+- No exhaustive switch statements over `CountryCode` exist — the
+  union widening from 21 → 54 is purely additive.
+- All consumers (`Object.values(COUNTRIES)`, `COUNTRY_CODES.map`)
+  auto-handle the bigger list.
+- FX gap-handling: if a rate is missing the price falls back to NGN
+  rather than rendering "—". With the expanded fallback this only
+  hits if both upstream + cache fail AND the requested currency
+  isn't in our fallback table.
+
+---
+
 ## 🔧 Bugfix batch 2026-05-16 — signup UX + silent env drift
 
 Three bugs surfaced together: (1) Magnus didn't get the 20-coin

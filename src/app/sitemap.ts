@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@/lib/seo';
+import { COUNTRIES, COUNTRY_CODES } from '@/lib/countries';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -60,15 +61,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     /* sitemap survives if API is unreachable */
   }
 
-  // 3. Country shop pages — static slug list mirrors /lib/countries.ts.
-  for (const slug of [
-    'nigeria', 'kenya', 'south-africa', 'ghana', 'egypt', 'morocco',
-    'ethiopia', 'tanzania', 'uganda', 'rwanda', 'zimbabwe',
-    'cote-d-ivoire', 'senegal', 'cameroon', 'mali', 'algeria',
-    'tunisia', 'angola', 'botswana', 'namibia', 'mozambique',
-  ]) {
+  // 3. Country shop pages — pulled straight from /lib/countries.ts so
+  //    new African nations land in the sitemap automatically. Also add
+  //    the /shop/countries directory itself.
+  out.push({
+    url: `${SITE_URL}/shop/countries`,
+    lastModified: now,
+    changeFrequency: 'weekly',
+    priority: 0.7,
+  });
+  for (const code of COUNTRY_CODES) {
     out.push({
-      url: `${SITE_URL}/shop/country/${slug}`,
+      url: `${SITE_URL}/shop/country/${COUNTRIES[code].slug}`,
       lastModified: now,
       changeFrequency: 'weekly',
       priority: 0.6,
