@@ -1,0 +1,232 @@
+/*
+ * 2026-05-16 — order-success "delivery arrives" scene.
+ *
+ * Customer lands on /checkout/success after paying; instead of a
+ * static green tick they watch a delivery truck pull up, the cargo
+ * doors open, a box hops out, and a tick stamps onto it.
+ *
+ * Pure CSS for the static shapes, GSAP for movement (see
+ * SuccessDeliveryAnimation.tsx). Brand palette: navy (#000066) +
+ * amber (#FBAC34).
+ */
+
+.scene {
+  --navy: #000066;
+  --amber: #FBAC34;
+  --amber-deep: #C8841C;
+  --ground: #1F2937;
+  --sky-from: #FFF7E6;
+  --sky-to: #FBE7BC;
+  --box: #FBAC34;
+  --tick: #16A34A;
+
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  height: 200px;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--sky-from) 0%, var(--sky-to) 70%);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 102, 0.25);
+}
+
+.ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28px;
+  background: var(--ground);
+}
+
+.ground::before {
+  /* Dashed road centre-line */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 2px;
+  background-image: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.7) 0 8px,
+    transparent 8px 18px
+  );
+  background-size: 18px 2px;
+  background-repeat: repeat-x;
+}
+
+/* ---------- Truck ---------- */
+.truck {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  width: 150px;
+  height: 80px;
+  will-change: transform;
+}
+
+.cargo {
+  position: absolute;
+  left: 0;
+  bottom: 18px;
+  width: 90px;
+  height: 60px;
+  background: var(--amber);
+  border-radius: 4px 6px 6px 4px;
+  box-shadow: inset -4px 0 0 var(--amber-deep);
+}
+
+.cargoLabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Raleway', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--navy);
+}
+
+.cab {
+  position: absolute;
+  left: 90px;
+  bottom: 18px;
+  width: 50px;
+  height: 42px;
+  background: var(--navy);
+  border-radius: 4px 12px 0 0;
+}
+
+.cabRoof {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 26px;
+  height: 16px;
+  background: linear-gradient(180deg, #FFE7A3 0%, #F5C25B 100%);
+  border-radius: 3px;
+}
+
+.cabBumper {
+  position: absolute;
+  bottom: 0;
+  right: -2px;
+  width: 8px;
+  height: 14px;
+  background: var(--ground);
+  border-radius: 2px;
+}
+
+/* Doors — start closed flat against the back of the cargo, then swing
+   open outward */
+.doorLeft,
+.doorRight {
+  position: absolute;
+  left: 0;
+  bottom: 18px;
+  width: 6px;
+  height: 60px;
+  background: var(--amber-deep);
+  transform-origin: left center;
+  border-radius: 3px 0 0 3px;
+  z-index: 2;
+}
+
+.doorRight {
+  bottom: 18px;
+  top: auto;
+  transform-origin: left top;
+}
+
+.doorLeft {
+  transform-origin: left bottom;
+}
+
+/* Wheels */
+.wheel {
+  position: absolute;
+  bottom: 0;
+  width: 22px;
+  height: 22px;
+  background: #050a1a;
+  border-radius: 50%;
+  border: 4px solid #2b3550;
+}
+
+.wheelFront {
+  left: 108px;
+}
+
+.wheelBack {
+  left: 18px;
+}
+
+/* ---------- Box that hops out ---------- */
+.box {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  width: 44px;
+  height: 44px;
+  margin-left: -80px;
+  background: var(--box);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 -6px 0 var(--amber-deep),
+    0 8px 16px -8px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translate(0, 0);
+  will-change: transform, opacity;
+}
+
+.boxTape {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: rgba(0, 0, 0, 0.15);
+  transform: translateX(-50%);
+}
+
+.tick {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0);
+  will-change: transform, opacity;
+}
+
+.tick svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: var(--tick);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Steam / dust puffs behind the truck ---------- */
+.puff {
+  position: absolute;
+  bottom: 26px;
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.puff1 { left: 18%; }
+.puff2 { left: 24%; }
+.puff3 { left: 30%; }

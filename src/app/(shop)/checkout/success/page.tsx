@@ -8,6 +8,8 @@ import { DELIVERY_METHODS } from '@/lib/checkout-data';
 import { checkOrderPayment } from '@/lib/api/payments';
 import { useCheckoutStore } from '@/stores/checkoutStore';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { SuccessDeliveryAnimation } from '@/components/checkout/SuccessDeliveryAnimation';
+import { useFlag } from '@/lib/useFlag';
 
 export default function SuccessPage() {
   const orderId = useCheckoutStore((s) => s.orderId);
@@ -16,6 +18,10 @@ export default function SuccessPage() {
   const reset = useCheckoutStore((s) => s.reset);
   const [hydrated, setHydrated] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'unknown' | 'pending' | 'paid' | 'failed'>('unknown');
+  /// 2026-05-16 — replaces the static green-check ring with a GSAP
+  /// delivery scene. Admin can flip `animated_success_delivery` to
+  /// false in /admin/feature-flags for an instant kill-switch.
+  const successAnimationOn = useFlag('animated_success_delivery', true);
 
   useEffect(() => {
     setHydrated(true);
@@ -84,13 +90,22 @@ export default function SuccessPage() {
       <main className="bg-page pb-12">
         <section className="bg-white py-12 md:py-20">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-6 px-4 text-center">
-            <div className="relative flex h-24 w-24 items-center justify-center md:h-32 md:w-32">
-              <span className="absolute inset-0 animate-ping rounded-full bg-success/20" aria-hidden />
-              <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-success md:h-28 md:w-28">
-                <CheckCircle2 size={48} strokeWidth={2} className="text-white md:hidden" aria-hidden />
-                <CheckCircle2 size={64} strokeWidth={2} className="hidden text-white md:block" aria-hidden />
-              </span>
-            </div>
+            {successAnimationOn ? (
+              /* Animated delivery scene. Wrapped in SafeBoundary —
+               * if GSAP regresses or the scene throws at render
+               * time, the boundary catches it and renders the
+               * static checkmark instead so the page still works. */
+              <SafeBoundary
+                name="checkout:success-delivery"
+                fallback={<StaticCheckmark />}
+              >
+                <SuccessDeliveryAnimation />
+              </SafeBoundary>
+            ) : (
+              /* Admin flipped the kill-switch — same checkmark the
+               * page used before the animated upgrade. */
+              <StaticCheckmark />
+            )}
 
             <div className="flex flex-col gap-2">
               <p className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
@@ -236,5 +251,20 @@ function ShareButton({
     >
       {children}
     </a>
+  );
+}
+
+/// Static fallback shown when (a) admin flips the kill-switch, OR
+/// (b) the SafeBoundary catches a render error inside the animation.
+/// Same markup the page used before the animated upgrade.
+function StaticCheckmark() {
+  return (
+    <div className="relative flex h-24 w-24 items-center justify-center md:h-32 md:w-32">
+      <span className="absolute inset-0 animate-ping rounded-full bg-success/20" aria-hidden />
+      <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-success md:h-28 md:w-28">
+        <CheckCircle2 size={48} strokeWidth={2} className="text-white md:hidden" aria-hidden />
+        <CheckCircle2 size={64} strokeWidth={2} className="hidden text-white md:block" aria-hidden />
+      </span>
+    </div>
   );
 }
