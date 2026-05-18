@@ -44,6 +44,7 @@ export default function AdminProductsPage() {
   const [category, setCategory] = useState<string>('');
   const [country, setCountry] = useState<string>('');
   const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'out'>('all');
+  const [discountedOnly, setDiscountedOnly] = useState(false);
   const [data, setData] = useState<{
     items: AdminProductListItem[];
     pagination: { page: number; pages: number; total: number };
@@ -93,7 +94,7 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQ, category, country, stockFilter]);
+  }, [debouncedQ, category, country, stockFilter, discountedOnly]);
 
   useEffect(() => {
     void adminListCategories().then((r) => setCategories(r.items)).catch(() => {});
@@ -111,6 +112,7 @@ export default function AdminProductsPage() {
           category: category || undefined,
           origin: country || undefined,
           inStock: stockFilter === 'all' ? undefined : stockFilter === 'in',
+          discounted: discountedOnly ? true : undefined,
         });
         if (!cancelled) setData(r);
       } catch (e) {
@@ -122,7 +124,7 @@ export default function AdminProductsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, debouncedQ, category, country, stockFilter, reloadToken]);
+  }, [page, debouncedQ, category, country, stockFilter, discountedOnly, reloadToken]);
 
   const handleDelete = async () => {
     if (!pendingDelete) return;
@@ -398,6 +400,19 @@ export default function AdminProductsPage() {
           <option value="in">In stock</option>
           <option value="out">Out of stock</option>
         </select>
+        <button
+          type="button"
+          onClick={() => setDiscountedOnly((v) => !v)}
+          aria-pressed={discountedOnly}
+          className={`inline-flex items-center gap-1.5 rounded-input border px-3 py-2 font-sans text-sm transition-colors ${
+            discountedOnly
+              ? 'border-amber bg-amber/15 text-navy'
+              : 'border-border bg-white text-charcoal hover:border-amber/60'
+          }`}
+        >
+          <Tag size={14} aria-hidden />
+          Discounted only
+        </button>
       </div>
 
       {/* Bulk action bar — only shown when at least one product is selected. */}
