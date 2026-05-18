@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   BadgeCheck,
   Check,
@@ -73,6 +74,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
   const [quantity, setQuantity] = useState(1);
   const [wished, setWished] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
+  const router = useRouter();
 
   /// Phase 12 — animated PDP Add-to-Cart kill-switch. Default true so
   /// the animation ships visible. Admin flips it to false in
@@ -306,7 +308,12 @@ export function ProductInfo({ product }: ProductInfoProps) {
 
         <button
           type="button"
-          className="w-full rounded-btn border-2 border-navy bg-white py-3.5 font-raleway text-sm font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white"
+          disabled={!product.inStock}
+          onClick={() => {
+            handleAddToCart();
+            router.push('/checkout');
+          }}
+          className="w-full rounded-btn border-2 border-navy bg-white py-3.5 font-raleway text-sm font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-navy"
         >
           Buy Now
         </button>
