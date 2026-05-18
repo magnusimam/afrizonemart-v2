@@ -17,7 +17,7 @@ import { SafeBoundary } from '@/components/common/SafeBoundary';
 const navItems = [
   { label: 'Shop By Country', href: '/shop/countries' },
   { label: 'Special Discounts', href: '/special-discount' },
-  { label: '₦1k Store', href: '/shop/1k-store' },
+  { label: '$1 Store', href: '/shop/1k-store' },
   { label: "Today's Deals", href: '/deals' },
   { label: 'New Arrivals', href: '/new-arrivals' },
   { label: 'Become A Supplier', href: '/suppliers' },

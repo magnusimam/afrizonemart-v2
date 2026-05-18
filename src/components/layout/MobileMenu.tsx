@@ -26,7 +26,7 @@ const NAV_LINKS = [
   { label: 'New Arrivals', href: '/new-arrivals' },
   { label: 'Special Discounts', href: '/special-discount' },
   { label: "Today's Deals", href: '/deals' },
-  { label: '₦1k Store', href: '/shop/1k-store' },
+  { label: '$1 Store', href: '/shop/1k-store' },
   { label: 'Shop By Country', href: '/shop/countries' },
   { label: 'Become A Supplier', href: '/suppliers' },
 ];
