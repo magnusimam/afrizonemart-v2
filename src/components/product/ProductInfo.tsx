@@ -311,7 +311,12 @@ export function ProductInfo({ product }: ProductInfoProps) {
           disabled={!product.inStock}
           onClick={() => {
             handleAddToCart();
-            router.push('/checkout');
+            /// /checkout has no root page — the cart's "Proceed to
+            /// Checkout" link also points at /checkout/shipping as
+            /// the real entry. Match that or this button 404s.
+            /// Re-applied 2026-05-18 because the squash-merge of
+            /// PR #59 dropped the original fix-up commit (df2352b).
+            router.push('/checkout/shipping');
           }}
           className="w-full rounded-btn border-2 border-navy bg-white py-3.5 font-raleway text-sm font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-navy"
         >
