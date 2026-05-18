@@ -1,9 +1,16 @@
 import { MessageCircle } from 'lucide-react';
 
+/// Customer-support WhatsApp number (E.164 without the leading +,
+/// per wa.me convention). Set 2026-05-19 by Magnus. To change it
+/// either edit this constant or override via NEXT_PUBLIC_SUPPORT_WHATSAPP
+/// in the Vercel env without a code change.
+const SUPPORT_WHATSAPP_NUMBER =
+  process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? '2347036149590';
+
 export function ChatBubble() {
   return (
     <a
-      href="https://wa.me/2348000000000"
+      href={`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}`}
       target="_blank"
       rel="noopener noreferrer"
       className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-white py-1.5 pl-3 pr-1.5 shadow-card-hover transition-shadow hover:shadow-lg"
