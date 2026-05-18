@@ -1806,27 +1806,41 @@ export interface InternQueueItem {
     rejectionReason: string | null;
     reviewedAt: string | null;
     createdAt: string;
+    /// Tracker #50 — set when this approval has been rolled into a
+    /// payout (DRAFT or PAID). UI filters Approved rows by this so
+    /// already-paid work doesn't clutter the active tab.
+    payoutId: string | null;
   } | null;
+}
+
+export interface InternQueueStats {
+  todo: number;
+  pending: number;
+  approved: number;
+  /// Tracker #50 — split of `approved` by payout status. unpaid =
+  /// payoutId is null on the latest submission. The cards page
+  /// uses approvedUnpaid as the default count on the Approved tab.
+  approvedUnpaid: number;
+  approvedPaid: number;
+  rejected: number;
 }
 
 export function internGetMyQueue(): Promise<{
   items: InternQueueItem[];
-  stats: { todo: number; pending: number; approved: number; rejected: number };
+  stats: InternQueueStats;
 }> {
   return apiFetchAuthed('/api/intern/queue');
 }
 
 export function internGetMyStats(): Promise<{
-  stats: {
-    todo: number;
-    pending: number;
-    approved: number;
-    rejected: number;
-    assigned: number;
-  };
+  stats: InternQueueStats & { assigned: number };
   earnings: {
     currentRateNgn: number;
     earnedNgn: number;
+    /// Tracker #50 — earnedNgn split by paid vs not-yet-paid so the
+    /// intern dashboard can show "Pending payday".
+    unpaidEarnedNgn: number;
+    paidEarnedNgn: number;
     pendingNgn: number;
   };
 }> {
@@ -1861,6 +1875,108 @@ export function internSubmitImages(
 
 export function adminGetInternPayRate(): Promise<{ rate: number }> {
   return apiFetchAuthed('/api/admin/intern/pay-rate');
+}
+
+// ----- Intern payouts (Tracker #50, 2026-05-18) -----
+
+export interface InternPayoutSummary {
+  id: string;
+  internId: string;
+  intern: { id: string; name: string | null; email: string };
+  totalNgn: number;
+  submissionCount: number;
+  windowFrom: string | null;
+  windowTo: string | null;
+  paidAt: string | null;
+  externalRef: string | null;
+  note: string | null;
+  createdAt: string;
+  createdBy: { id: string; name: string | null; email: string } | null;
+}
+
+export interface InternPayoutDetail extends InternPayoutSummary {
+  submissions: Array<{
+    id: string;
+    reviewedAt: string | null;
+    payRate: number;
+    product: { id: string; slug: string; name: string };
+  }>;
+}
+
+export interface PayoutPreview {
+  submissions: Array<{
+    id: string;
+    reviewedAt: string | null;
+    payRate: number;
+    product: { id: string; slug: string; name: string };
+  }>;
+  totalNgn: number;
+  submissionCount: number;
+}
+
+function payoutWindowBody(input: {
+  internId: string;
+  fromDate?: string;
+  toDate?: string;
+}): string {
+  return JSON.stringify({
+    internId: input.internId,
+    fromDate: input.fromDate,
+    toDate: input.toDate,
+  });
+}
+
+export function adminListInternPayouts(params: {
+  internId?: string;
+  status?: 'draft' | 'paid' | 'all';
+} = {}): Promise<{ items: InternPayoutSummary[] }> {
+  const sp = new URLSearchParams();
+  if (params.internId) sp.set('internId', params.internId);
+  if (params.status) sp.set('status', params.status);
+  const qs = sp.toString();
+  return apiFetchAuthed(`/api/admin/intern-payouts${qs ? `?${qs}` : ''}`);
+}
+
+export function adminGetInternPayout(id: string): Promise<InternPayoutDetail> {
+  return apiFetchAuthed(`/api/admin/intern-payouts/${id}`);
+}
+
+export function adminPreviewInternPayout(input: {
+  internId: string;
+  fromDate?: string;
+  toDate?: string;
+}): Promise<PayoutPreview> {
+  return apiFetchAuthed('/api/admin/intern-payouts/preview', {
+    method: 'POST',
+    body: payoutWindowBody(input),
+  });
+}
+
+export function adminCreateInternPayoutDraft(input: {
+  internId: string;
+  fromDate?: string;
+  toDate?: string;
+}): Promise<InternPayoutSummary> {
+  return apiFetchAuthed('/api/admin/intern-payouts', {
+    method: 'POST',
+    body: payoutWindowBody(input),
+  });
+}
+
+export function adminFinalizeInternPayout(
+  id: string,
+  body: { externalRef?: string; note?: string },
+): Promise<InternPayoutSummary> {
+  return apiFetchAuthed(`/api/admin/intern-payouts/${id}/finalize`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminCancelInternPayoutDraft(id: string): Promise<{ ok: true }> {
+  return apiFetchAuthed(`/api/admin/intern-payouts/${id}`, {
+    method: 'DELETE',
+  });
 }
 
 export function adminSetInternPayRate(rate: number): Promise<{ rate: number }> {

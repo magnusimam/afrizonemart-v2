@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   BarChart3,
+  Banknote,
   Boxes,
   ClipboardList,
   Coins,
@@ -56,6 +57,7 @@ const NAV: NavItem[] = [
   { href: '/admin/customers', label: 'Customers', icon: Users, cap: 'customers.read' },
   { href: '/admin/staff', label: 'Staff & Roles', icon: ShieldCheck, cap: 'staff.manage' },
   { href: '/admin/interns', label: 'Intern queue', icon: ImagePlus, cap: 'staff.manage' },
+  { href: '/admin/intern-payouts', label: 'Intern payouts', icon: Banknote, cap: 'staff.manage' },
   { href: '/admin/intern-queue', label: 'My image queue', icon: ImagePlus, cap: 'products.image-only' },
   { href: '/admin/brand-logos', label: 'Brand logos', icon: ImagePlus, cap: 'products.write' },
   { href: '/admin/coupons', label: 'Discounts', icon: PercentCircle, cap: 'coupons.write' },

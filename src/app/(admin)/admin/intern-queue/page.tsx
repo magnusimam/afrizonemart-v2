@@ -2,13 +2,13 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Check,
-  ChevronRight,
   CircleDashed,
   Clock,
+  LayoutList,
   Plus,
   ShieldCheck,
   Upload,
@@ -23,6 +23,7 @@ import {
   internGetMyQueue,
   internSubmitImages,
   type InternQueueItem,
+  type InternQueueStats,
 } from '@/lib/api/admin';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -30,18 +31,28 @@ import { useAuthStore } from '@/stores/authStore';
 /// no other admin pages, no danger. Just: see your products, upload
 /// images per product, submit, see what's been approved or rejected.
 ///
-/// Status tiles at the top are now navigational — clicking one takes
-/// the intern to /admin/intern-queue/list?status=X where the leaner
-/// list view supports inline name + price edits. The cards view
-/// below shows ALL items grouped by status (no local filter) since
-/// approved/pending cards collapse to a thin row anyway.
+/// Status pills are real tabs that filter the cards in-place
+/// (regression fix 2026-05-18 — previously they were navigation Links
+/// to a separate list page, which buried TO-DO work below mountains
+/// of approved rows). Default tab is TO DO so interns land on the
+/// work that needs doing. A small "table view" button per tab links
+/// to /admin/intern-queue/list?status=X for the leaner price-edit
+/// view.
+///
+/// Tracker #50 — Approved tab defaults to UNPAID only (payoutId
+/// null on the latest submission). Toggle reveals already-paid
+/// history so it doesn't clutter the active workspace.
+type TabKey = 'todo' | 'pending' | 'approved' | 'rejected';
+
 export default function MyImageQueuePage() {
   const user = useAuthStore((s) => s.user);
   const [data, setData] = useState<{
     items: InternQueueItem[];
-    stats: { todo: number; pending: number; approved: number; rejected: number };
+    stats: InternQueueStats;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<TabKey>('todo');
+  const [showPaidApproved, setShowPaidApproved] = useState(false);
 
   const load = () =>
     internGetMyQueue()
@@ -53,6 +64,27 @@ export default function MyImageQueuePage() {
   }, []);
 
   const allItems = data?.items ?? [];
+
+  /// Items shown under the active tab. Approved is split by payoutId
+  /// so already-paid work doesn't drown the unpaid queue — the toggle
+  /// brings paid rows back in.
+  const visibleItems = useMemo(() => {
+    return allItems.filter((it) => {
+      if (it.status !== tab) return false;
+      if (tab === 'approved' && !showPaidApproved) {
+        return it.latestSubmission?.payoutId == null;
+      }
+      return true;
+    });
+  }, [allItems, tab, showPaidApproved]);
+
+  /// Approved-tab count: by default this is unpaid-only so the visible
+  /// number matches the cards on screen. Other tabs map 1:1 to stats.
+  const tabCount = (k: TabKey): number => {
+    if (!data) return 0;
+    if (k === 'approved' && !showPaidApproved) return data.stats.approvedUnpaid;
+    return data.stats[k];
+  };
 
   const handleClaim = async () => {
     setBusy(true);
@@ -89,31 +121,60 @@ export default function MyImageQueuePage() {
       />
 
       {data && (
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatusTile
-            href="/admin/intern-queue/list?status=todo"
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatusTab
+            active={tab === 'todo'}
+            onClick={() => setTab('todo')}
             icon={<CircleDashed size={14} aria-hidden />}
             label="To do"
-            count={data.stats.todo}
+            count={tabCount('todo')}
           />
-          <StatusTile
-            href="/admin/intern-queue/list?status=pending"
+          <StatusTab
+            active={tab === 'pending'}
+            onClick={() => setTab('pending')}
             icon={<Clock size={14} aria-hidden />}
             label="Pending review"
-            count={data.stats.pending}
+            count={tabCount('pending')}
           />
-          <StatusTile
-            href="/admin/intern-queue/list?status=approved"
+          <StatusTab
+            active={tab === 'approved'}
+            onClick={() => setTab('approved')}
             icon={<ShieldCheck size={14} aria-hidden />}
             label="Approved"
-            count={data.stats.approved}
+            count={tabCount('approved')}
           />
-          <StatusTile
-            href="/admin/intern-queue/list?status=rejected"
+          <StatusTab
+            active={tab === 'rejected'}
+            onClick={() => setTab('rejected')}
             icon={<AlertTriangle size={14} aria-hidden />}
             label="Needs rework"
-            count={data.stats.rejected}
+            count={tabCount('rejected')}
           />
+        </div>
+      )}
+
+      {data && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <Link
+            href={`/admin/intern-queue/list?status=${tab}`}
+            className="inline-flex items-center gap-1.5 rounded-input border border-border bg-white px-3 py-1.5 font-sans text-xs font-semibold text-charcoal hover:border-navy hover:text-navy"
+          >
+            <LayoutList size={12} aria-hidden /> Table view
+          </Link>
+          {tab === 'approved' && (
+            <label className="inline-flex cursor-pointer items-center gap-2 font-sans text-xs text-charcoal">
+              <input
+                type="checkbox"
+                checked={showPaidApproved}
+                onChange={(e) => setShowPaidApproved(e.target.checked)}
+                className="h-4 w-4 cursor-pointer accent-navy"
+              />
+              Show paid history{' '}
+              <span className="text-muted">
+                ({data.stats.approvedPaid.toLocaleString()})
+              </span>
+            </label>
+          )}
         </div>
       )}
 
@@ -124,9 +185,19 @@ export default function MyImageQueuePage() {
           Nothing in your queue yet. Hit &ldquo;Claim 10 more&rdquo; to pull
           from the pool.
         </p>
+      ) : visibleItems.length === 0 ? (
+        <p className="rounded-card border border-dashed border-border bg-page p-8 text-center font-sans text-sm text-muted">
+          {tab === 'todo' && 'Nothing to do — great work. Claim more to keep going.'}
+          {tab === 'pending' && 'No submissions awaiting review right now.'}
+          {tab === 'approved' &&
+            (showPaidApproved
+              ? 'No approved work yet.'
+              : 'No unpaid approved work — your unpaid queue is empty (toggle "Show paid history" to see what was already paid out).')}
+          {tab === 'rejected' && 'Nothing needs rework — keep it up.'}
+        </p>
       ) : (
         <div className="flex flex-col gap-4">
-          {allItems.map((item) => (
+          {visibleItems.map((item) => (
             <ProductCard key={item.id} item={item} onSaved={load} busy={busy} setBusy={setBusy} />
           ))}
         </div>
@@ -135,35 +206,44 @@ export default function MyImageQueuePage() {
   );
 }
 
-/// Status tile that navigates to the list view filtered to that
-/// status. Tap-target is the whole card.
-function StatusTile({
-  href,
+/// Status pill that filters the cards list in-place. Replaces the
+/// nav-link tiles that used to take the intern to a different page.
+function StatusTab({
+  active,
+  onClick,
   icon,
   label,
   count,
 }: {
-  href: string;
+  active: boolean;
+  onClick: () => void;
   icon: React.ReactNode;
   label: string;
   count: number;
 }) {
   return (
-    <Link
-      href={href}
-      className="group flex items-center justify-between gap-2 rounded-card border border-border bg-white px-3 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-charcoal transition-colors hover:border-navy hover:bg-navy hover:text-white"
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`group flex items-center justify-between gap-2 rounded-card border px-3 py-3 text-left font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${
+        active
+          ? 'border-navy bg-navy text-white shadow-card'
+          : 'border-border bg-white text-charcoal hover:border-navy'
+      }`}
     >
       <span className="flex items-center gap-1.5">
         {icon}
         {label}
       </span>
-      <span className="flex items-center gap-1">
-        <span className="rounded-full bg-page px-2 py-0.5 text-xs text-charcoal group-hover:bg-white/20 group-hover:text-white">
-          {count}
-        </span>
-        <ChevronRight size={12} aria-hidden className="opacity-50 group-hover:opacity-100" />
+      <span
+        className={`rounded-full px-2 py-0.5 text-xs ${
+          active ? 'bg-white/20 text-white' : 'bg-page text-charcoal'
+        }`}
+      >
+        {count}
       </span>
-    </Link>
+    </button>
   );
 }
 
