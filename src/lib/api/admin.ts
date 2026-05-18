@@ -544,7 +544,14 @@ export function adminRecordOrderRefund(
 
 // ----- Admin Customers -----
 
-export type CustomerRole = 'CUSTOMER' | 'SELLER' | 'ADMIN';
+/// Mirrors the prisma UserRole enum 1:1. STAFF was missing here before
+/// 2026-05-18 — accounts with role=STAFF still came back from the API,
+/// so the RoleBadge styles map blew up when one was rendered.
+export type CustomerRole = 'CUSTOMER' | 'SELLER' | 'ADMIN' | 'STAFF';
+
+/// Tab toggle on /admin/customers. 'customers' = has placed at least
+/// one non-cancelled order; 'users' = account exists, never bought.
+export type CustomerSegment = 'customers' | 'users' | 'all';
 
 export interface AdminCustomerListItem {
   id: string;
@@ -575,6 +582,9 @@ export interface AdminCustomerListParams {
   limit?: number;
   q?: string;
   role?: CustomerRole;
+  /// Split between paying customers and accounts-with-no-orders.
+  /// Omit (or 'all') to keep the legacy unfiltered behaviour.
+  segment?: CustomerSegment;
   sort?: 'newest' | 'oldest' | 'name-asc' | 'spend-desc';
 }
 
@@ -586,6 +596,7 @@ export function adminListCustomers(
   if (params.limit) sp.set('limit', String(params.limit));
   if (params.q) sp.set('q', params.q);
   if (params.role) sp.set('role', params.role);
+  if (params.segment && params.segment !== 'all') sp.set('segment', params.segment);
   if (params.sort) sp.set('sort', params.sort);
   const qs = sp.toString();
   return apiFetchAuthed(`/api/admin/customers${qs ? `?${qs}` : ''}`);

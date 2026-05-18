@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ChevronRight, Search } from 'lucide-react';
+import { ChevronRight, Search, ShoppingBag, UserPlus, Users } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { Column, DataTable } from '@/components/admin/DataTable';
 import { toast } from '@/components/admin/Toast';
@@ -10,6 +10,7 @@ import {
   adminListCustomers,
   type AdminCustomerListItem,
   type CustomerRole,
+  type CustomerSegment,
 } from '@/lib/api/admin';
 import { formatPriceNGN } from '@/lib/format';
 
@@ -17,7 +18,33 @@ const ROLE_OPTIONS: { value: '' | CustomerRole; label: string }[] = [
   { value: '', label: 'All roles' },
   { value: 'CUSTOMER', label: 'Customer' },
   { value: 'SELLER', label: 'Seller' },
+  { value: 'STAFF', label: 'Staff / intern' },
   { value: 'ADMIN', label: 'Admin' },
+];
+
+/// Tab toggle at the top of the page. Customers = have bought at
+/// least once; Users = signed up but haven't bought; All = the
+/// legacy unfiltered list. Default lands on Customers because
+/// that's what an admin is usually looking for.
+const SEGMENT_TABS: {
+  key: CustomerSegment;
+  label: string;
+  icon: typeof Users;
+  hint: string;
+}[] = [
+  {
+    key: 'customers',
+    label: 'Customers',
+    icon: ShoppingBag,
+    hint: 'Have placed at least one order',
+  },
+  {
+    key: 'users',
+    label: 'Users',
+    icon: UserPlus,
+    hint: 'Signed up but haven’t bought yet',
+  },
+  { key: 'all', label: 'All', icon: Users, hint: 'Everyone with an account' },
 ];
 
 export default function AdminCustomersPage() {
@@ -25,6 +52,7 @@ export default function AdminCustomersPage() {
   const [q, setQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
   const [role, setRole] = useState<'' | CustomerRole>('');
+  const [segment, setSegment] = useState<CustomerSegment>('customers');
   const [sort, setSort] = useState<'newest' | 'name-asc' | 'spend-desc'>('newest');
   const [data, setData] = useState<{
     items: AdminCustomerListItem[];
@@ -39,7 +67,7 @@ export default function AdminCustomersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQ, role, sort]);
+  }, [debouncedQ, role, segment, sort]);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +79,7 @@ export default function AdminCustomersPage() {
           limit: 25,
           q: debouncedQ || undefined,
           role: role || undefined,
+          segment,
           sort,
         });
         if (!cancelled) setData(r);
@@ -63,7 +92,7 @@ export default function AdminCustomersPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, debouncedQ, role, sort]);
+  }, [page, debouncedQ, role, segment, sort]);
 
   const columns: Column<AdminCustomerListItem>[] = [
     {
@@ -144,9 +173,43 @@ export default function AdminCustomersPage() {
   return (
     <div className="px-8 py-10">
       <AdminPageHeader
-        title="Customers"
-        subtitle={data ? `${data.pagination.total.toLocaleString()} total` : 'Loading…'}
+        title={segment === 'users' ? 'Users' : 'Customers'}
+        subtitle={
+          data
+            ? `${data.pagination.total.toLocaleString()} ${
+                segment === 'users'
+                  ? 'accounts with no orders yet'
+                  : segment === 'customers'
+                    ? 'paying customers'
+                    : 'total accounts'
+              }`
+            : 'Loading…'
+        }
       />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {SEGMENT_TABS.map((t) => {
+          const Icon = t.icon;
+          const active = segment === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setSegment(t.key)}
+              aria-pressed={active}
+              title={t.hint}
+              className={`inline-flex items-center gap-1.5 rounded-input border px-3 py-2 font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${
+                active
+                  ? 'border-navy bg-navy text-white shadow-card'
+                  : 'border-border bg-white text-charcoal hover:border-navy/60'
+              }`}
+            >
+              <Icon size={12} aria-hidden />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[220px]">
@@ -210,9 +273,16 @@ function RoleBadge({ role }: { role: CustomerRole }) {
   const styles: Record<CustomerRole, { bg: string; text: string }> = {
     CUSTOMER: { bg: 'bg-border/50', text: 'text-charcoal' },
     SELLER: { bg: 'bg-navy/15', text: 'text-navy' },
+    /// STAFF was missing pre-2026-05-18 — the page crashed the moment
+    /// an intern row appeared in the list. Now treated like an admin
+    /// variant visually so they stand out from plain customers.
+    STAFF: { bg: 'bg-navy/10', text: 'text-navy' },
     ADMIN: { bg: 'bg-amber/30', text: 'text-navy' },
   };
-  const s = styles[role];
+  /// Defence in depth: if the API ever sends a role we don't know
+  /// about (newly added enum value, future role), render a neutral
+  /// chip rather than crash the whole admin tool again.
+  const s = styles[role] ?? { bg: 'bg-border/30', text: 'text-muted' };
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-btn ${s.bg} ${s.text}`}
