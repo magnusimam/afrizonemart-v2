@@ -12,7 +12,10 @@ import {
 } from 'lucide-react';
 import { CheckoutOrderSummary } from '@/components/checkout/CheckoutOrderSummary';
 import { PaymentMethodForm } from '@/components/checkout/PaymentMethodForm';
-import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
+import {
+  PaymentGatewaySelector,
+  type GatewaySelectorChoice,
+} from '@/components/checkout/PaymentGatewaySelector';
 import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
 import { StaticPlaceOrderButton } from '@/components/checkout/StaticPlaceOrderButton';
 import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
@@ -23,7 +26,7 @@ import { fetchCart, type CartView } from '@/lib/api/cart';
 import { HttpApiError } from '@/lib/api/client';
 import { placeOrder, type PaymentMethodId as ApiPaymentMethod } from '@/lib/api/orders';
 import { initPayment } from '@/lib/api/payments';
-import { listPublicGateways } from '@/lib/api/admin';
+import { listPublicGateways, type PublicGateway } from '@/lib/api/admin';
 import {
   fetchPublicPaymentMethods,
   type PaymentBankAccount,
@@ -79,6 +82,11 @@ export default function PaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [serverCart, setServerCart] = useState<CartView | null>(null);
   const [activeGateways, setActiveGateways] = useState<string[]>([]);
+  /// Tracker #50.1 — full gateway records (with metadata.logoUrl +
+  /// metadata.supportedMethods) for the new gateway-first selector.
+  /// Same source as `activeGateways` above; we keep both because the
+  /// "Securely processed by …" line still wants just the names.
+  const [publicGateways, setPublicGateways] = useState<PublicGateway[]>([]);
   /// Tracker #46 — methods + bank accounts come from the API now.
   /// Null while loading; empty after a failure or before any are
   /// configured. PaymentMethodSelector renders a friendly placeholder
@@ -99,6 +107,7 @@ export default function PaymentPage() {
     void (async () => {
       try {
         const r = await listPublicGateways('NGN');
+        setPublicGateways(r.items);
         setActiveGateways(r.items.map((g) => g.label));
       } catch {
         /* fail-soft */
@@ -165,6 +174,44 @@ export default function PaymentPage() {
     setSelected(id);
     setPaymentMethod(id);
   };
+
+  /// Bridge between the new gateway-first picker and the existing
+  /// PaymentMethodId machinery downstream (PAYMENT_METHOD_MAP /
+  /// initPayment / placeOrder). For now any gateway choice resolves
+  /// to 'card' — every Squad-routable method (Card / MM / USSD /
+  /// Crypto) goes to the same GTSQUAD endpoint server-side, and
+  /// `activeGateway()` on the API picks the highest-priority gateway
+  /// regardless of the customer's pick. When we add multi-gateway
+  /// customer-choice plumbing (sending gatewayId through initPayment),
+  /// this is the place that learns about the chosen id.
+  const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(
+    null,
+  );
+  const handleGatewayChoice = (c: GatewaySelectorChoice) => {
+    if (c.kind === 'gateway') {
+      setSelectedGatewayId(c.gatewayId);
+      handleSelectMethod('card');
+    } else if (c.kind === 'bank-transfer') {
+      setSelectedGatewayId(null);
+      handleSelectMethod('bank-transfer');
+    } else {
+      setSelectedGatewayId(null);
+      handleSelectMethod('pay-on-delivery');
+    }
+  };
+  const gatewayChoice: GatewaySelectorChoice | undefined =
+    selected === 'bank-transfer'
+      ? { kind: 'bank-transfer' }
+      : selected === 'pay-on-delivery'
+        ? { kind: 'pay-on-delivery' }
+        : selectedGatewayId
+          ? { kind: 'gateway', gatewayId: selectedGatewayId }
+          : undefined;
+  /// The manual non-gateway options stay surfaced only if an admin
+  /// has them active in PaymentMethodConfig. Customers shouldn't see
+  /// Pay on Delivery in a country where the admin disabled it.
+  const showBankTransfer = methods.some((m) => m.code === 'BANK_TRANSFER');
+  const showPayOnDelivery = methods.some((m) => m.code === 'PAY_ON_DELIVERY');
 
   // Where to send the customer once the truck animation finishes.
   // Stashed during the API call (which runs concurrently with the
@@ -310,10 +357,12 @@ export default function PaymentPage() {
                       </p>
                     }
                   >
-                    <PaymentMethodSelector
-                      methods={methods}
-                      value={selected}
-                      onChange={handleSelectMethod}
+                    <PaymentGatewaySelector
+                      gateways={publicGateways}
+                      showBankTransfer={showBankTransfer}
+                      showPayOnDelivery={showPayOnDelivery}
+                      value={gatewayChoice}
+                      onChange={handleGatewayChoice}
                     />
                   </SafeBoundary>
                   {activeGateways.length > 0 && (

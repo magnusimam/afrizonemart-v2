@@ -1596,10 +1596,29 @@ export async function evaluateFlags(keys: string[]): Promise<Record<string, bool
   return j.flags ?? {};
 }
 
+/// Conventions on PaymentGatewayConfig.metadata used by the
+/// storefront checkout picker (Tracker #50.1 — gateway-first UI,
+/// 2026-05-19). All keys are optional — a gateway with no logo
+/// falls back to "Pay with [label]" text, and a gateway with no
+/// supportedMethods list just hides the method-chips caption.
+export interface PublicGatewayMetadata {
+  logoUrl?: string;
+  supportedMethods?: string[];
+  [k: string]: unknown;
+}
+
+export interface PublicGateway {
+  id: string;
+  provider: string;
+  label: string;
+  currencies: string[];
+  metadata: PublicGatewayMetadata;
+}
+
 // Public — storefront checkout picker.
 export async function listPublicGateways(
   currency?: string,
-): Promise<{ items: Array<{ id: string; provider: string; label: string; currencies: string[] }> }> {
+): Promise<{ items: PublicGateway[] }> {
   const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
   const qs = currency ? `?currency=${encodeURIComponent(currency)}` : '';
   const r = await fetch(`${base}/api/payments/gateways${qs}`, { cache: 'no-store' });

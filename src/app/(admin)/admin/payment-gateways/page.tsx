@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { Column, DataTable } from '@/components/admin/DataTable';
+import { ImageUploader } from '@/components/admin/ImageUploader';
 import { toast } from '@/components/admin/Toast';
 import {
   adminCreatePaymentGateway,
@@ -14,6 +15,20 @@ import {
   type PaymentGatewayConfigRow,
   type ProviderDefinition,
 } from '@/lib/api/admin';
+
+/// Customer-facing payment-method chips an admin can attach to a
+/// gateway. Drives the small caption under the gateway logo on the
+/// checkout payment card ("Card · Bank Transfer · USSD"). These
+/// are display strings only — server-side routing still goes
+/// through the gateway's provider implementation regardless.
+const SUPPORTED_METHOD_OPTIONS = [
+  'Card',
+  'Bank Transfer',
+  'USSD',
+  'Mobile Money',
+  'Crypto',
+  'QR Code',
+] as const;
 
 /// Sorted by African-first relevance, then global. Each provider's
 /// `supportedCurrencies` filters this list down to what's actually
@@ -80,21 +95,39 @@ export default function AdminPaymentGatewaysPage() {
     {
       key: 'label',
       header: 'Gateway',
-      render: (r) => (
-        <button
-          type="button"
-          onClick={() => {
-            setEditing(r);
-            setShowForm(true);
-          }}
-          className="flex flex-col text-left leading-tight"
-        >
-          <span className="font-raleway text-sm font-bold text-navy hover:underline">{r.label}</span>
-          <span className="font-mono text-[10px] text-muted">
-            {r.provider} · {r.environment}
-          </span>
-        </button>
-      ),
+      render: (r) => {
+        const logoUrl =
+          typeof r.metadata?.logoUrl === 'string' ? (r.metadata.logoUrl as string) : null;
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(r);
+              setShowForm(true);
+            }}
+            className="flex items-center gap-3 text-left leading-tight"
+          >
+            {logoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={logoUrl}
+                alt=""
+                className="h-8 w-8 shrink-0 rounded border border-border bg-white object-contain"
+              />
+            ) : (
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-dashed border-border bg-page text-[9px] uppercase tracking-btn text-muted">
+                logo
+              </span>
+            )}
+            <span className="flex flex-col">
+              <span className="font-raleway text-sm font-bold text-navy hover:underline">{r.label}</span>
+              <span className="font-mono text-[10px] text-muted">
+                {r.provider} · {r.environment}
+              </span>
+            </span>
+          </button>
+        );
+      },
     },
     {
       key: 'currencies',
@@ -216,6 +249,17 @@ function GatewayFormDialog({
   const [priority, setPriority] = useState(editing?.priority ?? 100);
   const [currencies, setCurrencies] = useState<string[]>(editing?.currencies ?? ['NGN']);
   const [credentials, setCredentials] = useState<Record<string, string>>({});
+  /// Customer-facing extras (Tracker #50.1). Stored inside the
+  /// existing metadata JSON column — no schema migration needed.
+  const initialMetadata = (editing?.metadata ?? {}) as Record<string, unknown>;
+  const [logoUrl, setLogoUrl] = useState<string>(
+    typeof initialMetadata.logoUrl === 'string' ? (initialMetadata.logoUrl as string) : '',
+  );
+  const [supportedMethods, setSupportedMethods] = useState<string[]>(
+    Array.isArray(initialMetadata.supportedMethods)
+      ? (initialMetadata.supportedMethods as string[])
+      : [],
+  );
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -235,6 +279,14 @@ function GatewayFormDialog({
     setErr(null);
     setSubmitting(true);
     try {
+      /// Preserve any metadata keys the form doesn't know about
+      /// (future fields, manual edits made via DB or other tooling)
+      /// so we never accidentally clobber them when saving.
+      const mergedMetadata: Record<string, unknown> = {
+        ...initialMetadata,
+        logoUrl: logoUrl || undefined,
+        supportedMethods: supportedMethods.length > 0 ? supportedMethods : undefined,
+      };
       const body = {
         provider: providerKey,
         label: label.trim(),
@@ -242,6 +294,7 @@ function GatewayFormDialog({
         priority,
         currencies,
         credentials,
+        metadata: mergedMetadata,
       };
       if (editing) {
         await adminUpdatePaymentGateway(editing.id, body);
@@ -357,6 +410,59 @@ function GatewayFormDialog({
           />
           <span className="font-sans text-[11px] text-muted">Lower = higher in checkout list</span>
         </label>
+
+        <fieldset className="flex flex-col gap-3 rounded-card border border-border bg-page p-4">
+          <legend className="px-2 font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
+            Customer-facing card
+          </legend>
+          <p className="font-sans text-[11px] text-muted">
+            How this gateway appears on the checkout payment page. Logo
+            shows above the label; supported methods render as a small
+            caption below it (e.g. <em>Card · Bank Transfer · USSD</em>).
+          </p>
+          <label className="flex flex-col gap-1">
+            <span className="font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">Logo</span>
+            <ImageUploader
+              value={logoUrl}
+              onChange={(next) => setLogoUrl(next ?? '')}
+              folder="misc"
+              emptyHint="Upload the gateway logo (SVG / PNG). Customers see this as the headline."
+            />
+          </label>
+          <div>
+            <span className="block font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
+              Supported methods
+            </span>
+            <p className="mt-0.5 font-sans text-[11px] text-muted">
+              Pick the methods this gateway accepts — these become the
+              small caption beneath the logo. Display only; routing is
+              handled by the provider on its own page.
+            </p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {SUPPORTED_METHOD_OPTIONS.map((m) => {
+                const on = supportedMethods.includes(m);
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() =>
+                      setSupportedMethods((prev) =>
+                        on ? prev.filter((x) => x !== m) : [...prev, m],
+                      )
+                    }
+                    className={`rounded-full border px-3 py-1 font-sans text-xs ${
+                      on
+                        ? 'border-navy bg-navy text-white'
+                        : 'border-border bg-white text-charcoal hover:border-navy'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </fieldset>
 
         {provider && provider.credentialFields.length > 0 && (
           <fieldset className="flex flex-col gap-3 rounded-card border border-border bg-page p-4">
