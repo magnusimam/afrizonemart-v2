@@ -16,6 +16,10 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
+import { useCheckoutStore, type ShippingAddress } from '@/stores/checkoutStore';
+import { useAuthStore } from '@/stores/authStore';
+import { listAddresses, type SavedAddress } from '@/lib/api/addresses';
+import { fetchShippingQuotes } from '@/lib/api/shipping';
 import type { FeatureIcon, ProductDetail } from '@/lib/products';
 import { BundleSelector } from './BundleSelector';
 import { ShareProductButton } from './ShareProductButton';
@@ -28,6 +32,32 @@ import { PayWithCoinButton } from './PayWithCoinButton';
 import { StaticAddToCartButton } from './StaticAddToCartButton';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { useFlag } from '@/lib/useFlag';
+
+/// Maps a SavedAddress (compact API shape, single fullName +
+/// addressLine) to the richer ShippingAddress the checkoutStore +
+/// payment page expect. Missing fields stay empty — the payment
+/// page renders the address read-only and order create accepts
+/// empty region / postalCode for now. Best-effort only; the
+/// fallback to /checkout/shipping kicks in on any failure.
+function savedToShippingAddress(
+  a: SavedAddress,
+  email: string,
+): ShippingAddress {
+  const parts = (a.fullName ?? '').trim().split(/\s+/);
+  return {
+    firstName: parts[0] ?? '',
+    lastName: parts.slice(1).join(' '),
+    email,
+    phone: a.phone ?? '',
+    country: a.country ?? '',
+    region: '',
+    city: a.city ?? '',
+    street: a.addressLine ?? '',
+    apartment: '',
+    postalCode: '',
+    instructions: '',
+  };
+}
 
 const featureIconMap: Record<FeatureIcon, LucideIcon> = {
   sparkles: Sparkles,
@@ -73,7 +103,11 @@ export function ProductInfo({ product }: ProductInfoProps) {
   const [bundleIndex, setBundleIndex] = useState(initialBundle);
   const [quantity, setQuantity] = useState(1);
   const [wished, setWished] = useState(false);
+  const [buyingNow, setBuyingNow] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
+  const setShipping = useCheckoutStore((s) => s.setShipping);
+  const setSelectedQuote = useCheckoutStore((s) => s.setSelectedQuote);
+  const setShippingRateId = useCheckoutStore((s) => s.setShippingRateId);
   const router = useRouter();
 
   /// Phase 12 — animated PDP Add-to-Cart kill-switch. Default true so
@@ -114,6 +148,49 @@ export function ProductInfo({ product }: ProductInfoProps) {
       },
       quantity,
     );
+  };
+
+  /// "Buy Now" fast-buy prep. Tries to land the customer straight on
+  /// /checkout/payment by hydrating the checkoutStore from their
+  /// default saved address and auto-picking the cheapest shipping
+  /// quote for the just-added bundle. Returns true on success — caller
+  /// then routes to /payment. Any failure (anonymous, no default,
+  /// no quotes for the destination, API down) returns false and the
+  /// caller falls back to /checkout/shipping where the customer fills
+  /// the gap in by hand.
+  const prepFastBuy = async (): Promise<boolean> => {
+    const accessToken = useAuthStore.getState().accessToken;
+    if (!accessToken) return false;
+    try {
+      const { items: addresses } = await listAddresses(accessToken);
+      const def = addresses.find((a) => a.isDefault) ?? addresses[0];
+      if (!def) return false;
+      const shipping = savedToShippingAddress(def, useAuthStore.getState().user?.email ?? '');
+      /// Use the freshly-mutated cart from the store getter; the
+      /// useCartStore hook above gives a reactive `items` snapshot
+      /// that lags one render behind the addItem we just did.
+      const cartItems = useCartStore.getState().items.map((i) => ({
+        productId: i.productId,
+        qty: i.quantity,
+      }));
+      const dest = {
+        country: def.country.toUpperCase(),
+        city: def.city || undefined,
+        addressLine: def.addressLine || undefined,
+      };
+      const { quotes } = await fetchShippingQuotes(dest, cartItems);
+      if (!quotes.length) return false;
+      /// Cheapest first. The customer can change it on the payment
+      /// page later if they want to upgrade to express, but the
+      /// default keeps the price low and matches what most users want.
+      const cheapest = [...quotes].sort((a, b) => a.amountNgn - b.amountNgn)[0];
+      setShipping(shipping);
+      setSelectedQuote(cheapest);
+      setShippingRateId(cheapest.rateId ?? undefined);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const fullStars = Math.floor(product.rating);
@@ -308,19 +385,24 @@ export function ProductInfo({ product }: ProductInfoProps) {
 
         <button
           type="button"
-          disabled={!product.inStock}
-          onClick={() => {
+          disabled={!product.inStock || buyingNow}
+          onClick={async () => {
             handleAddToCart();
-            /// /checkout has no root page — the cart's "Proceed to
-            /// Checkout" link also points at /checkout/shipping as
-            /// the real entry. Match that or this button 404s.
-            /// Re-applied 2026-05-18 because the squash-merge of
-            /// PR #59 dropped the original fix-up commit (df2352b).
-            router.push('/checkout/shipping');
+            setBuyingNow(true);
+            /// "Buy Now" intent: jump as far into checkout as we can.
+            /// For signed-in customers with a saved address we can
+            /// land them on /checkout/payment with the cheapest
+            /// shipping quote pre-selected. Otherwise fall back to
+            /// /checkout/shipping (same place the cart's Proceed to
+            /// Checkout link sends them — never /checkout, which is
+            /// a 404 page).
+            const fastBuyReady = await prepFastBuy();
+            setBuyingNow(false);
+            router.push(fastBuyReady ? '/checkout/payment' : '/checkout/shipping');
           }}
           className="w-full rounded-btn border-2 border-navy bg-white py-3.5 font-raleway text-sm font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-navy"
         >
-          Buy Now
+          {buyingNow ? 'Preparing…' : 'Buy Now'}
         </button>
 
         <PayWithCoinButton
