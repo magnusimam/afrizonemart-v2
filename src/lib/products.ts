@@ -82,7 +82,7 @@ export interface ProductDetail {
 }
 
 const STANDARD_SHIPPING =
-  'Free shipping on orders over NGN10,000. Delivers in 1-3 hours within Lagos, 24-48 hours nationwide, and 5-10 business days internationally. 30-day no-questions-asked returns.';
+  'Free shipping on orders over NGN10,000. Delivers in 1-3 hours within Lagos, 24-48 hours nationwide, and 5-10 business days internationally.';
 
 const FALLBACK_IMAGE = '/images/featured/for-her.jpg';
 
@@ -118,14 +118,17 @@ function reviewFromApi(r: ApiReview): ProductReview {
 }
 
 /// Tracker #45 — build the PDP bundle selector from the variants the
-/// API returned. Returns null when the product only has its default
-/// variant; the caller falls back to the legacy attributes.bundles
-/// JSON in that case so freshly-imported products still render.
+/// API returned. Returns null when the product has no variants at all;
+/// the caller falls back to the legacy attributes.bundles JSON in
+/// that case so freshly-imported products still render.
+///
+/// We include the default (1-unit) variant alongside any multi-pack
+/// variants so customers can always pick the single-unit option
+/// instead of being silently forced into the first multi-pack.
 function bundlesFromVariants(api: ApiProduct): ProductBundle[] | null {
   const variants = api.variants ?? [];
-  const nonDefault = variants.filter((v) => !v.isDefault);
-  if (nonDefault.length === 0) return null;
-  return nonDefault
+  if (variants.length === 0) return null;
+  return variants
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((v) => {
