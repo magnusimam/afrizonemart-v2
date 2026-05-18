@@ -1,14 +1,19 @@
 'use client';
 
-import { Building2, Truck } from 'lucide-react';
+import { Truck } from 'lucide-react';
 import type { PublicGateway } from '@/lib/api/admin';
 
 /// Gateway-first checkout picker (Tracker #50.1, 2026-05-19).
 /// Customer chooses a gateway by brand (Squad, Paystack…) — the small
-/// caption underneath lists the methods that gateway processes. Bank
-/// Transfer (direct deposit) and Pay on Delivery stay as separate
-/// non-gateway cards beneath the list because they aren't routed
-/// through a third-party processor.
+/// caption underneath lists the methods that gateway processes. Pay
+/// on Delivery stays as a separate non-gateway card beneath the list
+/// because it isn't routed through a third-party processor.
+///
+/// Bank Transfer used to render as its own non-gateway card too; we
+/// dropped it 2026-05-19 (Magnus' call). Customers route to a gateway
+/// for online payment OR pick Pay on Delivery. Bank transfer is
+/// available inside the Squad-hosted flow as a payment channel, so
+/// dropping the dedicated card doesn't take the capability away.
 ///
 /// Backward-compat with the existing selection model: each gateway
 /// card maps to PaymentMethodId 'card' (which PAYMENT_METHOD_MAP
@@ -20,13 +25,10 @@ import type { PublicGateway } from '@/lib/api/admin';
 
 export type GatewaySelectorChoice =
   | { kind: 'gateway'; gatewayId: string }
-  | { kind: 'bank-transfer' }
   | { kind: 'pay-on-delivery' };
 
 interface Props {
   gateways: PublicGateway[];
-  /// Pass true to render the Bank Transfer manual card.
-  showBankTransfer: boolean;
   /// Pass true to render the Pay on Delivery card.
   showPayOnDelivery: boolean;
   value?: GatewaySelectorChoice;
@@ -35,12 +37,11 @@ interface Props {
 
 export function PaymentGatewaySelector({
   gateways,
-  showBankTransfer,
   showPayOnDelivery,
   value,
   onChange,
 }: Props) {
-  if (gateways.length === 0 && !showBankTransfer && !showPayOnDelivery) {
+  if (gateways.length === 0 && !showPayOnDelivery) {
     return (
       <p className="rounded-card border border-amber bg-amber/10 p-4 font-sans text-sm text-charcoal">
         No payment options are active right now. Please check back shortly or
@@ -102,16 +103,6 @@ export function PaymentGatewaySelector({
           </button>
         );
       })}
-
-      {showBankTransfer && (
-        <ManualOptionCard
-          icon={<Building2 size={28} strokeWidth={1.5} aria-hidden />}
-          title="Bank Transfer"
-          caption="Direct deposit to our bank account — we'll show you the details on the next step."
-          selected={value?.kind === 'bank-transfer'}
-          onClick={() => onChange({ kind: 'bank-transfer' })}
-        />
-      )}
 
       {showPayOnDelivery && (
         <ManualOptionCard

@@ -191,26 +191,21 @@ export default function PaymentPage() {
     if (c.kind === 'gateway') {
       setSelectedGatewayId(c.gatewayId);
       handleSelectMethod('card');
-    } else if (c.kind === 'bank-transfer') {
-      setSelectedGatewayId(null);
-      handleSelectMethod('bank-transfer');
     } else {
       setSelectedGatewayId(null);
       handleSelectMethod('pay-on-delivery');
     }
   };
   const gatewayChoice: GatewaySelectorChoice | undefined =
-    selected === 'bank-transfer'
-      ? { kind: 'bank-transfer' }
-      : selected === 'pay-on-delivery'
-        ? { kind: 'pay-on-delivery' }
-        : selectedGatewayId
-          ? { kind: 'gateway', gatewayId: selectedGatewayId }
-          : undefined;
-  /// The manual non-gateway options stay surfaced only if an admin
-  /// has them active in PaymentMethodConfig. Customers shouldn't see
-  /// Pay on Delivery in a country where the admin disabled it.
-  const showBankTransfer = methods.some((m) => m.code === 'BANK_TRANSFER');
+    selected === 'pay-on-delivery'
+      ? { kind: 'pay-on-delivery' }
+      : selectedGatewayId
+        ? { kind: 'gateway', gatewayId: selectedGatewayId }
+        : undefined;
+  /// Pay on Delivery stays surfaced only if the admin has it active
+  /// in PaymentMethodConfig. Bank Transfer's standalone card was
+  /// dropped 2026-05-19 — customers go via a gateway (Squad handles
+  /// bank as a channel on its hosted page) or pick POD.
   const showPayOnDelivery = methods.some((m) => m.code === 'PAY_ON_DELIVERY');
 
   // Where to send the customer once the truck animation finishes.
@@ -359,7 +354,6 @@ export default function PaymentPage() {
                   >
                     <PaymentGatewaySelector
                       gateways={publicGateways}
-                      showBankTransfer={showBankTransfer}
                       showPayOnDelivery={showPayOnDelivery}
                       value={gatewayChoice}
                       onChange={handleGatewayChoice}
