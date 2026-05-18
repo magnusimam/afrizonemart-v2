@@ -8,7 +8,6 @@ import {
   Globe2,
   Heart,
   Leaf,
-  RotateCcw,
   ShieldCheck,
   Sparkles,
   Star,
@@ -60,7 +59,15 @@ export function ProductInfo({ product }: ProductInfoProps) {
           comparePrice: product.comparePrice ?? product.price,
         },
       ];
-  const initialBundle = Math.max(0, bundles.findIndex((b) => b.popular));
+  /// Prefer an admin-flagged "popular" bundle, else default to the
+  /// smallest pack (typically the 1-unit single) so customers who
+  /// just want one aren't silently forced into a multi-pack.
+  const popularIdx = bundles.findIndex((b) => b.popular);
+  const smallestIdx = bundles.reduce(
+    (best, b, i) => (b.units < bundles[best].units ? i : best),
+    0,
+  );
+  const initialBundle = popularIdx >= 0 ? popularIdx : smallestIdx;
   const [variant, setVariant] = useState(product.variants?.default ?? '');
   const [bundleIndex, setBundleIndex] = useState(initialBundle);
   const [quantity, setQuantity] = useState(1);
@@ -310,9 +317,8 @@ export function ProductInfo({ product }: ProductInfoProps) {
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-2 rounded-card border border-border bg-page p-3 md:gap-3 md:p-4">
+      <div className="grid grid-cols-2 gap-2 rounded-card border border-border bg-page p-3 md:gap-3 md:p-4">
         <TrustBadge Icon={Truck} title="Free Shipping" caption="Over NGN10,000" />
-        <TrustBadge Icon={RotateCcw} title="30-Day Returns" caption="No questions asked" />
         <TrustBadge Icon={BadgeCheck} title="Authentic" caption="100% Made in Africa" />
       </div>
 
