@@ -114,16 +114,16 @@ function ResetPasswordInner() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               minLength={8}
-              className="w-full rounded-input border border-border bg-white py-2.5 pl-3 pr-10 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none"
+              className="w-full min-h-[44px] rounded-input border border-border bg-white py-2.5 pl-3 pr-12 font-sans text-base text-charcoal placeholder:text-muted focus:border-navy focus:outline-none md:text-sm"
               autoComplete="new-password"
             />
             <button
               type="button"
               onClick={() => setShow((v) => !v)}
               aria-label={show ? 'Hide password' : 'Show password'}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-navy"
+              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-muted hover:text-navy"
             >
-              {show ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
+              {show ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
             </button>
           </div>
         </label>
@@ -138,8 +138,9 @@ function ResetPasswordInner() {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             minLength={8}
-            className="w-full rounded-input border border-border bg-white py-2.5 px-3 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none"
+            className="w-full min-h-[44px] rounded-input border border-border bg-white py-2.5 px-3 font-sans text-base text-charcoal placeholder:text-muted focus:border-navy focus:outline-none md:text-sm"
             autoComplete="new-password"
+            enterKeyHint="done"
           />
         </label>
 
@@ -155,7 +156,7 @@ function ResetPasswordInner() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex items-center justify-center gap-2 rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-70"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy disabled:cursor-not-allowed disabled:opacity-70"
         >
           {submitting && <Loader2 size={16} className="animate-spin" aria-hidden />}
           {submitting ? 'Updating…' : 'Update Password'}
