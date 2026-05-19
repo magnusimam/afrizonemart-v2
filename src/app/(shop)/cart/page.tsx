@@ -9,6 +9,7 @@ import { CartLineItem } from '@/components/cart/CartLineItem';
 import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
 import { EmptyCart } from '@/components/cart/EmptyCart';
 import { OrderSummary } from '@/components/cart/OrderSummary';
+import { StickyMobileCheckoutBar } from '@/components/cart/StickyMobileCheckoutBar';
 import { RelatedProducts } from '@/components/product/RelatedProducts';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
@@ -69,9 +70,23 @@ export default function CartPage() {
     void getRelatedProducts(anchorSlug, 6).then(setRelated);
   }, [anchorSlug]);
 
+  /// Compute "total after discounts" the same way OrderSummary does
+  /// so the sticky mobile bar shows the matching number — pulling
+  /// from useCartStore again to avoid prop drilling. The bar is
+  /// rendered outside the conditional below so it stays mounted
+  /// while items are present even as the customer scrolls.
+  const coinRedeemRequest = useCartStore((s) => s.coinRedeemRequest);
+  const couponDiscount = serverCart?.couponDiscount ?? 0;
+  const coinDiscount = coinRedeemRequest * 33;
+  const stickyTotal = Math.max(0, subtotal - couponDiscount - coinDiscount);
+
   return (
     <>
-      <main className="bg-page pb-12">
+      {/* On mobile, bottom padding clears the sticky checkout bar
+          (~76px including safe-area). Desktop stays at pb-12 since
+          OrderSummary is in the right column, not stuck to the
+          viewport bottom. */}
+      <main className="bg-page pb-28 md:pb-12">
         <nav aria-label="Breadcrumb" className="border-b border-border bg-page">
           <ol className="mx-auto flex max-w-site items-center gap-1.5 px-4 py-3 font-sans text-xs text-muted md:text-sm">
             <li>
@@ -121,7 +136,7 @@ export default function CartPage() {
                       <button
                         type="button"
                         onClick={clear}
-                        className="flex items-center gap-1.5 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:text-danger md:text-sm"
+                        className="inline-flex min-h-[44px] items-center gap-1.5 px-1 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:text-danger active:text-danger md:text-sm"
                       >
                         <Trash2 size={14} aria-hidden />
                         Clear Cart
@@ -180,7 +195,7 @@ export default function CartPage() {
                     </div>
                     <Link
                       href="/"
-                      className="self-start rounded-btn border-2 border-navy bg-white px-5 py-2.5 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white md:text-sm"
+                      className="inline-flex min-h-[44px] items-center self-start rounded-btn border-2 border-navy bg-white px-5 py-2.5 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white active:bg-navy active:text-white md:text-sm"
                     >
                       ← Continue Shopping
                     </Link>
@@ -220,6 +235,20 @@ export default function CartPage() {
           <TrustBarSection />
         </SafeBoundary>
       </main>
+
+      {/* Sticky bottom checkout bar — mobile only. Always shown
+          while items are present; hidden on desktop (the right-
+          column OrderSummary is sticky there). Sits below the
+          Header's z-40 sticky chrome because the cart page never
+          shows them on the same screen — header is at the top,
+          bar at the bottom. */}
+      <SafeBoundary name="cart:sticky-checkout" fallback={null}>
+        <StickyMobileCheckoutBar
+          itemCount={itemCount}
+          totalNgn={stickyTotal}
+          show={hydrated && !isEmpty}
+        />
+      </SafeBoundary>
     </>
   );
 }
