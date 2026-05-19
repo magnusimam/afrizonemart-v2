@@ -1,0 +1,28 @@
+/* Canopy sway — gentle, slow, infinite. transform-origin anchors at
+   the canopy's left/top corner where it meets the post so the rotation
+   reads as wind-on-fabric, not as the whole stall flapping.
+
+   Disabled under prefers-reduced-motion so users who opt out get a
+   completely static illustration. The 404 page works fine either way. */
+
+.sway {
+  transform-origin: 160px 60px;
+  animation: azm-stall-sway 5.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes azm-stall-sway {
+  0%,
+  100% {
+    transform: rotate(-1.2deg);
+  }
+  50% {
+    transform: rotate(1.2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sway {
+    animation: none;
+  }
+}
