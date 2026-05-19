@@ -129,7 +129,7 @@ export default function OrderDetailPage({ params }: PageProps) {
 
         <div className="mx-auto max-w-site px-4 py-6 md:py-10">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
-            <div className="lg:col-span-3">
+            <div className="hidden lg:col-span-3 lg:block">
               <SafeBoundary name="account:sidebar" fallback={null}>
                 <AccountSidebar
                   active="/account/orders"

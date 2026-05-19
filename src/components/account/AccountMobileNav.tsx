@@ -59,11 +59,15 @@ export function AccountMobileNav({ active }: Props) {
               <Link
                 href={href}
                 aria-current={isActive ? 'page' : undefined}
+                /* Chips bumped to min-h-[40px] — between the WCAG
+                   2.5.5 floor (44) and the dense-pill convention
+                   (28-32). Account nav is the primary mobile path
+                   into the section so it sits closer to the floor. */
                 className={[
-                  'flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-raleway text-xs font-semibold transition-colors',
+                  'inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-3.5 font-raleway text-xs font-semibold transition-colors active:scale-[0.98]',
                   isActive
                     ? 'border-navy bg-navy text-white'
-                    : 'border-border bg-white text-charcoal',
+                    : 'border-border bg-white text-charcoal hover:border-navy hover:text-navy',
                 ].join(' ')}
               >
                 <Icon size={14} aria-hidden />
