@@ -32,11 +32,14 @@ export function NewsletterSection() {
               type="email"
               name="email"
               placeholder="Your email address"
-              className="flex-1 rounded-input border border-border bg-white px-4 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none"
+              autoComplete="email"
+              inputMode="email"
+              enterKeyHint="send"
+              className="min-h-[44px] flex-1 rounded-input border border-border bg-white px-4 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none"
             />
             <button
               type="submit"
-              className="rounded-btn bg-navy px-6 py-2.5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-navy-dark md:text-sm"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-navy px-6 py-2.5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-navy-dark active:bg-navy/80 md:text-sm"
             >
               {subscribed ? 'Subscribed ✓' : 'Subscribe'}
             </button>

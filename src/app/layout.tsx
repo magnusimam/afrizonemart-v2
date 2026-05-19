@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Raleway } from 'next/font/google';
 import { headers } from 'next/headers';
 import { AnalyticsProvider } from '@/components/providers/AnalyticsProvider';
@@ -99,6 +99,18 @@ export const metadata: Metadata = {
   // Icons are picked up from app/icon.png and app/apple-icon.png via
   // Next.js' file-based convention — no manual config needed. Adding
   // entries here would duplicate the <link> tags in <head>.
+};
+
+/// `viewportFit: 'cover'` is what makes iOS expose the
+/// `env(safe-area-inset-*)` values for notched devices — without it,
+/// our sticky header + floating cart slide under the notch in
+/// landscape. Themed colour pulled from brand navy so the iOS/Android
+/// chrome tints to match the header.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#000066',
 };
 
 export default function RootLayout({
