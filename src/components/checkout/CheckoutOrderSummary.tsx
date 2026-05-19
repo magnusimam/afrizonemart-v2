@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { Edit2, Lock, MapPin, Package } from 'lucide-react';
 import { formatPriceNGN } from '@/lib/format';
-import { DELIVERY_METHODS } from '@/lib/checkout-data';
 import { getCountry } from '@/lib/countries';
 import { useCheckoutStore } from '@/stores/checkoutStore';
 import type { CartItem } from '@/types';
@@ -22,9 +21,19 @@ export function CheckoutOrderSummary({
   showShippingRecap = false,
 }: Props) {
   const shipping = useCheckoutStore((s) => s.shipping);
-  const deliveryMethodId = useCheckoutStore((s) => s.deliveryMethod);
-  const method = DELIVERY_METHODS.find((m) => m.id === deliveryMethodId);
-  const shippingFee = method?.price ?? 0;
+  /// Tracker #53 — read the LIVE quote the customer picked on
+  /// /checkout/shipping instead of the legacy hardcoded
+  /// DELIVERY_METHODS list. Old code read `deliveryMethod` (which
+  /// defaults to 'standard' forever) so the summary stayed glued to
+  /// "Standard Delivery" no matter which kg-bracket the customer
+  /// actually picked. The payment page already did this right;
+  /// the summary was the last consumer of the legacy field.
+  const selectedQuote = useCheckoutStore((s) => s.selectedQuote);
+  const shippingFee = selectedQuote?.amountNgn ?? 0;
+  const shippingLabel = selectedQuote?.label ?? 'Shipping';
+  const shippingEta = selectedQuote
+    ? `${selectedQuote.etaDaysMin}-${selectedQuote.etaDaysMax} days`
+    : null;
   const total = subtotal + shippingFee;
 
   return (
@@ -70,7 +79,7 @@ export function CheckoutOrderSummary({
                 </Link>
               </div>
             </div>
-            {method ? (
+            {selectedQuote ? (
               <div className="flex items-start gap-2">
                 <Package size={16} className="mt-0.5 shrink-0 text-navy" aria-hidden />
                 <div>
@@ -78,7 +87,8 @@ export function CheckoutOrderSummary({
                     Delivery
                   </p>
                   <p className="font-sans text-sm leading-snug text-charcoal">
-                    {method.label} · {method.eta.split('·')[0]}
+                    {shippingLabel}
+                    {shippingEta ? ` · ${shippingEta}` : ''}
                   </p>
                 </div>
               </div>
@@ -122,7 +132,7 @@ export function CheckoutOrderSummary({
         <div className="flex flex-col gap-2.5">
           <Row label="Subtotal" value={formatPriceNGN(subtotal)} />
           <Row
-            label={method ? method.label : 'Shipping'}
+            label={shippingLabel}
             value={shippingFee === 0 ? 'Free' : formatPriceNGN(shippingFee)}
             valueClass={shippingFee === 0 ? 'text-success' : ''}
           />
