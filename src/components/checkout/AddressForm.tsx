@@ -65,6 +65,11 @@ export function AddressForm({ initial, onChange }: AddressFormProps) {
           onChange={(e) => update('email', e.target.value)}
           className={inputClass}
           autoComplete="email"
+          inputMode="email"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="next"
         />
       </Field>
 
@@ -82,6 +87,8 @@ export function AddressForm({ initial, onChange }: AddressFormProps) {
             placeholder="80 1234 5678"
             className={inputClass}
             autoComplete="tel"
+            inputMode="tel"
+            enterKeyHint="next"
           />
         </div>
       </Field>
@@ -176,6 +183,7 @@ export function AddressForm({ initial, onChange }: AddressFormProps) {
           onChange={(e) => update('postalCode', e.target.value)}
           className={inputClass}
           autoComplete="postal-code"
+          inputMode="numeric"
         />
       </Field>
 
@@ -192,8 +200,13 @@ export function AddressForm({ initial, onChange }: AddressFormProps) {
   );
 }
 
+/// Inputs are `text-base` (16px) on mobile to suppress iOS Safari's
+/// zoom-on-focus, then back down to text-sm at md:+. min-h-[44px]
+/// puts every input on the touch-target floor regardless of vertical
+/// padding/line-height drift. The same class is reused by every
+/// input + select + textarea on the form for consistency.
 const inputClass =
-  'w-full rounded-input border border-border bg-white px-3 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none';
+  'w-full min-h-[44px] rounded-input border border-border bg-white px-3 py-2.5 font-sans text-base text-charcoal placeholder:text-muted focus:border-navy focus:outline-none md:text-sm';
 
 function Field({
   label,
