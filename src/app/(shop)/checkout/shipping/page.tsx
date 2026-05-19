@@ -8,14 +8,21 @@ import { AddressForm } from '@/components/checkout/AddressForm';
 import { CheckoutOrderSummary } from '@/components/checkout/CheckoutOrderSummary';
 import { LiveShippingQuoteSelector } from '@/components/checkout/LiveShippingQuoteSelector';
 import { NotificationPrefs } from '@/components/checkout/NotificationPrefs';
+import { SavedAddressPicker, type SelectedAddress } from '@/components/checkout/SavedAddressPicker';
 import { CheckoutProgress, type CheckoutStep } from '@/components/cart/CheckoutProgress';
 import { useCheckoutStore, type ShippingAddress } from '@/stores/checkoutStore';
+import { useAuthStore } from '@/stores/authStore';
 import {
   selectCartTotalAmount,
   selectCartTotalQuantity,
   useCartStore,
 } from '@/stores/cartStore';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import {
+  listAddresses,
+  updateAddress,
+  type SavedAddress,
+} from '@/lib/api/addresses';
 import type { ShippingQuote } from '@/lib/api/shipping';
 
 const steps: CheckoutStep[] = [
@@ -41,9 +48,135 @@ export default function ShippingPage() {
   const [draft, setDraft] = useState<ShippingAddress | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
+  /// Tracker #52 — saved-address picker. Logged-in customers see
+  /// their previously-used addresses as tickable cards above the
+  /// AddressForm. Default address is pre-selected on mount. Anonymous
+  /// users skip this block entirely and go straight to the form.
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const authedUser = useAuthStore((s) => s.user);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] =
+    useState<SelectedAddress | null>(null);
+  /// Bumps every time the user picks a different saved address. Used
+  /// as React `key` on AddressForm so it remounts with fresh initial
+  /// values — AddressForm's internal state only seeds from `initial`
+  /// once on mount, so a key change is the cleanest way to re-seed it.
+  const [formKey, setFormKey] = useState(0);
+  const [busyDefaultId, setBusyDefaultId] = useState<string | null>(null);
+
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!accessToken) {
+      setSavedAddresses([]);
+      setSelectedAddressId('new');
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { items: addrs } = await listAddresses(accessToken);
+        if (cancelled) return;
+        setSavedAddresses(addrs);
+        if (addrs.length === 0) {
+          setSelectedAddressId('new');
+          return;
+        }
+        const def = addrs.find((a) => a.isDefault) ?? addrs[0];
+        setSelectedAddressId(def.id);
+        /// Pre-populate draft so the Continue button + the shipping
+        /// quote both have something to work with as soon as the
+        /// page settles. Customer can still edit; AddressForm's
+        /// onChange will overwrite.
+        setDraft(savedToShipping(def));
+        setFormKey((k) => k + 1);
+      } catch {
+        if (cancelled) return;
+        /// Fail soft — if the addresses endpoint is down, fall back to
+        /// the empty form. Checkout must never block on this.
+        setSavedAddresses([]);
+        setSelectedAddressId('new');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // savedToShipping reads authedUser?.email — declaring it as a dep
+    // would re-fetch when the email object reference changes; we don't
+    // want that. The closure captures the current user, which is enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
+
+  /// Maps a SavedAddress (compact: fullName + single addressLine) to
+  /// the ShippingAddress shape AddressForm expects (firstName /
+  /// lastName / street / region / etc). region + postalCode are left
+  /// blank — the form is editable so the customer fills them if the
+  /// carrier needs them.
+  function savedToShipping(a: SavedAddress): ShippingAddress {
+    const parts = (a.fullName ?? '').trim().split(/\s+/);
+    return {
+      firstName: parts[0] ?? '',
+      lastName: parts.slice(1).join(' '),
+      email: authedUser?.email ?? '',
+      phone: a.phone ?? '',
+      country: a.country ?? 'NG',
+      region: '',
+      city: a.city ?? '',
+      street: a.addressLine ?? '',
+      apartment: '',
+      postalCode: '',
+      instructions: '',
+    };
+  }
+
+  const selectedSaved =
+    typeof selectedAddressId === 'string' && selectedAddressId !== 'new'
+      ? savedAddresses.find((a) => a.id === selectedAddressId) ?? null
+      : null;
+
+  /// Initial values for the AddressForm. Order of precedence:
+  /// 1. The saved address the customer picked (mapped to ShippingAddress shape).
+  /// 2. Whatever's persisted in the checkoutStore from a previous visit.
+  /// 3. Undefined (empty form).
+  const formInitial: Partial<ShippingAddress> | undefined = selectedSaved
+    ? savedToShipping(selectedSaved)
+    : storeShipping ?? undefined;
+
+  const handlePickAddress = (id: SelectedAddress) => {
+    setSelectedAddressId(id);
+    setFormKey((k) => k + 1);
+    if (id === 'new') {
+      /// Empty form. Customer types from scratch, AddressForm's
+      /// onChange will populate `draft` as they go.
+      setDraft(null);
+      return;
+    }
+    /// Saved address picked. Pre-populate `draft` so the Continue
+    /// button enables immediately and the quote selector sees a
+    /// destination right away — without waiting for the customer to
+    /// touch the form. They can still edit anything; AddressForm's
+    /// onChange will overwrite `draft` on any change.
+    const picked = savedAddresses.find((a) => a.id === id);
+    if (picked) setDraft(savedToShipping(picked));
+  };
+
+  const handleMakeDefault = async (id: string) => {
+    if (!accessToken) return;
+    setBusyDefaultId(id);
+    try {
+      await updateAddress(accessToken, id, { isDefault: true });
+      /// Optimistic local update so the chip + radio flip instantly.
+      setSavedAddresses((prev) =>
+        prev.map((a) => ({ ...a, isDefault: a.id === id })),
+      );
+    } catch {
+      /// Silent fail — the next page load will fetch fresh state.
+    } finally {
+      setBusyDefaultId(null);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,9 +267,41 @@ export default function ShippingPage() {
             ) : (
               <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
                 <div className="flex flex-col gap-6 lg:col-span-8 lg:gap-8">
-                  <Section title="Delivery Address" caption="Where should this go?">
+                  {savedAddresses.length > 0 && (
+                    <Section
+                      title="Use a saved address"
+                      caption="Pick one to pre-fill, or add a new one below."
+                    >
+                      <SafeBoundary name="checkout:saved-addresses" fallback={null}>
+                        <SavedAddressPicker
+                          addresses={savedAddresses}
+                          selectedId={selectedAddressId}
+                          onSelect={handlePickAddress}
+                          onMakeDefault={handleMakeDefault}
+                          busyDefaultId={busyDefaultId}
+                        />
+                      </SafeBoundary>
+                    </Section>
+                  )}
+
+                  <Section
+                    title={
+                      selectedSaved
+                        ? 'Confirm or tweak the address'
+                        : 'Delivery Address'
+                    }
+                    caption={
+                      selectedSaved
+                        ? "We'll ship to these details — change anything you need."
+                        : 'Where should this go?'
+                    }
+                  >
                     <SafeBoundary name="checkout:address-form">
-                      <AddressForm initial={storeShipping ?? undefined} onChange={setDraft} />
+                      <AddressForm
+                        key={formKey}
+                        initial={formInitial}
+                        onChange={setDraft}
+                      />
                     </SafeBoundary>
                   </Section>
 
