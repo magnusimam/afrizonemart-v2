@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
-import { ChevronRight, Globe2, Home as HomeIcon } from 'lucide-react';
+import { ChevronRight, Home as HomeIcon } from 'lucide-react';
 import { COUNTRIES, COUNTRY_CODES, FEATURED_COUNTRY_CODES, type CountryCode } from '@/lib/countries';
 
 export const metadata: Metadata = {
@@ -47,8 +47,7 @@ export default function CountriesIndexPage() {
           <p className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
             Continental marketplace
           </p>
-          <h1 className="flex items-center gap-2 font-raleway text-2xl font-bold text-navy md:text-4xl">
-            <Globe2 size={28} aria-hidden className="md:h-9 md:w-9" />
+          <h1 className="font-raleway text-2xl font-bold text-navy md:text-4xl">
             Shop by country
           </h1>
           <p className="font-sans text-sm text-muted md:max-w-2xl md:text-base">
