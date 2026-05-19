@@ -145,14 +145,18 @@ export function ProductCardPlaceholder({
         aria-label={wished ? `Remove ${name} from wishlist` : `Add ${name} to wishlist`}
         aria-pressed={wished}
         onClick={() => setWished((w) => !w)}
-        className={`absolute z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-charcoal shadow-sm transition-colors hover:text-danger ${
+        /* h-9 w-9 (36px) on mobile is the secondary-action middle
+           ground — bigger than the previous 28px finger-flub size,
+           tighter than 44px which would crowd the card image at
+           360px viewport widths. Desktop keeps the compact 28px. */
+        className={`absolute z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-charcoal shadow-sm transition-colors hover:text-danger active:scale-95 md:h-7 md:w-7 ${
           isDeal ? 'left-2 top-2' : 'right-2 top-2'
         }`}
       >
         <Heart
-          size={16}
+          size={18}
           fill={wished ? 'currentColor' : 'none'}
-          className={wished ? 'text-danger' : ''}
+          className={`md:!h-4 md:!w-4 ${wished ? 'text-danger' : ''}`}
           aria-hidden
         />
       </button>
@@ -181,7 +185,7 @@ export function ProductCardPlaceholder({
 
         {showDelivery && (
           <div
-            className={`absolute z-10 flex items-center gap-1 rounded-input bg-amber px-2 py-0.5 font-raleway text-[9px] font-bold text-navy md:text-[10px] ${
+            className={`absolute z-10 flex items-center gap-1 rounded-input bg-amber px-2 py-0.5 font-raleway text-[11px] font-bold leading-tight text-navy md:text-[10px] ${
               isDeal ? 'left-2 top-12' : 'left-2 top-2'
             }`}
           >
@@ -200,7 +204,7 @@ export function ProductCardPlaceholder({
 
         {country && (
           <div
-            className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-input bg-white/95 px-1.5 py-0.5 font-sans text-[9px] font-semibold text-charcoal shadow-sm backdrop-blur md:text-[10px]"
+            className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-input bg-white/95 px-1.5 py-0.5 font-sans text-[11px] font-semibold leading-tight text-charcoal shadow-sm backdrop-blur md:text-[10px]"
             title={`Product Of ${country.name}`}
           >
             <Flag code={country.code} title={country.name} size="sm" />
@@ -210,7 +214,12 @@ export function ProductCardPlaceholder({
       </Link>
 
       <div className="flex flex-1 flex-col gap-2 p-2.5">
-        <h3 className="line-clamp-2 min-h-[2.5em] font-raleway text-[11px] font-semibold leading-snug text-charcoal md:text-xs">
+        {/* Title bumped to text-xs (12px) on mobile so product
+            names are actually legible at 360px — text-[11px] was on
+            the readability floor for body copy. min-h pinned in em
+            so the cards stay aligned regardless of one-line vs
+            two-line names. */}
+        <h3 className="line-clamp-2 min-h-[2.5em] font-raleway text-xs font-semibold leading-snug text-charcoal md:text-xs">
           <Link
             href={`/product/${productSlug}`}
             className="transition-colors hover:text-navy"
@@ -226,7 +235,7 @@ export function ProductCardPlaceholder({
                 amountNgn={comparePrice}
                 originCountry={origin}
                 compact
-                className="font-sans text-[10px] text-muted line-through md:text-xs"
+                className="font-sans text-[11px] text-muted line-through md:text-xs"
               />
             ) : null}
             <DisplayPrice
@@ -241,11 +250,13 @@ export function ProductCardPlaceholder({
         {showReadMore ? (
           /* "Read More" / out-of-stock branch — no animation; the
            * card has nothing to add to cart from here. Identical to
-           * the pre-stage-3 button behaviour. */
+           * the pre-stage-3 button behaviour. min-h-9 (36px) keeps
+           * the OOS button visually consistent with the active
+           * Add-to-Cart button below — cards stay aligned in a grid. */
           <button
             type="button"
             disabled
-            className={`mt-auto rounded-btn py-2 font-raleway text-[10px] font-bold uppercase tracking-btn transition-colors md:text-xs ${btn.oos}`}
+            className={`mt-auto inline-flex min-h-[36px] items-center justify-center rounded-btn px-3 py-2 font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${btn.oos}`}
           >
             Read More
           </button>
@@ -298,11 +309,13 @@ export function ProductCardPlaceholder({
           </div>
         ) : (
           /* Flag-off path OR pink variant — same plain button this
-           * card used pre-stage-3. */
+           * card used pre-stage-3. min-h-9 (36px) is the floor for
+           * card-button tap targets — bigger than that would
+           * over-balance the small card art. */
           <button
             type="button"
             onClick={handleAdd}
-            className={`mt-auto rounded-btn py-2 font-raleway text-[10px] font-bold uppercase tracking-btn transition-colors md:text-xs ${btn.base}`}
+            className={`mt-auto inline-flex min-h-[36px] items-center justify-center rounded-btn px-3 py-2 font-raleway text-xs font-bold uppercase tracking-btn transition-colors active:scale-[0.98] ${btn.base}`}
           >
             Add to Cart
           </button>
