@@ -1,13 +1,48 @@
 'use client';
 
+import { useCallback } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Grid3x3, LayoutList, SlidersHorizontal } from 'lucide-react';
 
 interface ShopToolbarProps {
   total: number;
+  /// Optional handler from the shop shell — when present we render
+  /// the mobile-only "Filters" trigger that opens the drawer. Server
+  /// components can't pass click handlers, so the page wraps the
+  /// toolbar in a client shell that owns the drawer-open state.
   onOpenFilters?: () => void;
 }
 
+/// Storefront sort options. The first 5 mirror the backend `sort`
+/// enum exactly (product.schema.ts). `best-selling` was previously
+/// in the dropdown but the API doesn't accept it — dropped to stop
+/// the toolbar lying about what it can do.
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'featured', label: 'Sort: Featured' },
+  { value: 'newest', label: 'Sort: Newest' },
+  { value: 'price-asc', label: 'Sort: Price ↑' },
+  { value: 'price-desc', label: 'Sort: Price ↓' },
+  { value: 'rating', label: 'Sort: Top rated' },
+];
+
 export function ShopToolbar({ total, onOpenFilters }: ShopToolbarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentSort = searchParams.get('sort') ?? 'featured';
+
+  const setSort = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value === 'featured') params.delete('sort');
+      else params.set('sort', value);
+      params.delete('page');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-white p-3 shadow-card md:p-4">
       <p className="font-sans text-sm text-charcoal">
@@ -27,15 +62,16 @@ export function ShopToolbar({ total, onOpenFilters }: ShopToolbarProps) {
         ) : null}
 
         <select
+          aria-label="Sort products"
+          value={currentSort}
+          onChange={(e) => setSort(e.target.value)}
           className="rounded-input border border-border bg-white px-3 py-1.5 font-sans text-sm text-charcoal focus:border-navy focus:outline-none"
-          defaultValue="featured"
         >
-          <option value="featured">Sort: Featured</option>
-          <option value="newest">Sort: Newest</option>
-          <option value="price-asc">Sort: Price ↑</option>
-          <option value="price-desc">Sort: Price ↓</option>
-          <option value="rating">Sort: Top rated</option>
-          <option value="best-selling">Sort: Best selling</option>
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
         </select>
 
         <div className="hidden items-center overflow-hidden rounded-input border border-border md:flex">

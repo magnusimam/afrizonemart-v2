@@ -61,6 +61,9 @@ function toQueryString(params: ListProductsParams): string {
   if (params.q) sp.set('q', params.q);
   if (params.inStock !== undefined) sp.set('inStock', String(params.inStock));
   if (params.onSale !== undefined) sp.set('onSale', String(params.onSale));
+  if (params.minPrice !== undefined) sp.set('minPrice', String(params.minPrice));
+  if (params.maxPrice !== undefined) sp.set('maxPrice', String(params.maxPrice));
+  if (params.minRating !== undefined) sp.set('minRating', String(params.minRating));
   if (params.placement) sp.set('placement', params.placement);
   if (params.country) sp.set('country', params.country);
   if (params.ids && params.ids.length > 0) sp.set('ids', params.ids.join(','));

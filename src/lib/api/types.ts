@@ -142,6 +142,11 @@ export interface ListProductsParams {
   q?: string;
   inStock?: boolean;
   onSale?: boolean;
+  /** Storefront sidebar — min/max Naira whole-unit price bounds. */
+  minPrice?: number;
+  maxPrice?: number;
+  /** Storefront sidebar — minimum average review rating, 0..5. */
+  minRating?: number;
   /** Phase 10.7 — placement key filter (e.g. "homepage_hero"). */
   placement?: string;
   /** ISO-2 country used together with placement scoping. */
