@@ -262,6 +262,17 @@ export function FloatingMobileCart() {
   if (!hydrated) return null;
   if (totalQuantity <= 0) return null;
   if (pathname === ROUTES.cart) return null;
+  /// PDP renders its own sticky bottom CTA bar on mobile — having
+  /// the floating bubble overlap that bar makes the page feel
+  /// crowded. The sticky bar already provides the primary action
+  /// (Add to Cart / Buy Now); the cart icon in the mobile header
+  /// drawer is the secondary path to /cart.
+  if (pathname?.startsWith('/product/')) return null;
+  /// Checkout flow keeps the customer focused on completing the
+  /// purchase; floating bubble pointing back to /cart would be a
+  /// regression. The checkout layout already has its own sticky
+  /// summary on mobile.
+  if (pathname?.startsWith('/checkout/')) return null;
 
   const style: CSSProperties = dragXY
     ? { left: dragXY.x, top: dragXY.y, right: 'auto', bottom: 'auto' }

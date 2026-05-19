@@ -20,11 +20,11 @@ export function QuantitySelector({ value, onChange, min = 1, max = 99 }: Quantit
         onClick={dec}
         disabled={value <= min}
         aria-label="Decrease quantity"
-        className="flex h-10 w-10 items-center justify-center text-navy transition-colors hover:bg-page disabled:opacity-30 disabled:cursor-not-allowed"
+        className="flex h-11 w-11 items-center justify-center text-navy transition-colors hover:bg-page active:bg-page disabled:opacity-30 disabled:cursor-not-allowed"
       >
-        <Minus size={16} strokeWidth={2.5} aria-hidden />
+        <Minus size={18} strokeWidth={2.5} aria-hidden />
       </button>
-      <span className="flex h-10 min-w-[3rem] items-center justify-center border-x-2 border-border font-raleway text-base font-bold text-navy">
+      <span className="flex h-11 min-w-[3rem] items-center justify-center border-x-2 border-border font-raleway text-base font-bold text-navy">
         {value}
       </span>
       <button
@@ -32,9 +32,9 @@ export function QuantitySelector({ value, onChange, min = 1, max = 99 }: Quantit
         onClick={inc}
         disabled={value >= max}
         aria-label="Increase quantity"
-        className="flex h-10 w-10 items-center justify-center text-navy transition-colors hover:bg-page disabled:opacity-30 disabled:cursor-not-allowed"
+        className="flex h-11 w-11 items-center justify-center text-navy transition-colors hover:bg-page active:bg-page disabled:opacity-30 disabled:cursor-not-allowed"
       >
-        <Plus size={16} strokeWidth={2.5} aria-hidden />
+        <Plus size={18} strokeWidth={2.5} aria-hidden />
       </button>
     </div>
   );

@@ -30,6 +30,7 @@ import { DisplayPrice } from './DisplayPrice';
 import { AnimatedAddToCartButton } from './AnimatedAddToCartButton';
 import { PayWithCoinButton } from './PayWithCoinButton';
 import { StaticAddToCartButton } from './StaticAddToCartButton';
+import { StickyMobileBuyBar } from './StickyMobileBuyBar';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { useFlag } from '@/lib/useFlag';
 
@@ -117,9 +118,30 @@ export function ProductInfo({ product }: ProductInfoProps) {
   /// redeploy needed. Registry entry lives at
   /// afrizonemart-api/src/modules/feature-flags/registry.ts.
   const animationEnabled = useFlag('animated_pdp_add_to_cart_button', true);
+  /// Mobile-first pass — sticky bottom CTA bar on PDPs. Default
+  /// true; admin kill-switch in /admin/feature-flags restores the
+  /// pre-pass behaviour (inline CTA only) instantly without a
+  /// redeploy. Registry seeded server-side in seedRegisteredFlags().
+  const stickyBuyBarEnabled = useFlag('sticky_pdp_buy_bar', true);
 
   const selectedBundle = bundles[bundleIndex] ?? bundles[0];
   const totalPrice = selectedBundle.price * quantity;
+
+  /// Buy Now intent: jump as far into checkout as we can. For
+  /// signed-in customers with a saved address we land them on
+  /// /checkout/payment with the cheapest shipping quote pre-
+  /// selected. Otherwise fall back to /checkout/shipping (same
+  /// place the cart's Proceed to Checkout link sends them — never
+  /// /checkout, which is a 404 page). Extracted so both the inline
+  /// button and the sticky mobile bar share one source of truth.
+  const handleBuyNow = async () => {
+    if (!product.inStock || buyingNow) return;
+    handleAddToCart();
+    setBuyingNow(true);
+    const fastBuyReady = await prepFastBuy();
+    setBuyingNow(false);
+    router.push(fastBuyReady ? '/checkout/payment' : '/checkout/shipping');
+  };
 
   const handleAddToCart = () => {
     const displayVariant = [selectedBundle.label, variant].filter(Boolean).join(' · ');
@@ -236,10 +258,10 @@ export function ProductInfo({ product }: ProductInfoProps) {
             onClick={() => setWished((w) => !w)}
             aria-pressed={wished}
             aria-label={wished ? 'Remove from wishlist' : 'Add to wishlist'}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-charcoal transition-colors hover:border-danger hover:text-danger"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white text-charcoal transition-colors hover:border-danger hover:text-danger active:scale-95"
           >
             <Heart
-              size={18}
+              size={20}
               fill={wished ? 'currentColor' : 'none'}
               className={wished ? 'text-danger' : ''}
               aria-hidden
@@ -313,10 +335,10 @@ export function ProductInfo({ product }: ProductInfoProps) {
                   type="button"
                   onClick={() => setVariant(opt)}
                   aria-pressed={selected}
-                  className={`rounded-btn border-2 px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn transition-colors md:text-sm ${
+                  className={`inline-flex min-h-[44px] items-center justify-center rounded-btn border-2 px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn transition-colors md:text-sm ${
                     selected
                       ? 'border-navy bg-navy text-white'
-                      : 'border-border bg-white text-navy hover:border-navy'
+                      : 'border-border bg-white text-navy hover:border-navy active:border-navy'
                   }`}
                 >
                   {opt}
@@ -386,21 +408,8 @@ export function ProductInfo({ product }: ProductInfoProps) {
         <button
           type="button"
           disabled={!product.inStock || buyingNow}
-          onClick={async () => {
-            handleAddToCart();
-            setBuyingNow(true);
-            /// "Buy Now" intent: jump as far into checkout as we can.
-            /// For signed-in customers with a saved address we can
-            /// land them on /checkout/payment with the cheapest
-            /// shipping quote pre-selected. Otherwise fall back to
-            /// /checkout/shipping (same place the cart's Proceed to
-            /// Checkout link sends them — never /checkout, which is
-            /// a 404 page).
-            const fastBuyReady = await prepFastBuy();
-            setBuyingNow(false);
-            router.push(fastBuyReady ? '/checkout/payment' : '/checkout/shipping');
-          }}
-          className="w-full rounded-btn border-2 border-navy bg-white py-3.5 font-raleway text-sm font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-navy"
+          onClick={handleBuyNow}
+          className="min-h-[44px] w-full rounded-btn border-2 border-navy bg-white py-3.5 font-raleway text-sm font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white active:bg-navy active:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-navy"
         >
           {buyingNow ? 'Preparing…' : 'Buy Now'}
         </button>
@@ -415,6 +424,24 @@ export function ProductInfo({ product }: ProductInfoProps) {
         <TrustBadge Icon={Truck} title="Free Shipping" caption="Over NGN10,000" />
         <TrustBadge Icon={BadgeCheck} title="Authentic" caption="100% Made in Africa" />
       </div>
+
+      {/* Mobile-only sticky bottom CTA. Wrapped in SafeBoundary
+          per the resilience rule — if it throws the boundary
+          renders nothing and the customer still has the inline CTA
+          above. Kill-switchable via the `sticky_pdp_buy_bar` flag
+          in /admin/feature-flags. */}
+      {stickyBuyBarEnabled ? (
+        <SafeBoundary name="pdp:sticky-buy-bar" fallback={null}>
+          <StickyMobileBuyBar
+            priceNgn={totalPrice}
+            originCountry={product.origin}
+            disabled={!product.inStock}
+            buyingNow={buyingNow}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
+          />
+        </SafeBoundary>
+      ) : null}
 
       <ProductAccordion
         sections={[
@@ -461,13 +488,17 @@ function TrustBadge({
   title: string;
   caption: string;
 }) {
+  /// Previous caption was text-[9px] which is below the readable
+  /// floor for body text (WCAG-friendly typography starts ~12px).
+  /// Bumped to text-[11px] which still fits the 2-column badge
+  /// strip at 360px without breaking the layout.
   return (
     <div className="flex flex-col items-center gap-1.5 text-center">
       <Icon size={22} strokeWidth={1.75} className="text-navy" aria-hidden />
-      <p className="font-raleway text-[11px] font-bold leading-tight text-navy md:text-xs">
+      <p className="font-raleway text-xs font-bold leading-tight text-navy">
         {title}
       </p>
-      <p className="font-sans text-[9px] leading-tight text-muted md:text-[10px]">
+      <p className="font-sans text-[11px] leading-tight text-muted">
         {caption}
       </p>
     </div>
