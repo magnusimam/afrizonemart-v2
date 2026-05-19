@@ -9,6 +9,7 @@ import { getCountry } from '@/lib/countries';
 import { Flag } from '@/components/common/Flag';
 import { DisplayPrice } from '@/components/product/DisplayPrice';
 import { AnimatedAddToCartButton } from '@/components/product/AnimatedAddToCartButton';
+import { CardCartStepper } from '@/components/product/CardCartStepper';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { useFlag } from '@/lib/useFlag';
 
@@ -56,6 +57,14 @@ export function ProductCardPlaceholder({
 }: ProductCardPlaceholderProps) {
   const [wished, setWished] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  /// Tracker #51 — current quantity of THIS product in the cart.
+  /// When > 0 the Add-to-Cart button swaps for the in-place stepper.
+  /// Reads from the same productId convention used by addItem below
+  /// (the product's cuid for cards, not the variant key the PDP uses).
+  const cartQuantity = useCartStore(
+    (s) => s.items.find((i) => i.productId === id)?.quantity ?? 0,
+  );
   const country = getCountry(origin);
   const isDeal = typeof discountPercent === 'number';
   const showDelivery = typeof delivery === 'string' && delivery.length > 0;
@@ -87,6 +96,15 @@ export function ProductCardPlaceholder({
       origin,
     });
   };
+
+  /// Stepper handlers. Decrement uses updateQuantity which auto-removes
+  /// the line when quantity hits 0 — the next render flips the slot
+  /// back to the Add-to-Cart button. Increment just calls addItem
+  /// (it merges into the existing line by productId). Same hasPrice
+  /// guard as handleAdd so the stepper can't accidentally be wired
+  /// onto an info-only card.
+  const handleIncrement = handleAdd;
+  const handleDecrement = () => updateQuantity(id, cartQuantity - 1);
 
   const btn = buttonClasses[buttonVariant];
 
@@ -201,6 +219,19 @@ export function ProductCardPlaceholder({
           >
             Read More
           </button>
+        ) : cartQuantity > 0 ? (
+          /* Tracker #51 — once at least 1 of this product is in the
+           * cart, the Add-to-Cart slot becomes an in-place stepper.
+           * Avoids modal/popup friction for the multi-quantity case.
+           * Tapping − at qty 1 drops to 0 and the next render flips
+           * the slot back to the Add-to-Cart button below. */
+          <CardCartStepper
+            productName={name}
+            quantity={cartQuantity}
+            variant={buttonVariant}
+            onIncrement={handleIncrement}
+            onDecrement={handleDecrement}
+          />
         ) : animationEnabled && buttonVariant === 'navy' ? (
           /* Animated "Add to Cart" — only for the navy variant (the
            * common case). The pink variant falls through to the
