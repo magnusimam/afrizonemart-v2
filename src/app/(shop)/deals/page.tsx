@@ -116,7 +116,7 @@ export default function DealsPage() {
                   key={opt.id}
                   type="button"
                   onClick={() => handleSortChange(opt.id)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn transition-colors ${
+                  className={`inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full border px-4 font-raleway text-[11px] font-bold uppercase tracking-btn transition-colors active:scale-[0.98] ${
                     active
                       ? 'border-navy bg-navy text-white'
                       : 'border-border bg-white text-charcoal hover:border-navy'
@@ -214,7 +214,7 @@ export default function DealsPage() {
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="rounded-btn border border-border bg-white px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-charcoal hover:border-navy hover:text-navy disabled:cursor-not-allowed disabled:bg-page disabled:text-muted"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-btn border border-border bg-white px-4 font-raleway text-[11px] font-bold uppercase tracking-btn text-charcoal transition-colors hover:border-navy hover:text-navy active:border-navy active:text-navy disabled:cursor-not-allowed disabled:bg-page disabled:text-muted"
                 >
                   ← Previous
                 </button>
@@ -222,7 +222,7 @@ export default function DealsPage() {
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page >= totalPages}
-                  className="rounded-btn bg-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:bg-page disabled:text-muted"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-navy px-4 font-raleway text-[11px] font-bold uppercase tracking-btn text-white transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy disabled:cursor-not-allowed disabled:bg-page disabled:text-muted"
                 >
                   Next →
                 </button>

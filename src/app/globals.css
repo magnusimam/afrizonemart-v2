@@ -8,10 +8,23 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Stop Safari (iOS + macOS) auto-bumping text on orientation
+       change — the design controls every type ramp itself. */
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     @apply bg-page text-charcoal font-sans;
+    /* Honour iOS safe areas in landscape (notch / Dynamic Island).
+       Vertical insets are handled per-component (sticky headers,
+       fixed bottom CTAs) so the body itself doesn't grow when
+       the keyboard opens. */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    /* iOS-style rubber-band scroll inside scrollable children
+       shouldn't bubble to the body. */
+    overscroll-behavior-y: contain;
   }
 
   h1,
@@ -22,11 +35,51 @@
   h6 {
     @apply font-raleway text-navy;
   }
+
+  /* Form controls under 16px trigger iOS Safari's zoom-on-focus —
+     the page literally zooms in when the customer taps an input.
+     Below the md breakpoint we floor every typed control at 16px
+     to suppress that, while keeping the smaller visual rhythm on
+     desktop where the bug doesn't exist. */
+  @media (max-width: 767px) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
+  /* Keyboard navigation focus ring (touch users don't see this
+     thanks to :focus-visible). Navy with a faint amber halo so it
+     reads against both white panels and the navy header. */
+  :focus-visible {
+    outline: 2px solid #000066;
+    outline-offset: 2px;
+  }
+
+  /* Tap highlights on Android Chrome blink with the default
+     translucent grey — replaced with a near-invisible amber tint
+     so the brand stays consistent and double-taps don't flash. */
+  a,
+  button,
+  [role='button'] {
+    -webkit-tap-highlight-color: rgba(251, 172, 52, 0.18);
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Mobile-only helpers that read iOS safe-area insets directly.
+     Use them on sticky headers and fixed footers so they don't
+     hide under the home indicator / notch. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 

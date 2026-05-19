@@ -169,18 +169,18 @@ export default function SuccessPage() {
               .
             </p>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
               <Link
                 href={orderId ? `/account/orders/${orderId}` : '/account/orders'}
                 onClick={reset}
-                className="rounded-btn bg-navy px-6 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy md:text-sm"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-btn bg-navy px-6 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy md:text-sm"
               >
                 Track Your Order
               </Link>
               <Link
                 href="/"
                 onClick={reset}
-                className="rounded-btn border-2 border-navy bg-white px-6 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white md:text-sm"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-btn border-2 border-navy bg-white px-6 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white active:bg-navy active:text-white md:text-sm"
               >
                 Continue Shopping
               </Link>
@@ -227,7 +227,7 @@ function Detail({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="flex items-center gap-1.5 font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
+      <span className="flex items-center gap-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
         {icon}
         {label}
       </span>
@@ -249,12 +249,15 @@ function ShareButton({
   children: React.ReactNode;
   href: string;
 }) {
+  /// Pre-mobile-pass these were `py-1.5` (~30px) which is well below
+  /// the 44px tap floor. min-h-[44px] inline-flex puts them on it
+  /// without ballooning the pill on desktop.
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="rounded-full border border-border bg-white px-4 py-1.5 font-raleway text-xs font-semibold text-navy transition-colors hover:border-navy hover:bg-navy hover:text-white"
+      className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-border bg-white px-4 font-raleway text-xs font-semibold text-navy transition-colors hover:border-navy hover:bg-navy hover:text-white active:bg-navy active:text-white"
     >
       {children}
     </a>

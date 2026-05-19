@@ -83,7 +83,9 @@ export default function LoginPage() {
           <span className="h-px flex-1 bg-border" />
         </div>
 
-        {/* Method picker — Email vs Phone */}
+        {/* Method picker — Email vs Phone. min-h-[44px] keeps the
+            two buttons on the tap floor; text stays text-xs so the
+            "Email + Password" label fits without wrapping at 360px. */}
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -91,10 +93,10 @@ export default function LoginPage() {
               setMethod('email');
               setError(null);
             }}
-            className={`rounded-btn border px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${
+            className={`inline-flex min-h-[44px] items-center justify-center rounded-btn border px-4 font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${
               method === 'email'
                 ? 'border-navy bg-navy text-white'
-                : 'border-border bg-white text-charcoal hover:border-navy'
+                : 'border-border bg-white text-charcoal hover:border-navy active:border-navy'
             }`}
           >
             Email + Password
@@ -105,10 +107,10 @@ export default function LoginPage() {
               setMethod('phone');
               setError(null);
             }}
-            className={`rounded-btn border px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${
+            className={`inline-flex min-h-[44px] items-center justify-center rounded-btn border px-4 font-raleway text-xs font-bold uppercase tracking-btn transition-colors ${
               method === 'phone'
                 ? 'border-navy bg-navy text-white'
-                : 'border-border bg-white text-charcoal hover:border-navy'
+                : 'border-border bg-white text-charcoal hover:border-navy active:border-navy'
             }`}
           >
             Phone + SMS
@@ -137,6 +139,11 @@ export default function LoginPage() {
             placeholder="you@example.com"
             className={inputClass}
             autoComplete="username"
+            inputMode="email"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="next"
           />
         </Field>
 
@@ -158,29 +165,30 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className={`${inputClass} pr-10`}
+              className={`${inputClass} pr-12`}
               autoComplete="current-password"
+              enterKeyHint="go"
             />
             <button
               type="button"
               onClick={() => setShowPwd((v) => !v)}
               aria-label={showPwd ? 'Hide password' : 'Show password'}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-navy"
+              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-muted hover:text-navy"
             >
               {showPwd ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
             </button>
           </div>
         </Field>
 
-        <label className="flex items-center gap-2 font-sans text-sm text-charcoal">
-          <input type="checkbox" className="h-4 w-4 cursor-pointer accent-navy" />
+        <label className="-m-2 flex cursor-pointer items-center gap-2 rounded p-2 font-sans text-sm text-charcoal hover:bg-page">
+          <input type="checkbox" className="h-5 w-5 cursor-pointer accent-navy" />
           Keep me signed in
         </label>
 
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? 'Signing in…' : 'Sign In'}
         </button>
@@ -191,8 +199,10 @@ export default function LoginPage() {
   );
 }
 
+/// text-base (16px) on mobile prevents iOS Safari's zoom-on-focus.
+/// min-h-[44px] keeps every input on the tap-target floor.
 const inputClass =
-  'w-full rounded-input border border-border bg-white px-3 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none';
+  'w-full min-h-[44px] rounded-input border border-border bg-white px-3 py-2.5 font-sans text-base text-charcoal placeholder:text-muted focus:border-navy focus:outline-none md:text-sm';
 
 function Field({
   label,

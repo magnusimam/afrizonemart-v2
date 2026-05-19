@@ -102,10 +102,10 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
               <Link
                 key={t}
                 href={`/blog?tag=${encodeURIComponent(t)}`}
-                className={`rounded-full px-3 py-1 font-raleway text-[11px] font-bold uppercase tracking-btn ${
+                className={`inline-flex min-h-[40px] items-center rounded-full px-4 font-raleway text-[11px] font-bold uppercase tracking-btn transition-colors ${
                   tag === t
                     ? 'bg-navy text-white'
-                    : 'bg-page text-charcoal hover:bg-amber/10 hover:text-navy'
+                    : 'bg-page text-charcoal hover:bg-amber/10 hover:text-navy active:bg-amber/10 active:text-navy'
                 }`}
               >
                 {t}
@@ -143,10 +143,10 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
                 <Link
                   key={n}
                   href={href}
-                  className={`rounded-md px-3 py-1.5 ${
+                  className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md px-3 transition-colors ${
                     active
                       ? 'bg-navy text-white'
-                      : 'border border-border bg-white text-charcoal hover:border-navy'
+                      : 'border border-border bg-white text-charcoal hover:border-navy active:border-navy'
                   }`}
                 >
                   {n}

@@ -208,9 +208,24 @@ export default function ShippingPage() {
 
   const isEmpty = hydrated && items.length === 0;
 
+  /// Same disabled rule the inline submit button uses. Reused on the
+  /// sticky bottom CTA so the two stay in lockstep — and so we can
+  /// show the customer WHY they can't continue ("fill in the
+  /// address" vs "pick a delivery method") right next to the button
+  /// they're trying to tap.
+  const blockedReason: string | null = !draft
+    ? 'Fill in the address'
+    : !selectedQuote
+      ? 'Pick a delivery method'
+      : null;
+  const canContinue = !blockedReason && !isEmpty;
+
   return (
     <>
-      <main className="bg-page pb-12">
+      {/* On mobile the form is long and the inline Continue button
+          sits hundreds of pixels down the page — sticky bottom CTA
+          fills that gap. pb-28 on main clears the bar. */}
+      <main className="bg-page pb-28 md:pb-12">
         <nav aria-label="Breadcrumb" className="border-b border-border bg-page">
           <ol className="mx-auto flex max-w-site items-center gap-1.5 px-4 py-3 font-sans text-xs text-muted md:text-sm">
             <li>
@@ -265,7 +280,11 @@ export default function ShippingPage() {
                 </Link>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
+              <form
+                id="checkout-shipping-form"
+                onSubmit={handleSubmit}
+                className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8"
+              >
                 <div className="flex flex-col gap-6 lg:col-span-8 lg:gap-8">
                   {savedAddresses.length > 0 && (
                     <Section
@@ -336,24 +355,22 @@ export default function ShippingPage() {
                     </SafeBoundary>
                   </Section>
 
-                  <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  {/* Inline action row — visible on tablet/desktop where
+                      the sticky bottom bar is hidden. Mobile keeps these
+                      as a structural fallback but they sit above the
+                      sticky bar; primary tap is the sticky CTA. */}
+                  <div className="hidden flex-col-reverse items-stretch gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between">
                     <Link
                       href="/cart"
-                      className="rounded-btn border-2 border-navy bg-white px-5 py-3 text-center font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white sm:text-sm"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-btn border-2 border-navy bg-white px-5 py-3 text-center font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white active:bg-navy active:text-white sm:text-sm"
                     >
                       ← Back to Cart
                     </Link>
                     <button
                       type="submit"
-                      disabled={!draft || !selectedQuote}
-                      className="rounded-btn bg-navy px-6 py-3 text-center font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
-                      title={
-                        !draft
-                          ? 'Fill in the address first'
-                          : !selectedQuote
-                            ? 'Pick a delivery method'
-                            : ''
-                      }
+                      disabled={!canContinue}
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-navy px-6 py-3 text-center font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                      title={blockedReason ?? ''}
                     >
                       Continue to Payment →
                     </button>
@@ -381,6 +398,52 @@ export default function ShippingPage() {
           </div>
         </div>
       </main>
+
+      {/* Mobile-only sticky CTA bar — visible whenever the cart has
+          items, regardless of form completeness. When the form is
+          incomplete we show WHY (Fill in the address / Pick a
+          delivery method) above the disabled button so the customer
+          isn't guessing what's missing. Submits the same form via
+          its form attribute reference. */}
+      {!isEmpty ? (
+        <div
+          className="sm:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white pb-safe shadow-[0_-4px_12px_rgba(0,0,0,0.08)]"
+          role="region"
+          aria-label="Continue to payment"
+        >
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            <Link
+              href="/cart"
+              aria-label="Back to cart"
+              className="inline-flex h-12 items-center justify-center rounded-btn border-2 border-navy bg-white px-3 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white active:bg-navy active:text-white"
+            >
+              ←
+            </Link>
+            <div className="flex min-w-0 flex-1 flex-col">
+              {blockedReason ? (
+                <span className="truncate font-sans text-[11px] leading-tight text-danger">
+                  {blockedReason}
+                </span>
+              ) : (
+                <span className="font-sans text-[11px] leading-tight text-success">
+                  Ready to pay
+                </span>
+              )}
+              <span className="font-raleway text-[10px] font-semibold uppercase tracking-btn text-muted">
+                Step 2 of 3
+              </span>
+            </div>
+            <button
+              type="submit"
+              form="checkout-shipping-form"
+              disabled={!canContinue}
+              className="inline-flex h-12 items-center justify-center gap-1.5 rounded-btn bg-navy px-5 font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Continue →
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

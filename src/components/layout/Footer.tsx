@@ -159,7 +159,11 @@ export function Footer() {
       </div>
 
       <div className="border-t border-border bg-white">
-        <div className="mx-auto flex max-w-site flex-col items-center justify-between gap-3 px-4 py-4 text-center md:flex-row md:text-left">
+        {/* On mobile the bottom row stacks (legal, powered-by, then
+            socials) so the social row gets a full-width target band.
+            44×44 social bubbles meet WCAG 2.5.5 — the previous 32×32
+            were a finger-flubbing risk on small phones. */}
+        <div className="mx-auto flex max-w-site flex-col items-center justify-between gap-4 px-4 py-5 text-center md:flex-row md:gap-3 md:py-4 md:text-left">
           <p className="font-sans text-xs text-muted">
             © 2026 AfrizoneMart. All rights reserved.
           </p>
@@ -183,9 +187,9 @@ export function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={label}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-navy text-white transition-colors hover:bg-amber hover:text-navy"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white transition-colors hover:bg-amber hover:text-navy md:h-9 md:w-9"
               >
-                <Icon size={16} />
+                <Icon size={18} />
               </a>
             ))}
           </div>

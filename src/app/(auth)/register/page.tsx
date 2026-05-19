@@ -197,6 +197,11 @@ export default function RegisterPage() {
             placeholder="you@example.com"
             className={inputClass}
             autoComplete="email"
+            inputMode="email"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="next"
           />
         </Field>
 
@@ -232,6 +237,8 @@ export default function RegisterPage() {
               placeholder="80 1234 5678"
               className={inputClass}
               autoComplete="tel"
+              inputMode="tel"
+              enterKeyHint="next"
             />
           </div>
         </Field>
@@ -253,7 +260,7 @@ export default function RegisterPage() {
               type="button"
               onClick={() => setShowPwd((v) => !v)}
               aria-label={showPwd ? 'Hide password' : 'Show password'}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-navy"
+              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-muted hover:text-navy"
             >
               {showPwd ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
             </button>
@@ -267,7 +274,7 @@ export default function RegisterPage() {
           <input
             required
             type="checkbox"
-            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-navy"
+            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-navy"
           />
           I agree to the AfriZoneMart{' '}
           <Link href="/legal/terms" className="font-semibold text-navy underline">
@@ -287,7 +294,7 @@ export default function RegisterPage() {
             type="checkbox"
             checked={marketingOptIn}
             onChange={(e) => setMarketingOptIn(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-navy"
+            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-navy"
           />
           Send me deals, restock alerts, and African-product spotlights by
           email. You can unsubscribe with one click any time.
@@ -296,7 +303,7 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? 'Creating account…' : 'Create Account'}
         </button>
@@ -305,8 +312,10 @@ export default function RegisterPage() {
   );
 }
 
+/// text-base (16px) on mobile to prevent iOS Safari zoom-on-focus.
+/// min-h-[44px] keeps every input on the tap-target floor.
 const inputClass =
-  'w-full rounded-input border border-border bg-white px-3 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none';
+  'w-full min-h-[44px] rounded-input border border-border bg-white px-3 py-2.5 font-sans text-base text-charcoal placeholder:text-muted focus:border-navy focus:outline-none md:text-sm';
 
 function Field({
   label,

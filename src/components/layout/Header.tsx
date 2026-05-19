@@ -28,57 +28,74 @@ export function Header() {
 
   return (
     <header className="w-full bg-white">
-      {/* MOBILE TOP STRIP — logo + currency pill + hamburger square.
-          Hidden on md and up. */}
-      <div className="flex items-center justify-between gap-3 px-3 py-3 md:hidden">
-        <Link href="/" className="shrink-0">
-          <Image
-            src="/images/logo.png"
-            alt="AfriZoneMart.com"
-            width={260}
-            height={80}
-            priority
-            className="h-9 w-auto"
+      {/* MOBILE CHROME — top strip + search row are sticky as one
+          block so the customer can re-search at any scroll depth
+          (the homepage is long; without this they have to scroll
+          back to the top). `pt-safe` honours the iOS notch in
+          landscape; the shadow-sm appears on scroll via the
+          sticky's offset background. Hidden on md+. */}
+      <div className="sticky top-0 z-40 w-full bg-white pt-safe shadow-[0_1px_0_0_rgba(0,0,0,0.06)] md:static md:shadow-none md:pt-0">
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5 md:hidden">
+          <Link
+            href="/"
+            className="-m-1 inline-flex shrink-0 items-center p-1"
+            aria-label="Afrizonemart home"
+          >
+            <Image
+              src="/images/logo.png"
+              alt="AfriZoneMart.com"
+              width={260}
+              height={80}
+              priority
+              className="h-9 w-auto"
+            />
+          </Link>
+
+          <SafeBoundary name="header:currency-mobile" fallback={null}>
+            <CurrencySwitcher />
+          </SafeBoundary>
+
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={drawerOpen}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-navy text-white shadow-card transition-colors hover:bg-navy/90 active:bg-navy/80"
+          >
+            <Menu size={22} aria-hidden />
+          </button>
+        </div>
+
+        {/* MOBILE SEARCH ROW. Input is text-base (16px) — anything
+            smaller triggers iOS Safari's zoom-on-focus behaviour. */}
+        <form
+          role="search"
+          action="/search"
+          method="GET"
+          className="flex items-stretch gap-0 px-3 pb-2.5 md:hidden"
+        >
+          <input
+            type="search"
+            name="q"
+            placeholder="Search products, brands & categories"
+            aria-label="Search products"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            className="min-w-0 flex-1 rounded-l-input border border-r-0 border-border bg-white px-3 py-2.5 font-sans text-base text-charcoal placeholder:text-muted focus:outline-none"
           />
-        </Link>
-
-        <SafeBoundary name="header:currency-mobile" fallback={null}>
-          <CurrencySwitcher />
-        </SafeBoundary>
-
-        <button
-          type="button"
-          onClick={() => setDrawerOpen(true)}
-          aria-label="Open menu"
-          aria-expanded={drawerOpen}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-navy text-white shadow-card hover:bg-navy/90"
-        >
-          <Menu size={22} aria-hidden />
-        </button>
+          <button
+            type="submit"
+            aria-label="Search"
+            className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-r-input bg-navy px-5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-navy/90 active:bg-navy/80"
+          >
+            <Search size={14} aria-hidden />
+            Search
+          </button>
+        </form>
       </div>
-
-      {/* MOBILE SEARCH ROW — full-width, prominent navy SEARCH button. */}
-      <form
-        role="search"
-        action="/search"
-        method="GET"
-        className="flex items-stretch gap-0 px-3 pb-3 md:hidden"
-      >
-        <input
-          type="search"
-          name="q"
-          placeholder="Search for products, brands & categories…"
-          aria-label="Search products"
-          className="min-w-0 flex-1 rounded-l-input border border-r-0 border-border bg-white px-3 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="flex items-center justify-center gap-1.5 rounded-r-input bg-navy px-5 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-navy/90"
-        >
-          <Search size={14} aria-hidden />
-          Search
-        </button>
-      </form>
 
       {/* DESKTOP TOP STRIP — logo + search + currency/lang + cart + user. */}
       <div className="mx-auto hidden max-w-site items-center gap-6 px-3 py-4 md:flex md:gap-8 md:px-6 lg:px-10 xl:pl-14 xl:pr-12">

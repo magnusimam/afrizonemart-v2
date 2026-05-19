@@ -58,7 +58,7 @@ export default function ForgotPasswordPage() {
           </p>
           <Link
             href="/login"
-            className="rounded-btn border-2 border-navy bg-white px-6 py-2.5 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-btn border-2 border-navy bg-white px-6 py-2.5 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white active:bg-navy active:text-white"
           >
             Back to Sign In
           </Link>
@@ -97,8 +97,13 @@ export default function ForgotPasswordPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full rounded-input border border-border bg-white py-2.5 pl-9 pr-3 font-sans text-sm text-charcoal placeholder:text-muted focus:border-navy focus:outline-none"
+              className="w-full min-h-[44px] rounded-input border border-border bg-white py-2.5 pl-9 pr-3 font-sans text-base text-charcoal placeholder:text-muted focus:border-navy focus:outline-none md:text-sm"
               autoComplete="email"
+              inputMode="email"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="send"
             />
           </div>
         </label>
@@ -115,7 +120,7 @@ export default function ForgotPasswordPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex items-center justify-center gap-2 rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-70"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-btn bg-navy py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy disabled:cursor-not-allowed disabled:opacity-70"
         >
           {submitting && <Loader2 size={16} className="animate-spin" aria-hidden />}
           {submitting ? 'Sending…' : 'Send Reset Link'}

@@ -41,19 +41,23 @@ export function CategoriesSection({ categories: categoriesProp }: Props = {}) {
 
   return (
     <section className="bg-white py-6 md:py-8">
+      {/* On mobile the chevrons are hidden — touch scroll + snap is
+          the native gesture. They reappear on md+ where mouse users
+          can't fling the strip. Without this the chevrons hog ~88px
+          of horizontal space on small phones and squeeze the cards. */}
       <div className="mx-auto flex max-w-site items-stretch gap-2 px-2 md:gap-3 md:px-4">
         <button
           type="button"
           onClick={() => scroll('left')}
           aria-label="Previous categories"
-          className="flex shrink-0 items-center justify-center rounded-full bg-navy/5 px-1.5 text-navy transition-colors hover:bg-navy hover:text-white md:px-2"
+          className="hidden h-11 w-11 shrink-0 items-center justify-center self-center rounded-full bg-navy/5 text-navy transition-colors hover:bg-navy hover:text-white md:flex"
         >
           <ChevronLeft size={28} strokeWidth={2.5} aria-hidden />
         </button>
 
         <div
           ref={scrollRef}
-          className="grid flex-1 auto-cols-[30%] grid-flow-col gap-2 overflow-x-auto scroll-smooth pb-1 sm:auto-cols-[26%] md:auto-cols-[22%] md:gap-4 lg:auto-cols-fr lg:grid-cols-7 lg:grid-flow-row"
+          className="grid flex-1 auto-cols-[42%] grid-flow-col gap-3 overflow-x-auto scroll-smooth pb-1 [scroll-snap-type:x_mandatory] [&>a]:[scroll-snap-align:start] sm:auto-cols-[30%] md:auto-cols-[22%] md:gap-4 lg:auto-cols-fr lg:grid-cols-7 lg:grid-flow-row"
           style={{ scrollbarWidth: 'none' }}
         >
           {categories.map((c) => (
@@ -65,7 +69,7 @@ export function CategoriesSection({ categories: categoriesProp }: Props = {}) {
           type="button"
           onClick={() => scroll('right')}
           aria-label="Next categories"
-          className="flex shrink-0 items-center justify-center rounded-full bg-navy/5 px-1.5 text-navy transition-colors hover:bg-navy hover:text-white md:px-2"
+          className="hidden h-11 w-11 shrink-0 items-center justify-center self-center rounded-full bg-navy/5 text-navy transition-colors hover:bg-navy hover:text-white md:flex"
         >
           <ChevronRight size={28} strokeWidth={2.5} aria-hidden />
         </button>

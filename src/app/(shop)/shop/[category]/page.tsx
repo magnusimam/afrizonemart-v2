@@ -122,7 +122,12 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
           </header>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
-            <div className="lg:col-span-3">
+            {/* Mobile: category is already pinned by the route, so
+                the sidebar adds no value here AND stacks below the
+                whole grid where customers can't reach it. Hidden on
+                mobile, kept on desktop where the rail is always
+                visible. */}
+            <div className="hidden lg:col-span-3 lg:block">
               <SafeBoundary name="category:filters" fallback={null}>
                 <FiltersSidebar />
               </SafeBoundary>
@@ -165,7 +170,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                         {page > 1 ? (
                           <Link
                             href={`/shop/${params.category}?page=${page - 1}`}
-                            className="rounded-btn border border-border bg-white px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-charcoal hover:border-navy hover:text-navy"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-btn border border-border bg-white px-4 font-raleway text-[11px] font-bold uppercase tracking-btn text-charcoal transition-colors hover:border-navy hover:text-navy active:border-navy active:text-navy"
                           >
                             ← Previous
                           </Link>
@@ -177,7 +182,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                         {page < totalPages ? (
                           <Link
                             href={`/shop/${params.category}?page=${page + 1}`}
-                            className="rounded-btn bg-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-navy px-4 font-raleway text-[11px] font-bold uppercase tracking-btn text-white transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy"
                           >
                             Next →
                           </Link>

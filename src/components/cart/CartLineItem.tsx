@@ -68,9 +68,9 @@ export function CartLineItem({ item }: CartLineItemProps) {
       type="button"
       onClick={() => removeItem(item.productId)}
       aria-label={`Remove ${item.name} from cart`}
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-danger/10 hover:text-danger active:bg-danger/15 active:text-danger md:h-9 md:w-9"
     >
-      <X size={18} aria-hidden />
+      <X size={20} aria-hidden />
     </button>
   );
 

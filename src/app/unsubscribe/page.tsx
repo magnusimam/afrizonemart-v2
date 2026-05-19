@@ -116,7 +116,7 @@ export default function UnsubscribePage() {
             </p>
             <Link
               href="/account/profile"
-              className="rounded-btn bg-navy px-5 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card hover:bg-amber hover:text-navy"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-btn bg-navy px-6 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy"
             >
               Manage preferences
             </Link>
@@ -134,7 +134,7 @@ export default function UnsubscribePage() {
             </p>
             <Link
               href="/account/profile"
-              className="rounded-btn bg-navy px-5 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card hover:bg-amber hover:text-navy"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-btn bg-navy px-6 py-3 font-raleway text-xs font-bold uppercase tracking-btn text-white shadow-card transition-colors hover:bg-amber hover:text-navy active:bg-amber active:text-navy"
             >
               Manage preferences manually
             </Link>
