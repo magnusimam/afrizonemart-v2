@@ -394,12 +394,16 @@ export default function PaymentPage() {
                 ) : null}
 
                 <Section title="Billing Address">
-                  <label className="flex cursor-pointer items-start gap-3">
+                  {/* Whole row is the tap target — checkbox alone
+                      would only be 16px which is far below the 44px
+                      floor. p-2 padding around the label gives
+                      ~48px of vertical hit area. */}
+                  <label className="-m-2 flex cursor-pointer items-start gap-3 rounded-card p-2 hover:bg-page">
                     <input
                       type="checkbox"
                       checked={billingSame}
                       onChange={(e) => setBillingSame(e.target.checked)}
-                      className="mt-1 h-4 w-4 cursor-pointer accent-navy"
+                      className="mt-1 h-5 w-5 cursor-pointer accent-navy"
                     />
                     <div className="flex flex-col">
                       <span className="font-raleway text-sm font-semibold text-navy">
@@ -438,13 +442,13 @@ export default function PaymentPage() {
                   />
                 </div>
 
-                <label className="flex cursor-pointer items-start gap-3 rounded-card border border-border bg-white p-4">
+                <label className="flex cursor-pointer items-start gap-3 rounded-card border border-border bg-white p-4 hover:border-navy">
                   <input
                     required
                     type="checkbox"
                     checked={agreed}
                     onChange={(e) => setAgreed(e.target.checked)}
-                    className="mt-1 h-4 w-4 cursor-pointer accent-navy"
+                    className="mt-1 h-5 w-5 cursor-pointer accent-navy"
                   />
                   <span className="font-sans text-sm leading-relaxed text-charcoal">
                     I agree to AfriZoneMart&apos;s{' '}
@@ -474,10 +478,10 @@ export default function PaymentPage() {
                   </div>
                 )}
 
-                <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div id="checkout-payment-actions" className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <Link
                     href="/checkout/shipping"
-                    className="rounded-btn border-2 border-navy bg-white px-5 py-3 text-center font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white sm:text-sm"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-btn border-2 border-navy bg-white px-5 py-3 text-center font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-colors hover:bg-navy hover:text-white active:bg-navy active:text-white sm:text-sm"
                   >
                     ← Back to Shipping
                   </Link>
@@ -578,11 +582,13 @@ function Trust({
   title: string;
   caption: string;
 }) {
+  /// Caption bumped from text-[10px] (below readable floor for body)
+  /// to text-[11px] — still fits the 3-column trust strip at 360px.
   return (
     <div className="flex flex-col items-center gap-1.5 text-center">
       <Icon size={22} strokeWidth={1.75} className="text-navy" aria-hidden />
       <p className="font-raleway text-xs font-bold text-navy">{title}</p>
-      <p className="font-sans text-[10px] leading-tight text-muted">{caption}</p>
+      <p className="font-sans text-[11px] leading-tight text-muted">{caption}</p>
     </div>
   );
 }
