@@ -77,7 +77,6 @@ export default function DealsPage() {
           <div className="mx-auto flex max-w-site flex-col items-start gap-3 px-4 md:flex-row md:items-end md:justify-between md:gap-6">
             <div className="flex flex-col gap-2">
               <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-amber/20 px-3 py-1 font-raleway text-[10px] font-bold uppercase tracking-btn text-amber">
-                <Flame size={12} aria-hidden />
                 On sale right now
               </p>
               <h1 className="font-raleway text-3xl font-bold leading-tight text-white md:text-5xl">

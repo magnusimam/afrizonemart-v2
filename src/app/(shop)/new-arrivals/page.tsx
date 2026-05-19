@@ -7,7 +7,6 @@ import {
   Check,
   ChevronRight,
   Home as HomeIcon,
-  Sparkles,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -206,7 +205,7 @@ export default function NewArrivalsPage() {
             <div className="flex flex-col gap-6 md:col-span-7 md:gap-8">
               <div className="flex flex-col gap-3">
                 <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-amber/15 px-3 py-1 font-raleway text-[10px] font-bold uppercase tracking-btn text-amber">
-                  <Sparkles size={12} aria-hidden /> Just landed from Africa
+                  Just landed from Africa
                 </p>
                 <h1 className="font-raleway text-4xl font-bold leading-[1.05] text-navy md:text-6xl">
                   This week&rsquo;s
@@ -571,9 +570,6 @@ function ComingSoonPanel({
         <X size={14} aria-hidden />
       </button>
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber/20">
-          <Sparkles size={14} className="text-amber" aria-hidden />
-        </span>
         <p className="font-raleway text-sm font-bold leading-tight text-navy">
           {countryName} — coming soon
         </p>
