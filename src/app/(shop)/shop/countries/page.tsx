@@ -128,7 +128,7 @@ function CountryTile({
       <span className="font-raleway text-xs font-bold leading-tight text-navy group-hover:text-amber md:text-sm">
         {c.name}
       </span>
-      <span className="font-sans text-[10px] uppercase tracking-btn text-muted md:text-xs">
+      <span className="font-sans text-[11px] uppercase tracking-btn text-muted md:text-xs">
         {c.code} · {c.currency}
       </span>
     </Link>
