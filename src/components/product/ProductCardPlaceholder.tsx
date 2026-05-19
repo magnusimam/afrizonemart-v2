@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Heart, Package } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
 import { getCountry } from '@/lib/countries';
@@ -80,6 +80,36 @@ export function ProductCardPlaceholder({
   /// PDP animation keeps working independently. Registry entry lives
   /// at afrizonemart-api/src/modules/feature-flags/registry.ts.
   const animationEnabled = useFlag('animated_card_add_to_cart_button', true);
+
+  /// Tracker #51 — when the customer just clicked Add to Cart on the
+  /// animated branch, defer the stepper swap until the truck animation
+  /// has run. Without the delay the parent re-renders the moment qty
+  /// flips 0 → 1, unmounting the animated button mid-flight (GSAP's
+  /// onInterrupt then snaps it idle and nobody sees the truck).
+  ///
+  /// 2200ms covers the ~2s timeline + a small buffer for elastic
+  /// settle. If the page mounts with qty already > 0 (refresh, came
+  /// back from cart), we skip the delay and show the stepper
+  /// immediately — there was no animation to wait for.
+  const ANIMATED_BUTTON_RUNTIME_MS = 2200;
+  const willUseAnimation =
+    animationEnabled && buttonVariant === 'navy' && !showReadMore;
+  const [stepperVisible, setStepperVisible] = useState(cartQuantity > 0);
+  const prevQtyRef = useRef(cartQuantity);
+  useEffect(() => {
+    const prev = prevQtyRef.current;
+    const cur = cartQuantity;
+    prevQtyRef.current = cur;
+    if (cur === 0) {
+      setStepperVisible(false);
+      return;
+    }
+    if (prev === 0 && willUseAnimation) {
+      const t = setTimeout(() => setStepperVisible(true), ANIMATED_BUTTON_RUNTIME_MS);
+      return () => clearTimeout(t);
+    }
+    setStepperVisible(true);
+  }, [cartQuantity, willUseAnimation]);
 
   const productSlug = slug ?? id;
 
@@ -219,12 +249,15 @@ export function ProductCardPlaceholder({
           >
             Read More
           </button>
-        ) : cartQuantity > 0 ? (
+        ) : cartQuantity > 0 && stepperVisible ? (
           /* Tracker #51 — once at least 1 of this product is in the
-           * cart, the Add-to-Cart slot becomes an in-place stepper.
-           * Avoids modal/popup friction for the multi-quantity case.
-           * Tapping − at qty 1 drops to 0 and the next render flips
-           * the slot back to the Add-to-Cart button below. */
+           * cart AND the deferred-animation timer has elapsed, swap
+           * the Add-to-Cart slot for the in-place stepper. The defer
+           * lets the truck animation play through; without it the
+           * animated button unmounts mid-frame on the very first
+           * click and customers never see the truck. Tapping − at
+           * qty 1 drops to 0 and the next render flips the slot
+           * back to the Add-to-Cart button below. */
           <CardCartStepper
             productName={name}
             quantity={cartQuantity}
