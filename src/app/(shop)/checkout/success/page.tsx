@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Calendar, CheckCircle2, Loader2, Mail, Package, Share2 } from 'lucide-react';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
-import { DELIVERY_METHODS } from '@/lib/checkout-data';
 import { checkOrderPayment } from '@/lib/api/payments';
 import { useCheckoutStore } from '@/stores/checkoutStore';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
@@ -14,7 +13,11 @@ import { useFlag } from '@/lib/useFlag';
 export default function SuccessPage() {
   const orderId = useCheckoutStore((s) => s.orderId);
   const shipping = useCheckoutStore((s) => s.shipping);
-  const deliveryMethod = useCheckoutStore((s) => s.deliveryMethod);
+  /// Tracker #53 follow-up — same fix as CheckoutOrderSummary: read
+  /// the live quote the customer actually picked instead of the
+  /// stuck-on-'standard' legacy deliveryMethod field. Drives both the
+  /// "Delivery Method" detail label and the ETA shown to the customer.
+  const selectedQuote = useCheckoutStore((s) => s.selectedQuote);
   const reset = useCheckoutStore((s) => s.reset);
   const [hydrated, setHydrated] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'unknown' | 'pending' | 'paid' | 'failed'>('unknown');
@@ -68,22 +71,22 @@ export default function SuccessPage() {
     };
   }, [hydrated, orderId]);
 
-  const eta = (() => {
-    const d = new Date();
-    const m = DELIVERY_METHODS.find((mth) => mth.id === deliveryMethod);
-    if (!m) return d;
-    if (m.id === 'express') d.setHours(d.getHours() + 24);
-    else if (m.id === 'standard') d.setDate(d.getDate() + 2);
-    else if (m.id === 'pickup') d.setHours(d.getHours() + 4);
-    else d.setDate(d.getDate() + 7);
-    return d;
-  })();
-
-  const etaLabel = eta.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  });
+  /// ETA is the upper bound of the picked quote so the customer never
+  /// sees a date earlier than what fulfilment will actually hit. If
+  /// the store rehydrated without a quote (rare — direct link to
+  /// /checkout/success without going through shipping) we just hide
+  /// the date row rather than guess a fake one.
+  const etaLabel = selectedQuote
+    ? (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + Math.max(1, selectedQuote.etaDaysMax));
+        return d.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric',
+        });
+      })()
+    : null;
 
   return (
     <>
@@ -134,7 +137,13 @@ export default function SuccessPage() {
             {hydrated && orderId ? (
               <div className="grid w-full grid-cols-1 gap-3 rounded-card border border-border bg-page p-5 text-left sm:grid-cols-2">
                 <Detail label="Order Number" value={orderId} highlight />
-                <Detail label="Estimated Delivery" value={etaLabel} icon={<Calendar size={14} />} />
+                {etaLabel ? (
+                  <Detail
+                    label="Estimated Delivery"
+                    value={etaLabel}
+                    icon={<Calendar size={14} />}
+                  />
+                ) : null}
                 {shipping ? (
                   <Detail
                     label="Delivering to"
@@ -143,9 +152,7 @@ export default function SuccessPage() {
                 ) : null}
                 <Detail
                   label="Delivery Method"
-                  value={
-                    DELIVERY_METHODS.find((m) => m.id === deliveryMethod)?.label ?? '—'
-                  }
+                  value={selectedQuote?.label ?? '—'}
                   icon={<Package size={14} />}
                 />
               </div>
