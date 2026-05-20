@@ -16,6 +16,9 @@ export interface AdminProductListParams {
   /// 2-letter ISO country code; matches `Product.origin` server-side.
   origin?: string;
   inStock?: boolean;
+  /// When true, restrict to products that currently show a discount
+  /// (comparePrice > price). Server-side filter — see admin.service.ts.
+  discounted?: boolean;
   sort?: 'newest' | 'oldest' | 'name-asc' | 'price-desc';
 }
 
@@ -75,6 +78,7 @@ function toQs(params: AdminProductListParams): string {
   if (params.category) sp.set('category', params.category);
   if (params.origin) sp.set('origin', params.origin);
   if (params.inStock !== undefined) sp.set('inStock', String(params.inStock));
+  if (params.discounted !== undefined) sp.set('discounted', String(params.discounted));
   if (params.sort) sp.set('sort', params.sort);
   const qs = sp.toString();
   return qs ? `?${qs}` : '';
