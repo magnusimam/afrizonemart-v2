@@ -248,10 +248,15 @@ function CreatePayoutDialog({
       .then((r) =>
         setInterns(
           r.items
-            .slice()
-            .sort((a, b) =>
-              (a.name || a.email).localeCompare(b.name || b.email),
-            ),
+            /// Only show interns with claimable work — picking someone
+            /// with 0 unpaid would just produce a "no submissions match"
+            /// preview. Their lifetime stats are still visible on
+            /// /admin/interns; this dropdown's job is "pick someone to
+            /// pay right now".
+            .filter((i) => i.unpaidApproved > 0)
+            /// Sort by claimable work descending so the admin sees who
+            /// has the largest pending payday first.
+            .sort((a, b) => b.unpaidApproved - a.unpaidApproved),
         ),
       )
       .catch((e) =>
@@ -353,10 +358,16 @@ function CreatePayoutDialog({
               }}
               className="rounded-input border border-border bg-white px-3 py-2 font-sans text-sm text-charcoal focus:border-navy focus:outline-none"
             >
-              <option value="">Pick an intern…</option>
+              <option value="">
+                {interns === null
+                  ? 'Loading interns…'
+                  : interns.length === 0
+                    ? 'No interns with unpaid work right now'
+                    : 'Pick an intern…'}
+              </option>
               {interns?.map((i) => (
                 <option key={i.id} value={i.id}>
-                  {i.name || i.email} — {i.approved} approved total
+                  {i.name || i.email} — {i.unpaidApproved} unpaid
                 </option>
               ))}
             </select>
