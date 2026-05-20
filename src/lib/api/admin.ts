@@ -1735,7 +1735,12 @@ export interface InternProgressItem {
   assigned: number;
   todo: number;
   pending: number;
+  /// Lifetime approved (includes submissions already rolled into past
+  /// payouts). The /admin/interns leaderboard wants this.
   approved: number;
+  /// Approved AND not yet in any payout — i.e. claimable in a new
+  /// payout right now. The /admin/intern-payouts dropdown wants this.
+  unpaidApproved: number;
   rejected: number;
 }
 
