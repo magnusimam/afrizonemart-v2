@@ -12,6 +12,8 @@ import {
 } from '@/components/providers/GoogleTagManager';
 import { GeoBanner } from '@/components/common/GeoBanner';
 import { ConfigWatchdog } from '@/components/common/ConfigWatchdog';
+import { ApiStatusBanner } from '@/components/common/ApiStatusBanner';
+import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { SiteJsonLd } from '@/components/seo/SiteJsonLd';
 import {
   SITE_DEFAULT_DESCRIPTION,
@@ -138,6 +140,18 @@ export default function RootLayout({
                     first render if anything required is empty. See
                     `lib/public-env.ts` for the registry. */}
                 <ConfigWatchdog />
+                {/* 2026-05-20 — long-poll the API /health endpoint
+                    and surface a polite "we're experiencing a brief
+                    slowdown" banner if Railway is unreachable for
+                    two consecutive checks. Browsing still works
+                    (Vercel Data Cache serves products) but cart +
+                    checkout require live API. Wrapped in
+                    SafeBoundary so a render error in the banner
+                    can't break the whole layout. Kill-switchable
+                    via the `api_status_banner` feature flag. */}
+                <SafeBoundary name="layout:api-status" fallback={null}>
+                  <ApiStatusBanner />
+                </SafeBoundary>
                 {children}
                 <GoogleTranslate />
               </CartSyncProvider>

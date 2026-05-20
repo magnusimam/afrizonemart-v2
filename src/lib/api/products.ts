@@ -21,17 +21,38 @@ class ApiError extends Error {
   }
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * Resilience-aware fetch for read-only product endpoints.
+ *
+ * Uses Next.js' Data Cache (Vercel's edge-side fetch cache) with a
+ * revalidate window — so:
+ *
+ *  - Same URL hit within `revalidateSeconds` returns instantly from
+ *    Vercel's edge, no Railway hop.
+ *  - When the window expires, the NEXT request triggers a background
+ *    refetch but still returns the stale cache to the user (Vercel's
+ *    fetch cache uses stale-while-revalidate semantics by default).
+ *  - **If Railway is down**, the background refetch errors but the
+ *    customer keeps seeing the last-known-good catalog. Browsing
+ *    stays alive through a brief API outage — exactly the resilience
+ *    we wanted after 2026-05-19's Railway hiccup.
+ *
+ * Cache key is the full URL (Next.js handles this), so different
+ * query strings (origin filters, page numbers, etc.) cache
+ * independently.
+ *
+ * Only used for endpoints where briefly-stale data is fine:
+ * `fetchProducts`, `fetchProduct`. Cart/checkout/auth/admin flows
+ * use their own fetchers with `cache: 'no-store'` — money paths
+ * must NOT be stale.
+ */
+async function apiFetchCached<T>(
+  path: string,
+  revalidateSeconds: number,
+): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    // Next 14 defaults server-side fetch to force-cache. We always want
-    // fresh product data on detail pages — TanStack Query handles
-    // caching on the client for list views.
-    cache: 'no-store',
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    next: { revalidate: revalidateSeconds },
+    headers: { 'Content-Type': 'application/json' },
   });
 
   if (!res.ok) {
@@ -72,14 +93,31 @@ function toQueryString(params: ListProductsParams): string {
   return qs ? `?${qs}` : '';
 }
 
+/// Read-only product list / detail fetches run through the cached
+/// path so the storefront survives brief Railway outages. 60s is a
+/// good fresh-vs-resilience tradeoff for a catalog where prices
+/// update minutes-to-hours apart, not seconds. Admin price edits
+/// route through `applyPriceChange()` which bumps `updatedAt` on
+/// the product — when we add cache-tag invalidation in a follow-up
+/// the lag drops to ~immediate; until then customers see prices
+/// up to 60s stale, which is acceptable.
+const PRODUCT_LIST_REVALIDATE_S = 60;
+const PRODUCT_DETAIL_REVALIDATE_S = 60;
+
 export async function fetchProducts(
   params: ListProductsParams = {},
 ): Promise<ApiProductList> {
-  return apiFetch<ApiProductList>(`/api/products${toQueryString(params)}`);
+  return apiFetchCached<ApiProductList>(
+    `/api/products${toQueryString(params)}`,
+    PRODUCT_LIST_REVALIDATE_S,
+  );
 }
 
 export async function fetchProduct(slug: string): Promise<ApiProduct> {
-  return apiFetch<ApiProduct>(`/api/products/${encodeURIComponent(slug)}`);
+  return apiFetchCached<ApiProduct>(
+    `/api/products/${encodeURIComponent(slug)}`,
+    PRODUCT_DETAIL_REVALIDATE_S,
+  );
 }
 
 export { ApiError };
