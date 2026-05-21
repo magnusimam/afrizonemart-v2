@@ -225,6 +225,10 @@ export interface UpdateMeInput {
   smsOptIn?: boolean;
   /// 2026-05-16 Phase 2 — ISO yyyy-mm-dd; pass null to clear.
   birthDate?: string | null;
+  /// 2026-05-21 — self-service profile picture. Upload the image
+  /// first via POST /api/uploads/avatar, then PATCH the returned
+  /// URL here. Pass null to clear.
+  avatarUrl?: string | null;
 }
 
 /**

@@ -11,6 +11,7 @@ export type UploadFolder =
   | 'hero-slides'
   | 'banners'
   | 'blog'
+  | 'avatars'
   | 'misc';
 
 export interface UploadedAsset {
@@ -80,6 +81,48 @@ export async function uploadImage(
     throw new UploadApiError(
       res.status,
       envelope?.error?.message ?? `Upload failed with status ${res.status}`,
+    );
+  }
+
+  return (await res.json()) as UploadedAsset;
+}
+
+/**
+ * Self-service profile-picture upload — POST /api/uploads/avatar.
+ * No `uploads.write` capability required; any authenticated user can
+ * hit this. Server forces `folder=avatars` regardless of what we
+ * send, so customers can't sneak files into the products bucket.
+ */
+export async function uploadAvatar(
+  file: File,
+  retryOn401 = true,
+): Promise<UploadedAsset> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const fd = new FormData();
+  fd.append('file', file);
+
+  const res = await fetch(`${API_BASE}/api/uploads/avatar`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    body: fd,
+  });
+
+  if (res.status === 401 && retryOn401) {
+    const newToken = await useAuthStore.getState().refresh();
+    if (newToken) return uploadAvatar(file, false);
+  }
+
+  if (!res.ok) {
+    let envelope: UploadErrorEnvelope | undefined;
+    try {
+      envelope = (await res.json()) as UploadErrorEnvelope;
+    } catch {
+      /* not JSON */
+    }
+    throw new UploadApiError(
+      res.status,
+      envelope?.error?.message ?? `Avatar upload failed with status ${res.status}`,
     );
   }
 
