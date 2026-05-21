@@ -41,7 +41,7 @@ export default function AdminStaffPage() {
           </span>
           <div className="flex flex-col leading-tight">
             <Link
-              href={`/admin/customers/${s.id}`}
+              href={`/admin/staff/${s.id}`}
               className="font-raleway font-semibold text-navy hover:text-amber"
             >
               {s.name ?? s.email}
@@ -88,7 +88,7 @@ export default function AdminStaffPage() {
       className: 'text-right',
       render: (s) => (
         <Link
-          href={`/admin/customers/${s.id}`}
+          href={`/admin/staff/${s.id}`}
           className="font-raleway text-[11px] font-bold uppercase tracking-btn text-navy hover:text-amber"
         >
           Manage
