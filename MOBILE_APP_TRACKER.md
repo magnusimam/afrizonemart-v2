@@ -56,7 +56,7 @@ Phases roughly mirror the web platform's. Times below are calendar weeks assumin
 
 ---
 
-### Phase 1 — Design system + navigation skeleton + Home `[~]` (in progress 2026-05-21)
+### Phase 1 — Design system + navigation skeleton + Home `[x]` (shipped 2026-05-21, PR magnusimam/afrizonemart-mobile#1)
 **Goal:** A working Home screen on a real device with the design system primitives that everything else will reuse.
 
 #### Locked design decisions from the UI samples review (2026-05-21)
@@ -71,32 +71,31 @@ Phases roughly mirror the web platform's. Times below are calendar weeks assumin
 - **Cutout product images** via the existing `/api/share-image/cutout/<slug>` pipeline — shared R2 cache between web and mobile (web's existing cutouts work for mobile day-1; mobile-triggered cutouts work for web's share-as-image).
 
 #### Sub-steps
-- [ ] **Install nav + safe-area + icons deps** via `npx expo install`: `@react-navigation/native`, `@react-navigation/bottom-tabs`, `react-native-screens`, `react-native-safe-area-context`, `react-native-svg`, `@expo/vector-icons` (already in Expo SDK 54), `@expo-google-fonts/raleway`, `expo-font`.
-- [ ] **Bundle Raleway via @expo-google-fonts/raleway** + load in `App.tsx` before the splash hides. Wires Phase 0's typography tokens to real glyphs.
-- [ ] **Design system primitives** in `src/components/ui/`:
-  - `Card.tsx` — the "card-within-page" container (rounded, shadowed, optional padding prop)
-  - `Heading.tsx` — h1/h2/h3 with Raleway weights
-  - `Text.tsx` — sans body text wrapper (sets default colour + line-height; replaces raw `<Text>`)
-  - `Pill.tsx` — chip variants: filled-navy / filled-amber / outline-navy / outline-muted
-  - `Badge.tsx` — counter badge (e.g. cart count) in amber circle
-  - `IconButton.tsx` — 44×44 tap target wrapping `@expo/vector-icons`
-- [ ] **Navigation skeleton** in `src/navigation/`:
-  - `AppNavigator.tsx` — root NavigationContainer
-  - `BottomTabs.tsx` — 4-tab bottom navigator (Home / Search / Cart / Account)
-  - Custom `TabBar` component matching the minimalist Image 6 style (active tab gets label, inactive tab icon-only). Cart tab consumes a Zustand badge count.
-- [ ] **Placeholder screens** for Search, Cart, Account — branded, labelled, no real content yet (they get built out in their respective phases).
-- [ ] **Home screen** at `src/screens/home/HomeScreen.tsx` with the following sections (from Image 3 + Image 6 references mapped to our brand):
-  - **Header bar** — avatar (left), Afrizonemart logo (centre), cart-icon-with-badge (right)
-  - **Greeting** — "Habari, [name]" with eyebrow + tagline
-  - **Search row** — search input + navy filter pill button
-  - **Category chip row** — horizontal scroll of circular category chips, one per top-level category, pulling from the mocked categories list
-  - **"Most Popular" featured shelf** — horizontal scroll of large product cards (cutout product on amber tile + price + small cart-icon button)
-  - **"Shop by Country" marquee** — horizontal scroll of country flag tiles (subset of `FEATURED_COUNTRY_CODES`)
-- [ ] **Mock data** in `src/mocks/`:
-  - `products.ts` — 6–10 sample products with cutout URLs pulled from the live cutouts cache so the design renders with real images
-  - `categories.ts` — top-level categories matching the web's `CATEGORIES` const
-  - `countries.ts` — subset of featured countries (just the flag URLs + names)
-- [ ] **Safe-area handling** via `SafeAreaProvider` + `useSafeAreaInsets` so the bottom tab bar clears iOS home indicator and the header clears notch.
+- [x] **Install nav + safe-area + icons deps** via `npx expo install` (fc974d4): `@react-navigation/native`, `@react-navigation/bottom-tabs`, `@react-navigation/native-stack`, `react-native-screens`, `react-native-safe-area-context`, `react-native-svg`, `@expo/vector-icons`, `@expo-google-fonts/raleway`, `expo-font`.
+- [x] **Bundle Raleway via @expo-google-fonts/raleway** (fc974d4) — `App.tsx` gates rendering on `useFonts({ Raleway_400Regular, _500Medium, _600SemiBold, _700Bold, _800ExtraBold })`. `typography.ts` exposes `fontFamilies` mapping weight keys to the loaded family names. `app.json` declares the `expo-font` plugin.
+- [x] **Design system primitives** in `src/components/ui/` (fc974d4):
+  - `Text.tsx` — body wrapper, size + weight + color props, uppercase shorthand
+  - `Heading.tsx` — h1/h2/h3 with level → size + weight defaults
+  - `Card.tsx` — rounded container, padding + surface variants (white/navy/amber/cream)
+  - `Pill.tsx` — primary / accent / outline / ghost; default + compact sizes; leading + trailing slots
+  - `Badge.tsx` — amber counter circle, auto-hides at count ≤ 0
+  - `IconButton.tsx` — 44pt tap-target wrapper, plain / chip / navy variants
+- [x] **Navigation skeleton** in `src/navigation/` (fc974d4):
+  - `AppNavigator.tsx` — root NavigationContainer with brand-coloured theme so RN-Nav's grey defaults don't flash on cold start
+  - `BottomTabs.tsx` — 4-tab navigator (Home / Search / Cart / Account). Inactive tabs icon-only; active tab gets a label + filled icon. Respects safe-area bottom inset.
+- [x] **Placeholder screens** for Search, Cart, Account (fc974d4) — branded amber icon + heading + "Phase X coming" copy, ready to be replaced.
+- [x] **Home screen** at `src/screens/home/HomeScreen.tsx` (fc974d4) with all six sections:
+  - Header bar — avatar / wordmark / cart-with-badge
+  - Greeting — "Habari, Magnus 👋" + tagline
+  - Search row — input + navy Filter pill (Image 6 pattern)
+  - Category chip row — 9 circular Ionicons category chips
+  - "Most popular" featured shelf — 5 large amber-tile product cards with real cutout imagery + price + small navy add-to-bag icon
+  - "Shop by country" marquee — 10 flag tiles
+- [x] **Mock data** in `src/mocks/` (fc974d4):
+  - `products.ts` — 5 products with real cutout URLs from production R2 cache
+  - `categories.ts` — 9 top-level categories (For Her, For Him, Groceries, Beauty, Wines, Decor, Electronics, Books, Art)
+  - `countries.ts` — 10 featured countries with flagcdn URLs
+- [x] **Safe-area handling** (fc974d4) — `SafeAreaProvider` at the root, `useSafeAreaInsets` consumed by HomeScreen + BottomTabs + every placeholder screen.
 
 **Definition of done:** Magnus opens Expo Go on his phone, scans the QR, sees a real-feeling Home screen with branded header, category chips, a horizontally-scrolling product shelf with cutout images, and a working bottom tab bar — even though tapping a product card or another tab routes to a placeholder.
 
