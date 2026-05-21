@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Loader2, Camera, Trash2 } from 'lucide-react';
+import Image from 'next/image';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { AccountMobileNav } from '@/components/account/AccountMobileNav';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { COUNTRIES, COUNTRY_CODES } from '@/lib/countries';
 import { friendlyAuthError, updateMe } from '@/lib/api/auth';
+import { uploadAvatar, UploadApiError } from '@/lib/api/uploads';
 import { useAuthStore } from '@/stores/authStore';
 
 /**
@@ -45,6 +47,14 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  /// Avatar upload state — separate from the form submit because the
+  /// upload happens immediately on file-pick (no need to make the user
+  /// "save" a picture they already chose). The PATCH to persist
+  /// `avatarUrl` fires inline too.
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+
   useEffect(() => {
     if (user) {
       setName(user.name ?? '');
@@ -69,6 +79,44 @@ export default function ProfilePage() {
     (user?.marketingOptIn ?? false) !== marketingOptIn ||
     (user?.smsOptIn ?? false) !== smsOptIn ||
     (user?.birthDate ?? '') !== birthDate;
+
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset the input so picking the SAME file twice still re-fires.
+    e.target.value = '';
+    if (!file || !accessToken) return;
+    setAvatarError(null);
+    setAvatarBusy(true);
+    try {
+      const { url } = await uploadAvatar(file);
+      const updated = await updateMe(accessToken, { avatarUrl: url });
+      setUser(updated);
+      setSuccess('Profile picture updated.');
+    } catch (err) {
+      const msg =
+        err instanceof UploadApiError
+          ? err.message
+          : friendlyAuthError(err, 'Could not upload your photo. Try a smaller image.');
+      setAvatarError(msg);
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const onRemoveAvatar = async () => {
+    if (!accessToken || !user?.avatarUrl) return;
+    setAvatarError(null);
+    setAvatarBusy(true);
+    try {
+      const updated = await updateMe(accessToken, { avatarUrl: null });
+      setUser(updated);
+      setSuccess('Profile picture removed.');
+    } catch (err) {
+      setAvatarError(friendlyAuthError(err, 'Could not remove your photo. Try again.'));
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -149,6 +197,75 @@ export default function ProfilePage() {
                 {success}
               </div>
             )}
+
+            <Section
+              title="Profile Picture"
+              caption="A friendly face for your orders, reviews, and Continental Rewards profile. JPEG, PNG, or WebP up to 5MB."
+            >
+              <div className="flex flex-wrap items-center gap-5">
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border border-border bg-page">
+                  {user?.avatarUrl ? (
+                    <Image
+                      src={user.avatarUrl}
+                      alt={user.name ?? 'Profile picture'}
+                      fill
+                      className="object-cover"
+                      sizes="96px"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center font-raleway text-2xl font-bold text-navy">
+                      {(user?.name ?? user?.email ?? '?').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  {avatarBusy ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <Loader2 size={20} className="animate-spin text-white" aria-hidden />
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex flex-1 flex-col gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={avatarBusy}
+                      className="inline-flex items-center gap-2 rounded-btn border border-navy bg-white px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-navy hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Camera size={14} aria-hidden />
+                      {user?.avatarUrl ? 'Change photo' : 'Upload photo'}
+                    </button>
+                    {user?.avatarUrl ? (
+                      <button
+                        type="button"
+                        onClick={onRemoveAvatar}
+                        disabled={avatarBusy}
+                        className="inline-flex items-center gap-2 rounded-btn border border-border bg-white px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-muted hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2 size={14} aria-hidden />
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                  {avatarError ? (
+                    <p className="font-sans text-xs text-danger" role="alert">
+                      {avatarError}
+                    </p>
+                  ) : (
+                    <p className="font-sans text-xs text-muted">
+                      Square images look best. We&apos;ll center-crop anything else.
+                    </p>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
+                    className="hidden"
+                    onChange={onPickFile}
+                  />
+                </div>
+              </div>
+            </Section>
 
             <Section title="Personal Information">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
