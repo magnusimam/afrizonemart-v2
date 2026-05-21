@@ -1,91 +1,51 @@
 /**
- * Capability-based permission model — frontend mirror of
- * `afrizonemart-api/src/lib/permissions.ts`. Kept manually in sync
- * until we extract a shared workspace package.
+ * Capability-based permission model — storefront side.
+ *
+ * **Source of truth lives in `afrizonemart-api/src/lib/permissions.ts`.**
+ * That file defines every capability the platform recognises, with its
+ * domain + human label. Admin UIs (the "Add staff" dialog + the
+ * "Edit existing staff" permissions matrix on /admin/staff) fetch the
+ * canonical list at runtime via `GET /api/admin/staff/permissions` —
+ * adding a new capability there immediately makes it tickable in both
+ * UIs with no storefront redeploy.
+ *
+ * What this file used to do (until 2026-05-21): mirror the API's
+ * Capability union + CAPABILITY_LABELS dictionary. That manual sync
+ * burnt us — the user added an admin section, forgot to update both
+ * files, and the new permission never appeared in the staff dialog.
+ *
+ * What this file does NOW:
+ *  - `Capability` is a loose `string` alias — no compile-time gate on
+ *    capability literals (typos like `'orderss.refund'` won't be caught
+ *    at compile time, but they're easy to spot at runtime — the gate
+ *    just always denies). The trade-off is worth it: zero sync cost
+ *    when adding a new capability.
+ *  - `StaffRole`, `effectiveCapabilities`, `hasCapability`,
+ *    `ROLE_DESCRIPTIONS` remain client-side because they're used by
+ *    the sidebar filter + admin dashboard tile filter — they need to
+ *    run synchronously on the client without an API hop.
+ *  - `effectiveCapabilities()` no longer enumerates the full
+ *    capability list. For ADMIN it returns a wildcard set whose
+ *    `.has()` always returns true, so consumers like
+ *    `caps.has('anything.new')` Just Work without us having to know
+ *    every capability the API has defined.
  */
 
-export type Capability =
-  // Catalog
-  | 'products.read'
-  | 'products.write'
-  | 'products.image-only'
-  | 'categories.write'
-  | 'reviews.moderate'
-  | 'custom-fields.write'
-  // Commerce
-  | 'orders.read'
-  | 'orders.write'
-  | 'orders.refund'
-  | 'coupons.write'
-  | 'shipping.write'
-  | 'payment-gateways.write'
-  // People
-  | 'customers.read'
-  | 'customers.write'
-  | 'staff.manage'
-  // Marketing / CMS
-  | 'cms-pages.write'
-  | 'content.write'
-  | 'blog.write'
-  | 'placements.write'
-  | 'feature-flags.write'
-  | 'business-rules.write'
-  // Notifications & integrations
-  | 'notifications.write'
-  | 'email-templates.write'
-  | 'webhooks.write'
-  // Operations
-  | 'reports.read'
-  | 'audit.read'
-  | 'uploads.write'
-  | 'settings.write'
-  // Loyalty (Continental Rewards)
-  | 'loyalty.read'
-  | 'loyalty.write';
+/// Plain string — the source of truth is the API. Loose typing here
+/// is intentional; see file header.
+export type Capability = string;
 
 export type StaffRole = 'CUSTOMER' | 'SELLER' | 'ADMIN' | 'STAFF';
 
-export const CAPABILITY_LABELS: Record<Capability, { domain: string; label: string }> = {
-  // Catalog
-  'products.read': { domain: 'Catalog', label: 'View products' },
-  'products.write': { domain: 'Catalog', label: 'Create / edit / delete products' },
-  'products.image-only': { domain: 'Catalog', label: 'Upload product images (intern queue only)' },
-  'categories.write': { domain: 'Catalog', label: 'Manage categories' },
-  'reviews.moderate': { domain: 'Catalog', label: 'Moderate reviews' },
-  'custom-fields.write': { domain: 'Catalog', label: 'Manage product custom fields' },
-  // Commerce
-  'orders.read': { domain: 'Commerce', label: 'View orders' },
-  'orders.write': { domain: 'Commerce', label: 'Update orders & status' },
-  'orders.refund': { domain: 'Commerce', label: 'Issue refunds' },
-  'coupons.write': { domain: 'Commerce', label: 'Manage coupons & discounts' },
-  'shipping.write': { domain: 'Commerce', label: 'Configure shipping zones & rates' },
-  'payment-gateways.write': { domain: 'Commerce', label: 'Configure payment gateways' },
-  // People
-  'customers.read': { domain: 'People', label: 'View customers' },
-  'customers.write': { domain: 'People', label: 'Edit customer profiles' },
-  'staff.manage': { domain: 'People', label: 'Add / remove staff & change permissions' },
-  // Marketing / CMS
-  'cms-pages.write': { domain: 'Content', label: 'Edit legacy long-form CMS pages' },
-  'content.write': { domain: 'Content', label: 'Edit site text + images (homepage / landing pages)' },
-  'blog.write': { domain: 'Content', label: 'Write & publish blog posts' },
-  'placements.write': { domain: 'Content', label: 'Manage product placements' },
-  'feature-flags.write': { domain: 'Content', label: 'Toggle feature flags' },
-  'business-rules.write': { domain: 'Content', label: 'Edit business rules' },
-  // Integrations
-  'notifications.write': { domain: 'Integrations', label: 'Send & manage notifications' },
-  'email-templates.write': { domain: 'Integrations', label: 'Edit email templates' },
-  'webhooks.write': { domain: 'Integrations', label: 'Configure webhooks' },
-  // Operations
-  'reports.read': { domain: 'Operations', label: 'View sales & inventory reports' },
-  'audit.read': { domain: 'Operations', label: 'View admin audit log' },
-  'uploads.write': { domain: 'Operations', label: 'Upload images & assets' },
-  'settings.write': { domain: 'Operations', label: 'Edit store settings' },
-  // Loyalty (Continental Rewards)
-  'loyalty.read': { domain: 'Loyalty', label: 'View Continental Rewards accounts & transactions' },
-  'loyalty.write': { domain: 'Loyalty', label: 'Edit Continental Rewards config + manual coin adjustments' },
-};
-
-export const ALL_CAPABILITIES: Capability[] = Object.keys(CAPABILITY_LABELS) as Capability[];
+/// SELLER capabilities are hardcoded here because they're a role-level
+/// default, not a per-section grant — same logic as the API's
+/// `ROLE_CAPABILITIES.SELLER`. If you change them, also update the API.
+const SELLER_CAPABILITIES: readonly Capability[] = [
+  'orders.read',
+  'products.read',
+  'products.write',
+  'uploads.write',
+] as const;
 
 export const ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
   CUSTOMER: 'Standard buyer. Can browse, place orders, leave reviews.',
@@ -98,35 +58,45 @@ export const ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
 };
 
 /**
- * Resolve a user's effective capability set. Same logic as the API.
- * Used by the sidebar to filter items + by RequireAdmin to gate
- * non-ADMIN access.
+ * Set-like interface returned by `effectiveCapabilities`. We don't
+ * return a real `Set<Capability>` because for ADMIN we want a
+ * wildcard "yes to everything" without having to know every
+ * capability the API has defined. Consumers only ever call `.has()`
+ * on this — never iterate, never check `.size` — so a narrow
+ * interface is enough.
+ */
+export interface CapabilitySet {
+  has(capability: Capability): boolean;
+}
+
+/// Always-true Set. Used for ADMIN where every gate must succeed.
+const WILDCARD_SET: CapabilitySet = { has: () => true };
+/// Always-false Set. Used for CUSTOMER (default role).
+const EMPTY_SET: CapabilitySet = { has: () => false };
+
+/**
+ * Resolve a user's effective capability set.
+ *
+ *  - ADMIN  → wildcard (every `caps.has(...)` returns true).
+ *  - STAFF  → exactly what `User.permissions[]` says. Implicit grant:
+ *             `products.image-only` co-grants `uploads.write` so the
+ *             intern queue can actually upload images. Mirrors the
+ *             same implicit grant in the API resolver.
+ *  - SELLER → hardcoded `SELLER_CAPABILITIES` (role default).
+ *  - CUSTOMER → empty.
  */
 export function effectiveCapabilities(
   role: StaffRole,
   userPermissions: string[] | null | undefined,
-): Set<Capability> {
-  if (role === 'ADMIN') return new Set(ALL_CAPABILITIES);
+): CapabilitySet {
+  if (role === 'ADMIN') return WILDCARD_SET;
   if (role === 'STAFF') {
-    const grants = (userPermissions ?? []).filter((p): p is Capability =>
-      Object.prototype.hasOwnProperty.call(CAPABILITY_LABELS, p),
-    );
-    const set = new Set<Capability>(grants);
-    // Implicit grant — anyone with products.image-only needs uploads
-    // to fulfil that role. Mirrors the API resolver so the sidebar's
-    // optimistic gate matches what the server enforces.
-    if (set.has('products.image-only')) set.add('uploads.write');
-    return set;
+    const grants = new Set<Capability>(userPermissions ?? []);
+    if (grants.has('products.image-only')) grants.add('uploads.write');
+    return grants;
   }
-  if (role === 'SELLER') {
-    return new Set<Capability>([
-      'orders.read',
-      'products.read',
-      'products.write',
-      'uploads.write',
-    ]);
-  }
-  return new Set<Capability>();
+  if (role === 'SELLER') return new Set<Capability>(SELLER_CAPABILITIES);
+  return EMPTY_SET;
 }
 
 export function hasCapability(

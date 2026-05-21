@@ -164,6 +164,7 @@ export default function AdminStaffPage() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onCreated={() => void loadStaff()}
+        matrix={matrix}
       />
     </div>
   );
