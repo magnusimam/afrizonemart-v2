@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
+import { RotateCcw, Save } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { ImageUploader } from '@/components/admin/ImageUploader';
 import { SlideListEditor } from '@/components/admin/SlideListEditor';
