@@ -1,24 +1,37 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Eye, EyeOff, X } from 'lucide-react';
-import { adminCreateStaff, type StaffCreatableRole, type StaffMember } from '@/lib/api/admin';
+import { Eye, EyeOff, Loader2, X } from 'lucide-react';
+import {
+  adminCreateStaff,
+  type PermissionsMatrix,
+  type StaffCreatableRole,
+  type StaffMember,
+} from '@/lib/api/admin';
 import { HttpApiError } from '@/lib/api/client';
 import { toast } from '@/components/admin/Toast';
-import {
-  ALL_CAPABILITIES,
-  CAPABILITY_LABELS,
-  ROLE_DESCRIPTIONS,
-  type Capability,
-} from '@/lib/permissions';
+import { ROLE_DESCRIPTIONS, type Capability } from '@/lib/permissions';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: (staff: StaffMember) => void;
+  /// Capability matrix from the API. Parent (/admin/staff page)
+  /// already fetches it via `adminGetPermissions()` to feed the
+  /// edit-existing-staff matrix; we re-use that fetch instead of
+  /// hitting the endpoint twice. While null, the permissions section
+  /// shows a spinner — the Save button stays disabled in that state
+  /// because we can't validate "at least one permission ticked".
+  ///
+  /// Single source of truth: this comes from the API's
+  /// `CAPABILITY_LABELS` in afrizonemart-api/src/lib/permissions.ts.
+  /// Adding a new capability there immediately makes it tickable in
+  /// this dialog with no storefront change. That was the whole point
+  /// of dropping the duplicate label dictionary from this repo.
+  matrix: PermissionsMatrix | null;
 }
 
-export function AddStaffDialog({ open, onClose, onCreated }: Props) {
+export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [jobTitle, setJobTitle] = useState('');
@@ -29,15 +42,17 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Group capabilities by their `domain` for the checkbox UI.
+  /// Group the API-provided capabilities by their `domain` for the
+  /// checkbox UI. When matrix is null this is an empty object — the
+  /// permissions section renders a spinner instead of the groups.
   const capsByDomain = useMemo(() => {
-    const groups: Record<string, Capability[]> = {};
-    for (const cap of ALL_CAPABILITIES) {
-      const domain = CAPABILITY_LABELS[cap].domain;
-      (groups[domain] ??= []).push(cap);
+    if (!matrix) return {} as Record<string, { key: Capability; label: string }[]>;
+    const groups: Record<string, { key: Capability; label: string }[]> = {};
+    for (const cap of matrix.capabilities) {
+      (groups[cap.domain] ??= []).push({ key: cap.key, label: cap.label });
     }
     return groups;
-  }, []);
+  }, [matrix]);
 
   if (!open) return null;
 
@@ -69,13 +84,14 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
 
   const toggleDomain = (domain: string) => {
     const caps = capsByDomain[domain];
+    if (!caps) return;
     setPermissions((prev) => {
-      const allOn = caps.every((c) => prev.has(c));
+      const allOn = caps.every((c) => prev.has(c.key));
       const next = new Set(prev);
       if (allOn) {
-        for (const c of caps) next.delete(c);
+        for (const c of caps) next.delete(c.key);
       } else {
-        for (const c of caps) next.add(c);
+        for (const c of caps) next.add(c.key);
       }
       return next;
     });
@@ -254,52 +270,59 @@ export function AddStaffDialog({ open, onClose, onCreated }: Props) {
                 its whole group.
               </p>
 
-              <div className="flex flex-col gap-3">
-                {Object.entries(capsByDomain).map(([domain, caps]) => {
-                  const allOn = caps.every((c) => permissions.has(c));
-                  const someOn = !allOn && caps.some((c) => permissions.has(c));
-                  return (
-                    <fieldset key={domain} className="rounded-card border border-border bg-white p-3">
-                      <legend className="px-1">
-                        <button
-                          type="button"
-                          onClick={() => toggleDomain(domain)}
-                          className="flex items-center gap-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:text-amber"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={allOn}
-                            ref={(el) => {
-                              if (el) el.indeterminate = someOn;
-                            }}
-                            readOnly
-                            className="h-3.5 w-3.5 cursor-pointer accent-navy"
-                          />
-                          {domain}
-                        </button>
-                      </legend>
-                      <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                        {caps.map((cap) => (
-                          <label
-                            key={cap}
-                            className="flex cursor-pointer items-start gap-2 rounded p-1 hover:bg-page"
+              {matrix === null ? (
+                <div className="flex items-center gap-2 rounded-card border border-border bg-white px-4 py-6 font-sans text-sm text-muted">
+                  <Loader2 size={16} className="animate-spin text-navy" aria-hidden />
+                  Loading permissions…
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {Object.entries(capsByDomain).map(([domain, caps]) => {
+                    const allOn = caps.every((c) => permissions.has(c.key));
+                    const someOn = !allOn && caps.some((c) => permissions.has(c.key));
+                    return (
+                      <fieldset key={domain} className="rounded-card border border-border bg-white p-3">
+                        <legend className="px-1">
+                          <button
+                            type="button"
+                            onClick={() => toggleDomain(domain)}
+                            className="flex items-center gap-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:text-amber"
                           >
                             <input
                               type="checkbox"
-                              checked={permissions.has(cap)}
-                              onChange={() => togglePermission(cap)}
-                              className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-navy"
+                              checked={allOn}
+                              ref={(el) => {
+                                if (el) el.indeterminate = someOn;
+                              }}
+                              readOnly
+                              className="h-3.5 w-3.5 cursor-pointer accent-navy"
                             />
-                            <span className="font-sans text-xs text-charcoal">
-                              {CAPABILITY_LABELS[cap].label}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </fieldset>
-                  );
-                })}
-              </div>
+                            {domain}
+                          </button>
+                        </legend>
+                        <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                          {caps.map((cap) => (
+                            <label
+                              key={cap.key}
+                              className="flex cursor-pointer items-start gap-2 rounded p-1 hover:bg-page"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={permissions.has(cap.key)}
+                                onChange={() => togglePermission(cap.key)}
+                                className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-navy"
+                              />
+                              <span className="font-sans text-xs text-charcoal">
+                                {cap.label}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

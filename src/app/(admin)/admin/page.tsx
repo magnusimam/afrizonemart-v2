@@ -19,6 +19,7 @@ import { useAuthStore } from '@/stores/authStore';
 import {
   effectiveCapabilities,
   type Capability,
+  type CapabilitySet,
   type StaffRole,
 } from '@/lib/permissions';
 import { internGetMyStats } from '@/lib/api/admin';
@@ -210,7 +211,7 @@ function StaffDashboard({
 }: {
   firstName: string;
   jobTitle: string | null;
-  caps: Set<Capability>;
+  caps: CapabilitySet;
 }) {
   const visibleLinks = STAFF_LINKS.filter((l) => caps.has(l.cap));
   const eyebrow = jobTitle ? `${jobTitle} · Dashboard` : 'Staff · Dashboard';
