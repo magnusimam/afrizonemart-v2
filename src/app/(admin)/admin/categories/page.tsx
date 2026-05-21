@@ -1,7 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Save, Trash2, X } from 'lucide-react';
+import Image from 'next/image';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Plus,
+  Save,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { toast } from '@/components/admin/Toast';
@@ -13,6 +23,7 @@ import {
   adminUpdateCategory,
   type AdminCategory,
 } from '@/lib/api/admin';
+import { uploadImage, UploadApiError } from '@/lib/api/uploads';
 
 type Archetype = 'GROCERY' | 'WINE' | 'LIFESTYLE' | 'FASHION';
 
@@ -218,17 +229,29 @@ export default function AdminCategoriesPage() {
               <span className="font-mono text-[12px] text-charcoal">{node.slug}</span>
             )}
 
-            {/* Image */}
+            {/* Image — compact picker (edit) / thumbnail (read).
+                The full <ImageUploader> is too tall for an inline
+                row, so we have a tight 28x28 thumb + an Upload
+                button that fires the same /api/uploads endpoint. */}
             {isEditing ? (
-              <input
+              <CategoryImageCell
                 value={edit!.image}
-                onChange={(e) => setEdit({ ...edit!, image: e.target.value })}
-                placeholder="https://…"
-                className={`${cellInput} font-mono text-[11px]`}
+                onChange={(url) => setEdit({ ...edit!, image: url })}
               />
+            ) : node.image ? (
+              <span className="relative h-7 w-7 overflow-hidden rounded-md border border-border bg-page">
+                <Image
+                  src={node.image}
+                  alt=""
+                  fill
+                  sizes="28px"
+                  unoptimized
+                  className="object-cover"
+                />
+              </span>
             ) : (
-              <span className="line-clamp-1 font-mono text-[11px] text-muted">
-                {node.image ?? '—'}
+              <span className="font-raleway text-[10px] uppercase tracking-wider text-muted">
+                — no image —
               </span>
             )}
 
@@ -501,3 +524,118 @@ export default function AdminCategoriesPage() {
 
 const cellInput =
   'w-full rounded-input border border-border bg-white px-2 py-1.5 font-sans text-sm text-charcoal focus:border-navy focus:outline-none';
+
+/**
+ * Compact inline image picker for the categories row.
+ *
+ * Click the thumbnail (or the upload button when empty) → file
+ * picker → posts to /api/uploads?folder=categories → URL fills
+ * the row. Trash icon clears the value back to empty. Designed to
+ * fit inline in the row's 1fr column without the vertical real
+ * estate of the full ImageUploader component used elsewhere in
+ * admin.
+ */
+function CategoryImageCell({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const pickFile = () => inputRef.current?.click();
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0]!;
+    setError(null);
+    setUploading(true);
+    try {
+      const uploaded = await uploadImage(file, 'categories');
+      onChange(uploaded.url);
+    } catch (e) {
+      setError(
+        e instanceof UploadApiError || e instanceof Error
+          ? e.message
+          : 'Upload failed',
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      {value ? (
+        <button
+          type="button"
+          onClick={pickFile}
+          disabled={uploading}
+          className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md border border-border bg-page transition-opacity hover:opacity-80 disabled:opacity-50"
+          aria-label="Replace image"
+          title="Click to replace"
+        >
+          <Image
+            src={value}
+            alt=""
+            fill
+            sizes="36px"
+            unoptimized
+            className="object-cover"
+          />
+          {uploading && (
+            <span className="absolute inset-0 flex items-center justify-center bg-charcoal/50">
+              <Loader2 size={14} className="animate-spin text-white" aria-hidden />
+            </span>
+          )}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={pickFile}
+          disabled={uploading}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-navy/40 bg-page text-navy hover:bg-navy/5 disabled:opacity-50"
+          aria-label="Upload image"
+        >
+          {uploading ? (
+            <Loader2 size={14} className="animate-spin" aria-hidden />
+          ) : (
+            <Upload size={14} aria-hidden />
+          )}
+        </button>
+      )}
+
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          className="rounded-md p-1 text-muted hover:bg-danger/10 hover:text-danger"
+          aria-label="Remove image"
+          title="Remove"
+        >
+          <X size={13} aria-hidden />
+        </button>
+      )}
+
+      {error && (
+        <span className="font-sans text-[10px] text-danger" title={error}>
+          ⚠
+        </span>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          void handleFiles(e.target.files);
+          e.target.value = '';
+        }}
+        className="hidden"
+      />
+    </div>
+  );
+}
