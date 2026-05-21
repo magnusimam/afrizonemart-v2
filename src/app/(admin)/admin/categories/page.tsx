@@ -14,12 +14,29 @@ import {
   type AdminCategory,
 } from '@/lib/api/admin';
 
+type Archetype = 'GROCERY' | 'WINE' | 'LIFESTYLE' | 'FASHION';
+
 interface RowEdit {
   id: string;
   slug: string;
   name: string;
   image: string;
+  archetype: Archetype;
 }
+
+const ARCHETYPE_OPTIONS: { value: Archetype; label: string; hint: string }[] = [
+  { value: 'GROCERY', label: 'Grocery', hint: 'Soft amber tile, pill stepper, single Add-to-Bag' },
+  { value: 'WINE', label: 'Wine', hint: 'Solid navy hero, vertical stepper, size pills' },
+  { value: 'LIFESTYLE', label: 'Lifestyle', hint: 'Warm cream, image carousel, full-width checkout' },
+  { value: 'FASHION', label: 'Fashion', hint: 'Amber-cream gradient, thumbnail strip, two CTAs' },
+];
+
+const ARCHETYPE_CHIP: Record<Archetype, { label: string; tone: string }> = {
+  GROCERY: { label: 'Grocery', tone: 'bg-amber/15 text-navy' },
+  WINE: { label: 'Wine', tone: 'bg-navy/10 text-navy' },
+  LIFESTYLE: { label: 'Lifestyle', tone: 'bg-page text-charcoal' },
+  FASHION: { label: 'Fashion', tone: 'bg-success/10 text-success' },
+};
 
 interface NewCategoryDraft {
   parentId: string | null;
@@ -102,6 +119,7 @@ export default function AdminCategoriesPage() {
         slug: edit.slug.trim(),
         name: edit.name.trim(),
         image: edit.image.trim() || null,
+        archetype: edit.archetype,
       });
       toast('Saved');
       setEdit(null);
@@ -169,7 +187,7 @@ export default function AdminCategoriesPage() {
             <span className="w-[22px]" aria-hidden />
           )}
 
-          <div className="grid flex-1 grid-cols-[2fr_1.4fr_1.4fr_70px] items-center gap-3">
+          <div className="grid flex-1 grid-cols-[2fr_1.4fr_1.4fr_1fr_70px] items-center gap-3">
             {/* Name */}
             {isEditing ? (
               <input
@@ -211,6 +229,35 @@ export default function AdminCategoriesPage() {
             ) : (
               <span className="line-clamp-1 font-mono text-[11px] text-muted">
                 {node.image ?? '—'}
+              </span>
+            )}
+
+            {/* Archetype — dropdown when editing, chip otherwise.
+                Drives mobile PDP visual treatment (S2 pattern). */}
+            {isEditing ? (
+              <select
+                value={edit!.archetype}
+                onChange={(e) =>
+                  setEdit({ ...edit!, archetype: e.target.value as Archetype })
+                }
+                className={`${cellInput} font-raleway`}
+                title={
+                  ARCHETYPE_OPTIONS.find((o) => o.value === edit!.archetype)?.hint
+                }
+              >
+                {ARCHETYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span
+                className={`inline-flex w-fit items-center rounded px-1.5 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-wider ${
+                  ARCHETYPE_CHIP[(node.archetype ?? 'FASHION') as Archetype].tone
+                }`}
+              >
+                {ARCHETYPE_CHIP[(node.archetype ?? 'FASHION') as Archetype].label}
               </span>
             )}
 
@@ -264,6 +311,7 @@ export default function AdminCategoriesPage() {
                       slug: node.slug,
                       name: node.name,
                       image: node.image ?? '',
+                      archetype: node.archetype ?? 'FASHION',
                     })
                   }
                   className="rounded-md px-2 py-1 font-raleway text-[11px] font-bold uppercase tracking-btn text-navy hover:bg-page"
@@ -412,10 +460,11 @@ export default function AdminCategoriesPage() {
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border bg-page px-4 py-2.5">
           <span className="w-[22px]" aria-hidden />
-          <div className="grid flex-1 grid-cols-[2fr_1.4fr_1.4fr_70px] items-center gap-3 font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
+          <div className="grid flex-1 grid-cols-[2fr_1.4fr_1.4fr_1fr_70px] items-center gap-3 font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
             <span>Name</span>
             <span>Slug</span>
             <span>Image URL</span>
+            <span>Archetype</span>
             <span>Products</span>
           </div>
           <span className="w-[180px]" aria-hidden />

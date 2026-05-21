@@ -331,6 +331,9 @@ export interface AdminCategoryInput {
   name: string;
   image?: string | null;
   parentId?: string | null;
+  /// Drives the mobile PDP visual treatment. Defaults to FASHION
+  /// on create; admin can change on edit.
+  archetype?: 'GROCERY' | 'WINE' | 'LIFESTYLE' | 'FASHION';
 }
 
 export function adminListCategories(): Promise<{ items: AdminCategory[] }> {

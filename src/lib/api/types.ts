@@ -6,12 +6,18 @@
  * inference — for now we hand-write them.)
  */
 
+export type ApiCategoryArchetype = 'GROCERY' | 'WINE' | 'LIFESTYLE' | 'FASHION';
+
 export interface ApiCategory {
   id: string;
   slug: string;
   name: string;
   image: string | null;
   parentId: string | null;
+  /// Mobile PDP visual treatment. Set per category in admin; the
+  /// mobile app reads this to route between Grocery / Wine /
+  /// Lifestyle / Fashion archetype layouts.
+  archetype: ApiCategoryArchetype;
   createdAt: string;
   updatedAt: string;
 }

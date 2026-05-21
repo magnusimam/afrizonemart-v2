@@ -1,11 +1,16 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
+export type ApiCategoryArchetype = 'GROCERY' | 'WINE' | 'LIFESTYLE' | 'FASHION';
+
 export interface ApiCategory {
   id: string;
   slug: string;
   name: string;
   image: string | null;
   parentId: string | null;
+  /// Mobile PDP visual treatment per category. Set in admin; the
+  /// mobile app routes its PDP layout off this. Web ignores for now.
+  archetype: ApiCategoryArchetype;
   productCount: number;
   children: ApiCategory[];
 }
