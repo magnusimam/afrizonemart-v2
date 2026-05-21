@@ -136,17 +136,26 @@ Phases roughly mirror the web platform's. Times below are calendar weeks assumin
 
 ---
 
-### Phase 4 — Account + Auth (UI, mocked data) `[ ]`
-**Goal:** Sign in, sign up, view profile, view orders.
+### Phase 4 — Account + Auth `[~]`
+**Goal:** Sign in, sign up, view profile, view orders. Real API from day one (we skipped the "mock then wire" step — auth is one of the few flows you can't usefully mock).
 
-- [ ] Login screen (email + password, Google sign-in placeholder).
-- [ ] Register screen (with phone + country picker, marketing opt-in).
-- [ ] Forgot password.
-- [ ] Account dashboard — name, role, stats tiles (orders, wishlist, addresses, coins).
-- [ ] Order history list + order detail.
-- [ ] Profile edit, addresses, wishlist, Continental Rewards screen.
+**PR 4.1 — Auth foundation + Login/Register screens** `[x]` (2026-05-21)
+- [x] `expo-secure-store` installed (kept in deps for biometric refresh-token work in Phase 6).
+- [x] Real `useAuthStore` — Zustand + AsyncStorage persist for `{ user, token }`. Refresh token lives in the API's `azm_refresh` httpOnly cookie (RN's fetch persists it via `credentials: 'include'`).
+- [x] `src/lib/api-base.ts` — shared API_BASE + ApiError, broken out so `api.ts` and `authStore.ts` can both import it without a circular dep.
+- [x] `apiAuthedGet` / `apiAuthedPost` / `apiAuthedPatch` — refresh-on-401-and-retry handled in the client (runtime import of authStore inside the 401 branch).
+- [x] LoginScreen + RegisterScreen — full validation, friendly error states per API error code (RATE_LIMITED, INVALID_CREDENTIALS, ACCOUNT_LOCKED, EMAIL_IN_USE, WEAK_PASSWORD).
+- [x] AccountScreen rewritten — signed-out view (Sign in / Create account CTAs + benefit list) and signed-in view (identity card + menu rows + sign-out).
+- [x] CheckoutPayment AuthRequiredOverlay now routes to Login with `redirectAfterLogin: 'checkout'` instead of the Phase-3 "coming soon" stub.
 
-**Definition of done:** All 8 customer-facing account flows render correctly with mock data.
+**Still queued for Phase 4:**
+- [ ] PR 4.2 — Forgot/Reset password flow.
+- [ ] PR 4.3 — Account dashboard counters + Order history + Order detail + Profile edit.
+- [ ] PR 4.4 — Wishlist + heart toggles on PDP + cards.
+- [ ] PR 4.5 — Continental Rewards screen.
+- [ ] PR 4.6 (deferred) — Google sign-in + Phone OTP.
+
+**Definition of done:** All 8 customer-facing account flows render correctly against the live API.
 
 ---
 
