@@ -101,18 +101,21 @@ Phases roughly mirror the web platform's. Times below are calendar weeks assumin
 
 ---
 
-### Phase 2 — Browse + Search + PDP (UI, mocked data) `[ ]`
+### Phase 2 — Browse + Search + PDP (UI, mocked data) `[~]` (in progress 2026-05-21)
 **Goal:** Customer can flick through the catalog feel on real devices, even though it's all hard-coded.
 
 - [ ] Search screen — search bar, suggestions, results grid (same `ProductCard` primitive as Home).
 - [ ] Country directory (`/shop/countries` equivalent) — flag tiles.
 - [ ] Shop / category landing — 2-col grid using the appropriate archetype's `ProductCard` variant.
 - [ ] **PDP — Fashion archetype** (covers For Her, For Him, Beauty, Books, Electronics, Phone Accessories) — amber-to-cream gradient hero, thumbnail strip right, variant pills, two-CTA bottom (Add to Cart + Buy Now). Closest to our web's existing PDP.
-- [ ] **PDP — Grocery archetype** (covers Groceries, Food & Beverages) — soft amber-tint hero panel, inline pill stepper, single-pill add-to-bag bottom.
+- [x] **PDP — Grocery archetype** (PR magnusimam/afrizonemart-mobile#2, commit e4062de) — soft amber-tint hero panel (`#FEEEDA`), floating wishlist heart bridging hero + content card (Image 1 detail), inline `QuantityStepperPill`, `BundlePicker` variant row (1 Pack / 3 Pack / Carton with savings tags on discounted bundles), sticky `GroceryPdpFooter` with running subtotal + full-width "Add to Bag" navy CTA.
 - [ ] **PDP — Wine archetype** (covers Beer, Wines & Spirit) — solid navy hero, vertical stepper beside hero, size pills.
 - [ ] **PDP — Lifestyle archetype** (covers Interior Decor, Art & Collectibles, Home Essentials, Automobile) — warm cream hero, image carousel dots, rating + review count, full-width amber Checkout.
 - [ ] **Archetype-aware `ProductCard`** that consumes `categoryArchetype(category.slug)` and picks the right tile colour / layout.
-- [ ] Mock data layer expanded to cover one product per category for visual QA.
+- [~] Mock data layer expanded to cover one product per category for visual QA — 5 Grocery products with full PDP shape (bundles/rating/description/galleryUrls); Fashion/Wine/Lifestyle mocks added when those archetypes ship.
+- [x] **Archetype router** — `src/lib/categoryArchetype.ts` maps category slug → archetype key. Single source of truth (e4062de).
+- [x] **Stack navigation** — native-stack on top of bottom tabs so PDP pushes over and hides the tab bar (e4062de).
+- [x] **Home → PDP wiring** — product card press uses `navigation.navigate('Product', { slug })` with typed route params (e4062de).
 
 **Definition of done:** Browsing through 4 product types from home → PDP feels distinct per archetype but unmistakably the same app.
 
