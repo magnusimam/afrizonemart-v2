@@ -40,47 +40,82 @@
 
 Phases roughly mirror the web platform's. Times below are calendar weeks assuming a small dedicated team — adjust if shared resources.
 
-### Phase 0 — Project setup `[ ]`
+### Phase 0 — Project setup `[~]`
 **Goal:** A buildable Expo app on a developer's phone that displays "Hello world" branded with our navy + amber.
 
-- [ ] Create `afrizonemart-mobile` GitHub repo (TypeScript Expo template)
-- [ ] Configure ESLint + Prettier matching web repo's style
-- [ ] Set up EAS Build (Expo's managed build service) for iOS + Android dev builds
-- [ ] Add brand tokens (`theme/colors.ts`, `theme/spacing.ts`, `theme/typography.ts`) — pixel-matched to web
-- [ ] Bundle Raleway font via `expo-font` (same family the web uses)
-- [ ] Establish app icon + splash screen (matches web favicon + logo)
-- [ ] `.env.example` with `EXPO_PUBLIC_API_URL` pointing at api.afrizonemart.com
-- [ ] First Expo Go dev build runs on real iOS + Android device
+- [x] Create `afrizonemart-mobile` GitHub repo (TypeScript Expo template) — `github.com/magnusimam/afrizonemart-mobile`, private, default branch `main`. Bootstrapped via `npx create-expo-app blank-typescript` (Expo SDK 54). Commit `5c57c91`.
+- [ ] Configure ESLint + Prettier matching web repo's style — deferred until after Phase 1; not blocking.
+- [ ] Set up EAS Build (Expo's managed build service) for iOS + Android dev builds — needs interactive `eas init` from Magnus.
+- [x] Add brand tokens (`theme/colors.ts`, `theme/spacing.ts`, `theme/typography.ts`) — pixel-matched to web. Commit `67a7e72`.
+- [ ] Bundle Raleway font via `expo-font` — needs the font asset files; will use `@expo-google-fonts/raleway` in Phase 1.
+- [ ] Establish app icon + splash screen (matches web favicon + logo) — needs Magnus to provide / approve artwork. Splash background already set to brand navy.
+- [x] `.env.example` with `EXPO_PUBLIC_API_URL` pointing at api.afrizonemart.com — commit `67a7e72`.
+- [ ] First Expo Go dev build runs on real iOS + Android device — Magnus to verify; the Phase-0 placeholder App.tsx renders brand navy + 3 swatches.
 
 **Definition of done:** The empty app starts up showing the Afrizonemart logo splash and a single navy screen with amber accent — on both an iOS and an Android phone.
 
 ---
 
-### Phase 1 — Design system + navigation skeleton `[ ]`
-**Goal:** A flat set of placeholder screens you can navigate between, all using the same primitives.
+### Phase 1 — Design system + navigation skeleton + Home `[~]` (in progress 2026-05-21)
+**Goal:** A working Home screen on a real device with the design system primitives that everything else will reuse.
 
-- [ ] **Design system primitives** in `src/components/ui/` — `Button`, `Input`, `Card`, `Heading`, `Text`, `Pill`, `Badge`. Same names + variants as the web's components, adapted for RN's `<Pressable>` + `StyleSheet`.
-- [ ] **Navigation library** — React Navigation v7 (de facto standard for Expo). Bottom tab navigator for the four main destinations: Home, Search, Cart, Account.
-- [ ] **Tab bar** styled to brand (navy background, amber active state, Raleway labels). Cart tab shows a badge with the item count.
-- [ ] **Stack navigators** within each tab so PDP, order detail, etc. push on top.
-- [ ] **Placeholder screens** for every Phase 2–4 destination — empty, brand-styled, just labeled.
-- [ ] **Safe-area handling** site-wide (same pattern as web's `viewportFit='cover'` + `env(safe-area-inset-*)`).
+#### Locked design decisions from the UI samples review (2026-05-21)
+- **4 archetypes** mapped to categories:
+  - 🥤 **Grocery / Drinks** — soft amber-tint hero panel, pill stepper, inline price + quantity row
+  - 🍷 **Wine / Spirits** — solid navy hero panel, vertical [+]/num/[-] stepper, size pills
+  - 🛋 **Lifestyle / Furniture** — warm cream hero panel, 2-col pastel-tile grid, image carousel dots
+  - 👕 **Fashion / Premium** — amber-to-cream gradient hero, thumbnail strip right, variant pills, two-CTA bottom (Add to Cart + Buy Now)
+- **Bottom tab bar:** 4 tabs — Home · Search · Cart (with badge) · Account. Active tab gets a small text label.
+- **Cart screen:** unified breakdown style across all archetypes (per archetype only flavors the add-to-cart toast).
+- **No "by [Seller]"** attribution on cards. Brand info lives on the PDP.
+- **Cutout product images** via the existing `/api/share-image/cutout/<slug>` pipeline — shared R2 cache between web and mobile (web's existing cutouts work for mobile day-1; mobile-triggered cutouts work for web's share-as-image).
 
-**Definition of done:** Navigating between every tab + every nested screen works smoothly. Nothing has real data yet, but the shell feels real.
+#### Sub-steps
+- [ ] **Install nav + safe-area + icons deps** via `npx expo install`: `@react-navigation/native`, `@react-navigation/bottom-tabs`, `react-native-screens`, `react-native-safe-area-context`, `react-native-svg`, `@expo/vector-icons` (already in Expo SDK 54), `@expo-google-fonts/raleway`, `expo-font`.
+- [ ] **Bundle Raleway via @expo-google-fonts/raleway** + load in `App.tsx` before the splash hides. Wires Phase 0's typography tokens to real glyphs.
+- [ ] **Design system primitives** in `src/components/ui/`:
+  - `Card.tsx` — the "card-within-page" container (rounded, shadowed, optional padding prop)
+  - `Heading.tsx` — h1/h2/h3 with Raleway weights
+  - `Text.tsx` — sans body text wrapper (sets default colour + line-height; replaces raw `<Text>`)
+  - `Pill.tsx` — chip variants: filled-navy / filled-amber / outline-navy / outline-muted
+  - `Badge.tsx` — counter badge (e.g. cart count) in amber circle
+  - `IconButton.tsx` — 44×44 tap target wrapping `@expo/vector-icons`
+- [ ] **Navigation skeleton** in `src/navigation/`:
+  - `AppNavigator.tsx` — root NavigationContainer
+  - `BottomTabs.tsx` — 4-tab bottom navigator (Home / Search / Cart / Account)
+  - Custom `TabBar` component matching the minimalist Image 6 style (active tab gets label, inactive tab icon-only). Cart tab consumes a Zustand badge count.
+- [ ] **Placeholder screens** for Search, Cart, Account — branded, labelled, no real content yet (they get built out in their respective phases).
+- [ ] **Home screen** at `src/screens/home/HomeScreen.tsx` with the following sections (from Image 3 + Image 6 references mapped to our brand):
+  - **Header bar** — avatar (left), Afrizonemart logo (centre), cart-icon-with-badge (right)
+  - **Greeting** — "Habari, [name]" with eyebrow + tagline
+  - **Search row** — search input + navy filter pill button
+  - **Category chip row** — horizontal scroll of circular category chips, one per top-level category, pulling from the mocked categories list
+  - **"Most Popular" featured shelf** — horizontal scroll of large product cards (cutout product on amber tile + price + small cart-icon button)
+  - **"Shop by Country" marquee** — horizontal scroll of country flag tiles (subset of `FEATURED_COUNTRY_CODES`)
+- [ ] **Mock data** in `src/mocks/`:
+  - `products.ts` — 6–10 sample products with cutout URLs pulled from the live cutouts cache so the design renders with real images
+  - `categories.ts` — top-level categories matching the web's `CATEGORIES` const
+  - `countries.ts` — subset of featured countries (just the flag URLs + names)
+- [ ] **Safe-area handling** via `SafeAreaProvider` + `useSafeAreaInsets` so the bottom tab bar clears iOS home indicator and the header clears notch.
+
+**Definition of done:** Magnus opens Expo Go on his phone, scans the QR, sees a real-feeling Home screen with branded header, category chips, a horizontally-scrolling product shelf with cutout images, and a working bottom tab bar — even though tapping a product card or another tab routes to a placeholder.
 
 ---
 
 ### Phase 2 — Browse + Search + PDP (UI, mocked data) `[ ]`
 **Goal:** Customer can flick through the catalog feel on real devices, even though it's all hard-coded.
 
-- [ ] Home screen — country marquee, featured shelves, category strips. Same visual rhythm as the web home page.
-- [ ] Search screen — search bar, suggestions, results grid.
+- [ ] Search screen — search bar, suggestions, results grid (same `ProductCard` primitive as Home).
 - [ ] Country directory (`/shop/countries` equivalent) — flag tiles.
-- [ ] Product card — image, name, price, country chip, "Add to Cart" — matches the web's `ProductCardPlaceholder`.
-- [ ] PDP — image gallery (swipe), title, price, bundle selector, variant chips, description, specifications, share button, wishlist heart.
-- [ ] **Mock data layer** (`src/mocks/products.ts`) — 10–15 sample products mirroring real fields so Phase 4 wiring doesn't reshape components.
+- [ ] Shop / category landing — 2-col grid using the appropriate archetype's `ProductCard` variant.
+- [ ] **PDP — Fashion archetype** (covers For Her, For Him, Beauty, Books, Electronics, Phone Accessories) — amber-to-cream gradient hero, thumbnail strip right, variant pills, two-CTA bottom (Add to Cart + Buy Now). Closest to our web's existing PDP.
+- [ ] **PDP — Grocery archetype** (covers Groceries, Food & Beverages) — soft amber-tint hero panel, inline pill stepper, single-pill add-to-bag bottom.
+- [ ] **PDP — Wine archetype** (covers Beer, Wines & Spirit) — solid navy hero, vertical stepper beside hero, size pills.
+- [ ] **PDP — Lifestyle archetype** (covers Interior Decor, Art & Collectibles, Home Essentials, Automobile) — warm cream hero, image carousel dots, rating + review count, full-width amber Checkout.
+- [ ] **Archetype-aware `ProductCard`** that consumes `categoryArchetype(category.slug)` and picks the right tile colour / layout.
+- [ ] Mock data layer expanded to cover one product per category for visual QA.
 
-**Definition of done:** Browsing through 15 mock products from home → category → PDP feels like a real shopping app at 60fps on a mid-range Android.
+**Definition of done:** Browsing through 4 product types from home → PDP feels distinct per archetype but unmistakably the same app.
 
 ---
 
