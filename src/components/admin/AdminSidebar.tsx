@@ -77,6 +77,7 @@ const NAV: NavItem[] = [
   { href: '/admin/shelves', label: 'Shelves', icon: LayoutPanelTop, cap: 'products.write' },
   { href: '/admin/pages', label: 'Pages', icon: FileText, cap: 'cms-pages.write' },
   { href: '/admin/content', label: 'Site content', icon: Pencil, cap: 'content.write' },
+  { href: '/admin/category-heroes', label: 'Category Heroes', icon: ImagePlus, cap: 'content.write' },
   { href: '/admin/blog', label: 'Blog', icon: Newspaper, cap: 'blog.write' },
   { href: '/admin/audit', label: 'Audit Log', icon: FileClock, cap: 'audit.read' },
   { href: '/admin/settings', label: 'Settings', icon: Settings, cap: 'settings.write' },
