@@ -15,6 +15,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 export interface ImageWithAlt {
   url: string;
   alt: string;
+  /// Optional deep-link target. Same path conventions as web
+  /// routes (`/product/<slug>`, `/shop/<cat>`, `/shop/country/<slug>`,
+  /// `/supplier`, or `https://...` for external). Mobile parses
+  /// internally; storefront can route via Next.js Link when set.
+  link?: string;
 }
 
 export interface SiteContent {
@@ -63,7 +68,8 @@ function makeReader(overrides: Record<string, unknown>): SiteContent {
               typeof it === 'object' &&
               it !== null &&
               typeof it.url === 'string' &&
-              typeof it.alt === 'string',
+              typeof it.alt === 'string' &&
+              (it.link === undefined || typeof it.link === 'string'),
           )
         );
       }),
