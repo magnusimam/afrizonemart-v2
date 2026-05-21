@@ -2,9 +2,9 @@
 
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Save, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Save } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
-import { ImageUploader } from '@/components/admin/ImageUploader';
+import { SlideListEditor } from '@/components/admin/SlideListEditor';
 import { toast } from '@/components/admin/Toast';
 import { HttpApiError } from '@/lib/api/client';
 import {
@@ -223,12 +223,9 @@ export default function AdminCategoryHeroesPage() {
                       <SlideListEditor
                         slides={slides}
                         onChange={(next) => setSlidesForSlug(cat.slug, next)}
+                        hint="Tip: 16:9 art reads best (mobile renders the slider full-bleed at 16:9). Add a link per slide if tapping should route somewhere — products, categories, countries, or external URLs all work."
                       />
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-sans text-[11px] text-muted">
-                          Tip: 16:9 art reads best (mobile renders the slider
-                          full-bleed at 16:9 aspect).
-                        </p>
+                      <div className="flex items-center justify-end">
                         <button
                           type="button"
                           onClick={() => handleSave(cat.slug)}
@@ -251,58 +248,3 @@ export default function AdminCategoryHeroesPage() {
   );
 }
 
-/// Inline slide list editor — mirrors the `imageList` case from
-/// /admin/content/page.tsx. Kept local so per-category UI stays
-/// self-contained. Folder is `hero-slides` (same as global).
-function SlideListEditor({
-  slides,
-  onChange,
-}: {
-  slides: ImageWithAlt[];
-  onChange: (next: ImageWithAlt[]) => void;
-}) {
-  const update = (i: number, patch: Partial<ImageWithAlt>) =>
-    onChange(slides.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
-  const remove = (i: number) => onChange(slides.filter((_, idx) => idx !== i));
-  const add = () => onChange([...slides, { url: '', alt: '' }]);
-
-  return (
-    <div className="flex flex-col gap-3">
-      {slides.map((it, i) => (
-        <div
-          key={i}
-          className="flex flex-col gap-2 rounded-card border border-border bg-white p-3 md:flex-row md:items-start"
-        >
-          <div className="md:w-44">
-            <ImageUploader
-              value={it.url}
-              onChange={(next) => update(i, { url: next ?? '' })}
-              folder="hero-slides"
-            />
-          </div>
-          <input
-            value={it.alt}
-            onChange={(e) => update(i, { alt: e.target.value })}
-            className="flex-1 rounded-input border border-border bg-white px-3 py-2 font-sans text-sm text-charcoal focus:border-navy focus:outline-none"
-            placeholder="Alt text — describes the image to screen readers"
-          />
-          <button
-            type="button"
-            onClick={() => remove(i)}
-            aria-label={`Remove image ${i + 1}`}
-            className="self-start rounded-md p-2 text-muted hover:bg-danger/10 hover:text-danger"
-          >
-            <Trash2 size={14} aria-hidden />
-          </button>
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={add}
-        className="flex items-center justify-center gap-2 rounded-btn border border-dashed border-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-navy hover:text-white"
-      >
-        <Plus size={14} aria-hidden /> Add image
-      </button>
-    </div>
-  );
-}

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
+import { RotateCcw, Save } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { ImageUploader } from '@/components/admin/ImageUploader';
+import { SlideListEditor } from '@/components/admin/SlideListEditor';
 import { toast } from '@/components/admin/Toast';
 import { HttpApiError } from '@/lib/api/client';
 import {
@@ -311,50 +312,12 @@ function SlotInput({
     }
     case 'imageList': {
       const list = (Array.isArray(value) ? value : []) as ImageWithAlt[];
-      const update = (i: number, patch: Partial<ImageWithAlt>) => {
-        const next = list.map((it, idx) => (idx === i ? { ...it, ...patch } : it));
-        onChange(next);
-      };
-      const remove = (i: number) => onChange(list.filter((_, idx) => idx !== i));
-      const add = () => onChange([...list, { url: '', alt: '' }]);
       return (
-        <div className="flex flex-col gap-3">
-          {list.map((it, i) => (
-            <div
-              key={i}
-              className="flex flex-col gap-2 rounded-card border border-border bg-page/40 p-3 md:flex-row md:items-start"
-            >
-              <div className="md:w-44">
-                <ImageUploader
-                  value={it.url}
-                  onChange={(next) => update(i, { url: next ?? '' })}
-                  folder="hero-slides"
-                />
-              </div>
-              <input
-                value={it.alt}
-                onChange={(e) => update(i, { alt: e.target.value })}
-                className={`${inputClass} flex-1`}
-                placeholder="Alt text — describes the image to screen readers"
-              />
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                aria-label={`Remove image ${i + 1}`}
-                className="rounded-md p-2 text-muted hover:bg-danger/10 hover:text-danger"
-              >
-                <Trash2 size={14} aria-hidden />
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={add}
-            className="flex items-center justify-center gap-2 rounded-btn border border-dashed border-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-navy hover:text-white"
-          >
-            <Plus size={14} aria-hidden /> Add image
-          </button>
-        </div>
+        <SlideListEditor
+          slides={list}
+          onChange={onChange}
+          hint="Per-slide link is optional. Used by mobile (product/category/country deep-links) and lets storefront hero slides become clickable in a future pass."
+        />
       );
     }
     default:
