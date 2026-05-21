@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Save } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
-import { SlideListEditor } from '@/components/admin/SlideListEditor';
+import { SlideListEditor, validateSlides } from '@/components/admin/SlideListEditor';
 import { toast } from '@/components/admin/Toast';
 import { HttpApiError } from '@/lib/api/client';
 import {
@@ -90,6 +90,11 @@ export default function AdminCategoryHeroesPage() {
 
   const handleSave = async (slug: string) => {
     if (!edits[slug]) return;
+    const invalid = validateSlides(edits[slug]!);
+    if (invalid) {
+      toast(invalid, 'error');
+      return;
+    }
     setSavingSlug(slug);
     try {
       await adminUpdateContent([

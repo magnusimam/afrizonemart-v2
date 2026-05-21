@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { RotateCcw, Save } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { ImageUploader } from '@/components/admin/ImageUploader';
-import { SlideListEditor } from '@/components/admin/SlideListEditor';
+import { SlideListEditor, validateSlides } from '@/components/admin/SlideListEditor';
 import { toast } from '@/components/admin/Toast';
 import { HttpApiError } from '@/lib/api/client';
 import {
@@ -91,6 +91,19 @@ export default function AdminContentPage() {
     if (dirtyKeys.length === 0) {
       toast('Nothing to save', 'info');
       return;
+    }
+    /// Pre-flight: every dirty imageList must have non-empty alt text
+    /// on every slide. Catching this client-side surfaces "Slide 3 is
+    /// missing alt text" instead of the API's generic 400.
+    for (const key of dirtyKeys) {
+      const val = draft[key];
+      if (Array.isArray(val)) {
+        const invalid = validateSlides(val as ImageWithAlt[]);
+        if (invalid) {
+          toast(`${key}: ${invalid}`, 'error');
+          return;
+        }
+      }
     }
     setBusy(true);
     try {
