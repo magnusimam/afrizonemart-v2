@@ -148,12 +148,40 @@ Phases roughly mirror the web platform's. Times below are calendar weeks assumin
 - [x] AccountScreen rewritten — signed-out view (Sign in / Create account CTAs + benefit list) and signed-in view (identity card + menu rows + sign-out).
 - [x] CheckoutPayment AuthRequiredOverlay now routes to Login with `redirectAfterLogin: 'checkout'` instead of the Phase-3 "coming soon" stub.
 
+**PR 4.3 — Account dashboard + Orders + Profile edit** `[x]` (2026-05-21)
+- [x] `src/lib/api.ts` — `fetchMyOrders` / `fetchMyOrder` / `fetchMyLoyalty` / `fetchWishlistCount` helpers.
+- [x] `src/lib/api-types.ts` — `ApiUserOrder` / `ApiUserOrderItem` / `ApiOrderStatus` / `ApiLoyaltyResponse`.
+- [x] OrderHistoryScreen — list with status pills, 3-thumb preview, pull-to-refresh, empty + error states.
+- [x] OrderDetailScreen — Placed→Paid→Shipped→Delivered timeline strip, items list, money breakdown (subtotal/coupon/coin/delivery/refund/total), ship-to + payment cards.
+- [x] ProfileEditScreen — name + phone (E.164 mirror) + birthday + marketing/sms opt-ins; sticky Save CTA; password row stubs to ComingSoon (PR 4.2).
+- [x] AccountScreen — 3 dashboard counter tiles (Orders / Wishlist / Coins). Menu rows wired: My orders → OrderHistory, Edit profile → ProfileEdit. Wishlist + Addresses + Rewards menu rows still ComingSoon (PR 4.4 / 4.5).
+
+**PR 4.4 — Wishlist + heart toggles** `[x]` (2026-05-21, stacked on 4.3)
+- [x] `src/lib/api.ts` — fetchWishlist + addToWishlist + removeFromWishlist + new apiAuthedDelete helper.
+- [x] `src/lib/api-types.ts` — ApiWishlistEntry + ApiWishlistProduct + ApiWishlistListResponse.
+- [x] `src/stores/wishlistStore.ts` — Zustand cache (ids Set + entries[]). Optimistic toggle with roll-back; pendingIds gate.
+- [x] App.tsx hydrates on sign-in, clears on sign-out.
+- [x] HeartToggle component — pop-on-tap animation, sign-in Alert for guests, card + hero sizes.
+- [x] Wired into SearchResultCard, ProductShelfRow, ProductDetailScreen (all 4 archetypes via existing wished/onWishlistToggle props).
+- [x] WishlistScreen — 2-col grid, pull-to-refresh, signed-out / empty / error states.
+- [x] AccountScreen wishlist tile + menu row now route to /Wishlist. Tile counter reads live store size so PDP toggles reflect immediately.
+
+**PR 4.2 — Forgot / Reset password** `[x]` (2026-05-22)
+- [x] `src/lib/api.ts` — `requestPasswordReset(email)` + `resetPassword(token, password)` public POST helpers (no auth).
+- [x] ForgotPasswordScreen — email field, anti-enumeration confirmation copy ("If an account exists for X, we've sent a reset link"). Rate-limit friendly error.
+- [x] ResetPasswordScreen — token from route param (deep link), password rule mirror (8/digit/upper/symbol), confirm-password match check, success → replace to Login.
+- [x] React Navigation `linking` config — `afrizonemart://reset-password?token=...` + `https://afrizonemart.com/reset-password?token=...` both resolve to ResetPassword.
+- [x] iOS `associatedDomains` + Android `intentFilters` (autoVerify) set in app.json. Universal links activate once AASA + assetlinks.json are hosted on afrizonemart.com.
+- [x] LoginScreen "Forgot password?" link → ForgotPassword (was a ComingSoon stub).
+
+**PR 4.5 — Continental Rewards full screen** `[x]` (2026-05-24)
+- [x] `src/lib/api-types.ts` — corrected `ApiLoyaltyResponse` (transactions use `type`/`delta`, not `kind`/`coins`) + full `ApiLoyaltyConfig` + `ApiLoyaltyTier` / `ApiLoyaltyTxnType` unions + `ApiLoyaltyTransaction`.
+- [x] `src/lib/loyalty.ts` — tier labels/colours/thresholds, per-tier earn rate + birthday bonus, txn label/icon mapping, compact NGN formatter.
+- [x] ContinentalRewardsScreen — balance hero (tier-coloured), expiring-coins banner, progress-to-next-tier bar, tier ladder, perks ladder, coin-activity ledger, how-it-works; plus not-enrolled teaser + signed-out + error states. Display-only (redeem is checkout-only, enrollment is auto on first paid order).
+- [x] Wired: Account Coins tile + Continental Rewards menu row + Home drawer `continentalRewards` action → ContinentalRewards screen.
+
 **Still queued for Phase 4:**
-- [ ] PR 4.2 — Forgot/Reset password flow.
-- [ ] PR 4.3 — Account dashboard counters + Order history + Order detail + Profile edit.
-- [ ] PR 4.4 — Wishlist + heart toggles on PDP + cards.
-- [ ] PR 4.5 — Continental Rewards screen.
-- [ ] PR 4.6 (deferred) — Google sign-in + Phone OTP.
+- [ ] PR 4.6 (deferred) — Saved addresses book + Google sign-in + Phone OTP.
 
 **Definition of done:** All 8 customer-facing account flows render correctly against the live API.
 
