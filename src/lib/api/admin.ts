@@ -1915,6 +1915,105 @@ export function internSubmitImages(
   });
 }
 
+// ----- Full-product intern submissions (2026-05-24) -----
+
+export type ProductSubmissionStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+
+export interface ProductSubmission {
+  id: string;
+  internId: string;
+  status: ProductSubmissionStatus;
+  name: string;
+  slug: string;
+  brand: string | null;
+  shortDescription: string | null;
+  description: string | null;
+  ingredients: string | null;
+  price: number;
+  comparePrice: number | null;
+  origin: string | null;
+  weightKg: number | null;
+  images: string[];
+  attributes: Record<string, unknown>;
+  categorySlug: string | null;
+  rejectionReason: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  createdProductId: string | null;
+  payRate: number;
+  payoutId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/// Reviewer list rows carry the intern relation.
+export interface ProductSubmissionForReview extends ProductSubmission {
+  intern: { id: string; name: string | null; email: string };
+}
+
+/// Input for create/edit. name + price required; rest optional.
+export interface ProductSubmissionInput {
+  name: string;
+  slug?: string;
+  brand?: string | null;
+  shortDescription?: string | null;
+  description?: string | null;
+  ingredients?: string | null;
+  price: number;
+  comparePrice?: number | null;
+  origin?: string | null;
+  weightKg?: number | null;
+  images?: string[];
+  attributes?: Record<string, unknown>;
+  categorySlug?: string | null;
+}
+
+// Intern side (capability products.submit)
+export function internListMyProductSubmissions(): Promise<{ items: ProductSubmission[] }> {
+  return apiFetchAuthed('/api/intern/product-submissions');
+}
+
+export function internCreateProductSubmission(
+  body: ProductSubmissionInput,
+): Promise<ProductSubmission> {
+  return apiFetchAuthed('/api/intern/product-submissions', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function internUpdateProductSubmission(
+  id: string,
+  body: Partial<ProductSubmissionInput>,
+): Promise<ProductSubmission> {
+  return apiFetchAuthed(`/api/intern/product-submissions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+// Reviewer side (capability intern.review)
+export function adminListProductSubmissions(params: {
+  status?: ProductSubmissionStatus;
+  internId?: string;
+} = {}): Promise<{ items: ProductSubmissionForReview[] }> {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set('status', params.status);
+  if (params.internId) qs.set('internId', params.internId);
+  const s = qs.toString();
+  return apiFetchAuthed(`/api/admin/product-submissions${s ? `?${s}` : ''}`);
+}
+
+export function adminReviewProductSubmission(
+  id: string,
+  body: { action: 'approve' } | { action: 'reject'; reason: string },
+): Promise<ProductSubmission> {
+  return apiFetchAuthed(`/api/admin/product-submissions/${id}/review`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export function adminGetInternPayRate(): Promise<{ rate: number }> {
   return apiFetchAuthed('/api/admin/intern/pay-rate');
 }
