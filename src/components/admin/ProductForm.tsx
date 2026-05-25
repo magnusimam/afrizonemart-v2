@@ -25,6 +25,16 @@ interface Props {
   submitLabel?: string;
   onSubmit: (input: AdminProductInput) => void | Promise<void>;
   onCancel?: () => void;
+  /// Hide the manual placements section — it's a reviewer/admin
+  /// concern (a product isn't pinned to shelves until it's live), so
+  /// the intern submission flow hides it.
+  hidePlacements?: boolean;
+  /// Hide the in-stock toggle — stock is set by the reviewer at
+  /// approval, not by the submitting intern.
+  hideInventory?: boolean;
+  /// Make the slug field optional — the submission flow auto-derives a
+  /// slug from the name at approval, so interns needn't supply one.
+  slugOptional?: boolean;
 }
 
 const EMPTY_ATTRIBUTES: ProductAttributes = {
@@ -43,6 +53,9 @@ export function ProductForm({
   submitLabel = 'Save product',
   onSubmit,
   onCancel,
+  hidePlacements = false,
+  hideInventory = false,
+  slugOptional = false,
 }: Props) {
   const [slug, setSlug] = useState(initial.slug ?? '');
   const [name, setName] = useState(initial.name ?? '');
@@ -144,9 +157,17 @@ export function ProductForm({
               className={inputClass}
             />
           </Field>
-          <Field label="Slug" required hint="lowercase-with-hyphens; used in URLs">
+          <Field
+            label="Slug"
+            required={!slugOptional}
+            hint={
+              slugOptional
+                ? 'Optional — auto-generated from the name if left blank.'
+                : 'lowercase-with-hyphens; used in URLs'
+            }
+          >
             <input
-              required
+              required={!slugOptional}
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
@@ -238,6 +259,7 @@ export function ProductForm({
           </Section>
         )}
 
+        {!hidePlacements && (
         <Section
           title="Where this product appears"
           subtitle="Auto-derived chips (read-only) reflect what the product's data already does. Manual placements pin the product to specific pages, shelves, hero rotations or custom CMS pages."
@@ -289,6 +311,7 @@ export function ProductForm({
             })()}
           />
         </Section>
+        )}
       </div>
 
       <div className="flex flex-col gap-5 lg:col-span-4">
@@ -316,6 +339,7 @@ export function ProductForm({
           </Field>
         </Section>
 
+        {!hideInventory && (
         <Section title="Inventory">
           <label className="flex cursor-pointer items-center gap-3 rounded-input border border-border bg-page px-3 py-2.5 font-sans text-sm text-charcoal">
             <input
@@ -327,6 +351,7 @@ export function ProductForm({
             In stock
           </label>
         </Section>
+        )}
 
         <Section title="Organisation">
           {(() => {
