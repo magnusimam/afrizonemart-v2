@@ -98,6 +98,13 @@ export default async function ProductPage({ params }: PageProps) {
           url: productUrl,
           priceCurrency: 'NGN',
           price: product.price,
+          // Recommended by Google's Merchant-listing structured-data
+          // spec — without it Search Console flags "Missing field
+          // priceValidUntil". Rolling 1-year horizon; the sitemap +
+          // page revalidate well before it lapses.
+          priceValidUntil: new Date(Date.now() + 365 * 86_400_000)
+            .toISOString()
+            .slice(0, 10),
           availability: product.inStock
             ? 'https://schema.org/InStock'
             : 'https://schema.org/OutOfStock',
