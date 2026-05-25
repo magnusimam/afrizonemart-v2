@@ -29,9 +29,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/deals', priority: 0.9, freq: 'daily' },
     { path: '/special-discount', priority: 0.8, freq: 'daily' },
     { path: '/continental-rewards', priority: 0.7, freq: 'weekly' },
-    { path: '/search', priority: 0.5, freq: 'weekly' },
-    { path: '/login', priority: 0.4, freq: 'monthly' },
-    { path: '/register', priority: 0.4, freq: 'monthly' },
+    // NOTE: /login + /register are intentionally NOT listed — robots.ts
+    // disallows them, so submitting them would trip Search Console's
+    // "Submitted URL blocked by robots.txt" warning. /search is also
+    // left out: it's an internal results page (thin/duplicate content
+    // Google discourages indexing) — it stays crawlable but unsubmitted.
   ];
   for (const p of staticPages) {
     out.push({
