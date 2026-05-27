@@ -5,12 +5,13 @@ import { AboutProductSection } from '@/components/product/AboutProductSection';
 import { DynamicFieldList } from '@/components/product/DynamicFieldDisplay';
 import { ProductGallery } from '@/components/product/ProductGallery';
 import { ProductInfo } from '@/components/product/ProductInfo';
+import { ProductReviews } from '@/components/product/ProductReviews';
 import { RelatedProducts } from '@/components/product/RelatedProducts';
-import { ReviewsSection } from '@/components/product/ReviewsSection';
 import { NewsletterSection } from '@/components/sections/NewsletterSection';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { listCustomFields } from '@/lib/api/admin';
 import { getRelatedProducts, loadProductDetail } from '@/lib/products';
+import { listProductReviews } from '@/lib/api/reviews';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { SITE_NAME, SITE_URL, absUrl, metaDescription, productImageAlt } from '@/lib/seo';
 import type { Metadata } from 'next';
@@ -63,7 +64,15 @@ export default async function ProductPage({ params }: PageProps) {
   ]);
   if (!product) notFound();
 
-  const related = await getRelatedProducts(params.slug);
+  /// First page of reviews is server-fetched so the review TEXT lands
+  /// in the SSR HTML (Google indexes it for long-tail queries). The
+  /// client component falls back to its own fetch on hydrate if this
+  /// errors. We only need the first page; "Show more" loads the rest
+  /// client-side.
+  const [related, initialReviews] = await Promise.all([
+    getRelatedProducts(params.slug),
+    listProductReviews(params.slug, 1, 10).catch(() => null),
+  ]);
   const customFieldDefs = customFieldsRes.items;
 
   // Schema.org structured data — Product JSON-LD for Google Shopping
@@ -222,10 +231,11 @@ export default async function ProductPage({ params }: PageProps) {
         </SafeBoundary>
 
         <SafeBoundary name="pdp:reviews">
-          <ReviewsSection
-            rating={product.rating}
-            reviewCount={product.reviewCount}
-            reviews={product.reviews}
+          <ProductReviews
+            productSlug={product.slug}
+            initialReviews={initialReviews?.items ?? []}
+            initialTotal={initialReviews?.pagination.total ?? 0}
+            initialPages={initialReviews?.pagination.pages ?? 1}
           />
         </SafeBoundary>
 

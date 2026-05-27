@@ -180,14 +180,56 @@ Phases roughly mirror the web platform's. Times below are calendar weeks assumin
 - [x] ContinentalRewardsScreen — balance hero (tier-coloured), expiring-coins banner, progress-to-next-tier bar, tier ladder, perks ladder, coin-activity ledger, how-it-works; plus not-enrolled teaser + signed-out + error states. Display-only (redeem is checkout-only, enrollment is auto on first paid order).
 - [x] Wired: Account Coins tile + Continental Rewards menu row + Home drawer `continentalRewards` action → ContinentalRewards screen.
 
+**PR 4.6 — Saved addresses** `[x]` (2026-05-25)
+- [x] `src/lib/api.ts` — fetchAddresses / createAddress / updateAddress / deleteAddress + `ApiSavedAddress`/`ApiAddressInput` types.
+- [x] AddressBookScreen — list (default-first), default badge, set-default, edit, delete, add CTA; refetch-on-focus.
+- [x] AddressEditScreen — add/edit form, E.164 phone validation, CountryPickerModal reuse, set-default toggle.
+- [x] AccountScreen "Saved addresses" row → AddressBook (was ComingSoon).
+- [x] CheckoutShipping — "Use a saved address" chip row prefills contact + address for signed-in users.
+
 **Still queued for Phase 4:**
-- [ ] PR 4.6 (deferred) — Saved addresses book + Google sign-in + Phone OTP.
+- [ ] PR 4.7 (deferred) — Google sign-in (needs OAuth client IDs) + Phone OTP (needs SMS provider).
 
 **Definition of done:** All 8 customer-facing account flows render correctly against the live API.
 
 ---
 
-### Phase 5 — API wiring `[ ]`
+### Phase 5 — polish + infra `[~]`
+
+**Currency / FX display** `[x]` (2026-05-25)
+- [x] `fetchFxRates` (`GET /api/fx/rates`) + `ApiFxSnapshot` (NGN base, display-only).
+- [x] `useCurrencyStore` (Zustand persist) — selected currency (default NGN, persisted) + in-memory FX rates loaded on app boot.
+- [x] `formatPrice` + `useFormatPrice` — NGN→display conversion via Intl, NGN fallback when rates absent / target is NGN.
+- [x] `CurrencyPickerModal` + Account "Display currency" row (signed-in + out).
+- [x] Wired every price label: SearchResultCard, ProductShelfRow, all 4 PDP layouts + Grocery/Wine/Lifestyle footers, CartLineItemRow, CartScreen, CheckoutPayment/Shipping/Success, OrderHistory, OrderDetail.
+- [x] Continental Rewards left in NGN by design (Naira-denominated loyalty program).
+
+**Pull-to-refresh on every list** `[x]` (2026-05-25)
+- [x] RefreshControl on Browse / Category / Country (Home, Wishlist, Order History already had it). Full-screen loader gated to initial load; pull-over-data shows the inline spinner. Search (query-driven) + Countries directory (static) skipped by design.
+
+**API status banner** `[x]` (2026-05-25)
+- [x] `src/components/ApiStatusBanner.tsx` — polls /api/health (120s healthy / 30s degraded), 2-fail threshold, "back online" recovery, AppState-paused, 5s probe timeout. Root overlay in App.tsx. Gated by `useFlag('api_status_banner', true)` (added to KNOWN_MOBILE_FLAGS; already in API registry).
+
+**Add-to-cart snackbar (event-bus payoff)** `[x]` (2026-05-25)
+- [x] toastStore + Toast root overlay; cartActions (quickAddCard + notifyAddedToCart). PDP Add-to-Cart toasts + stays on page (was force-nav to Cart); Buy Now / lifestyle Checkout → CheckoutShipping. Home shelf-card add button wired (was a no-op). Cart badge already reactive.
+
+**Pro-level UI/UX audit implementation** `[x]` (2026-05-25) — 7 PRs (mobile #43–#47 + design-system #43)
+
+Acted on a full design audit of every customer surface. Shipped in order:
+
+- [x] **DS hardening** (mobile #43) — `shadows.ts` (sm/md/lg/bar elevation tokens), `motion.ts` (durations + press feedback), `lineHeights`/`letterSpacing` typography tokens, grey ramp + `amberTile`/`successSurface`/`dangerSurface` colour tokens. Card/IconButton adopt them.
+- [x] **Product card redesign** (mobile #44) — `RatingRow` + `DiscountBadge` shared primitives. Cards now show a `-N%` badge, star rating, struck compare price. Grid + secondary shelves moved to **white cards** (hairline + `shadows.sm`); amber kept only for the `homepage_featured` "featured" shelf variant. No API change — the public shelf endpoint already returns rating/reviewCount/comparePrice; the mobile `ApiShelfItem` type just surfaced them.
+- [x] **PDP trust block + unified stepper** (mobile #45) — `PdpTrustBlock` (in-stock pill, prominent rating, honest chips: Authentic / Secure checkout / Ships across Africa — no returns/free-shipping claims) on all 4 archetypes. Three steppers collapsed into one `QuantityStepper` with a `variant` prop (shapes preserved, logic unified). `inStock` surfaced on `PdpProduct`.
+- [x] **Checkout review step + progress indicator** (mobile #46) — new `CheckoutReview` screen (items + address + delivery confirm with Edit links) between Shipping and Payment. Shared `CheckoutProgress` (Shipping → Review → Payment) on all 3 steps; dropped redundant "Step N of 3" subtitles.
+- [x] **Account dedup + honest cart total** (mobile #47) — removed the Orders/Wishlist/Rewards menu rows that duplicated the counter tiles (tiles stay as the single count surface). Cart footer "Total" → "Estimated total" + "Delivery added at checkout" caption (was reading as free shipping).
+- [x] **Photo-forward card redesign** (mobile #48) — killed the cream tile (it exposed the catalog's mixed imagery). New unified `ProductCard` for every list surface: `cardImageFit` picks cover (apparel/décor/eleganza, edge-to-edge) vs contain-on-white (packaged goods/books); `ProductCardImage` adds skeleton + placeholder + cover scrim; solid discount badge + glassy heart + **origin flag-chip** signature + hero price. `PdpCardProduct` gained brand/categorySlug/originCountry. **Unique/hero card still pending Magnus' design.**
+- [x] **Card native polish** (mobile #49) — shipped the deferred deps (managed project → Expo Go bundles them). **expo-image** backs CutoutImage + cover card images (memory-disk cache + 220ms cross-fade; `resizeMode`→`contentFit` across 6 callers). **expo-blur** via new `GlassView` (real glass iOS / translucent Android, no fork) → HeartToggle `surface="glass"` on cards. **expo-haptics** light impact on add-to-cart + heart tap. Custom dev builds need one `eas build`; Expo Go just works.
+
+**Still queued (Phase 5):** TanStack Query swap (invisible infra; do when caching benefits are wanted).
+
+---
+
+### Phase 5 (orig) — API wiring `[ ]`
 **Goal:** Replace every mock data source with a live API call. App is now a real product.
 
 The plan here mirrors the web's `lib/api/*` structure exactly — same endpoint URLs, same response shapes, same error handling.
