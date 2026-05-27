@@ -45,11 +45,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // 2. Categories — pulled live so a newly-added category appears
-  //    in the sitemap on the next request.
+  //    in the sitemap on the next request. We also use the same fetch
+  //    to build country × top-level-category combo URLs in step 3.
+  let topLevelCategorySlugs: string[] = [];
   try {
     const r = await fetch(`${API_BASE}/api/categories`, { next: { revalidate: 600 } });
     if (r.ok) {
-      const data = (await r.json()) as { items: Array<{ slug: string }> };
+      const data = (await r.json()) as {
+        items: Array<{ slug: string; parentId?: string | null }>;
+      };
       for (const c of data.items) {
         out.push({
           url: `${SITE_URL}/shop/${c.slug}`,
@@ -58,6 +62,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           priority: 0.7,
         });
       }
+      topLevelCategorySlugs = data.items
+        .filter((c) => !c.parentId)
+        .map((c) => c.slug);
     }
   } catch {
     /* sitemap survives if API is unreachable */
@@ -73,12 +80,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   });
   for (const code of COUNTRY_CODES) {
+    const country = COUNTRIES[code];
     out.push({
-      url: `${SITE_URL}/shop/country/${COUNTRIES[code].slug}`,
+      url: `${SITE_URL}/shop/country/${country.slug}`,
       lastModified: now,
       changeFrequency: 'weekly',
       priority: 0.6,
     });
+    // 3b. Country × top-level-category programmatic landing pages —
+    //     each combo has admin-editable copy at
+    //     `content.shop.cc.<country>.<category>.{headline,intro}` and
+    //     internally cross-links to other countries / categories.
+    //     Empty combos noindex themselves at render time, so listing
+    //     them all in the sitemap is safe.
+    for (const catSlug of topLevelCategorySlugs) {
+      out.push({
+        url: `${SITE_URL}/shop/country/${country.slug}/${catSlug}`,
+        lastModified: now,
+        changeFrequency: 'weekly',
+        priority: 0.5,
+      });
+    }
   }
 
   // 4. Products — paginate through the API.
