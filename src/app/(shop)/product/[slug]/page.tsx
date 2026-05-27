@@ -7,6 +7,8 @@ import { ProductGallery } from '@/components/product/ProductGallery';
 import { ProductInfo } from '@/components/product/ProductInfo';
 import { ProductReviews } from '@/components/product/ProductReviews';
 import { RelatedProducts } from '@/components/product/RelatedProducts';
+import { CrossLinkChips } from '@/components/seo/CrossLinkChips';
+import { COUNTRIES, FEATURED_COUNTRY_CODES, findCountry } from '@/lib/countries';
 import { NewsletterSection } from '@/components/sections/NewsletterSection';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { listCustomFields } from '@/lib/api/admin';
@@ -241,6 +243,58 @@ export default async function ProductPage({ params }: PageProps) {
 
         <SafeBoundary name="pdp:related">
           <RelatedProducts products={related} />
+        </SafeBoundary>
+
+        {/* Internal-linking — passes equity from this deep leaf back
+            up to the category + country + country×category landing
+            pages so Google has paths between every SEO surface. */}
+        <SafeBoundary name="pdp:cross-links">
+          {(() => {
+            const country = findCountry(product.origin);
+            const categorySlug = product.category.slug;
+            const categoryName = product.category.name;
+            const hubs = [
+              { href: `/shop/${categorySlug}`, label: `All ${categoryName}` },
+              ...(country
+                ? [
+                    {
+                      href: `/shop/country/${country.slug}`,
+                      label: `All from ${country.name}`,
+                      prefix: country.flag,
+                    },
+                    {
+                      href: `/shop/country/${country.slug}/${categorySlug}`,
+                      label: `More ${categoryName} from ${country.name}`,
+                      prefix: country.flag,
+                    },
+                  ]
+                : []),
+            ];
+            const peerCountries = country
+              ? FEATURED_COUNTRY_CODES.filter((c) => c !== country.code)
+                  .slice(0, 8)
+                  .map((c) => COUNTRIES[c])
+                  .map((c) => ({
+                    href: `/shop/country/${c.slug}/${categorySlug}`,
+                    label: `${categoryName} from ${c.name}`,
+                    prefix: c.flag,
+                  }))
+              : [];
+            return (
+              <div className="mx-auto max-w-site space-y-6 px-4 pb-12 md:pb-16">
+                <CrossLinkChips
+                  title="Discover more"
+                  hint="Jump to the hubs this product lives in."
+                  chips={hubs}
+                />
+                <CrossLinkChips
+                  title={`${categoryName} from other African countries`}
+                  hint="Compare authentic options across the continent."
+                  chips={peerCountries}
+                />
+              </div>
+            );
+          })()}
         </SafeBoundary>
 
         <SafeBoundary name="pdp:trust"><TrustBarSection /></SafeBoundary>

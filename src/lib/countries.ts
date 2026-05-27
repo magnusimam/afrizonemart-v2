@@ -110,6 +110,24 @@ export function getCountryBySlug(slug?: string): Country | undefined {
   return Object.values(COUNTRIES).find((c) => c.slug === lowered);
 }
 
+/// Resolve a country from a raw `origin` value that may be ISO-2
+/// ("NG"), a full name ("Nigeria"), or a slug ("nigeria"). Product
+/// rows have unnormalised `origin` strings so anything that touches a
+/// product's country leans on this. Returns undefined when nothing
+/// matches.
+export function findCountry(origin?: string | null): Country | undefined {
+  if (!origin) return undefined;
+  const raw = origin.trim();
+  if (raw.length === 2) {
+    const byCode = COUNTRIES[raw.toUpperCase() as CountryCode];
+    if (byCode) return byCode;
+  }
+  const lower = raw.toLowerCase();
+  return Object.values(COUNTRIES).find(
+    (c) => c.name.toLowerCase() === lower || c.slug === lower,
+  );
+}
+
 /// Resolve a country code to its currency for the storefront's
 /// "show product in origin currency" feature. Returns null when the
 /// code is unknown or absent so callers can fall back cleanly.

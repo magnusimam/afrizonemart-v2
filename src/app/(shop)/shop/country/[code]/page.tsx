@@ -5,6 +5,7 @@ import { ApiProductCard } from '@/components/product/ApiProductCard';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { Flag } from '@/components/common/Flag';
 import { ShopShell } from '@/components/shop/ShopShell';
+import { CrossLinkChips } from '@/components/seo/CrossLinkChips';
 import { fetchProducts } from '@/lib/api/products';
 import { listCategories } from '@/lib/api/categories';
 import { COUNTRY_CODES, getCountryBySlug, type CountryCode } from '@/lib/countries';
@@ -241,6 +242,21 @@ export default async function ShopByCountryPage({ params, searchParams }: PagePr
               </>
             )}
           </ShopShell>
+
+          {/* Internal-linking — every top-level category becomes a
+              real /shop/country/<code>/<cat> landing page. Chip links
+              are the canonical URL for that combo (better for indexing
+              than the equivalent query-param filter on this page). */}
+          <div className="mt-10 md:mt-12">
+            <CrossLinkChips
+              title={`Browse ${country.name} by category`}
+              hint={`Each category has a dedicated ${country.name} landing page.`}
+              chips={topLevelCategories.map((c) => ({
+                href: `/shop/country/${country.slug}/${c.slug}`,
+                label: `${c.name} from ${country.name}`,
+              }))}
+            />
+          </div>
 
           {/* Single CTA into the all-countries directory — replaces the
               previous 8-tile grid (showed an arbitrary slice of the 53
