@@ -5,8 +5,10 @@ import { FiltersSidebar } from '@/components/shop/FiltersSidebar';
 import { ShopToolbar } from '@/components/shop/ShopToolbar';
 import { ApiProductCard } from '@/components/product/ApiProductCard';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { CrossLinkChips } from '@/components/seo/CrossLinkChips';
 import { listCategories } from '@/lib/api/categories';
 import { fetchProducts } from '@/lib/api/products';
+import { COUNTRIES, FEATURED_COUNTRY_CODES } from '@/lib/countries';
 import { SITE_NAME, absUrl } from '@/lib/seo';
 import type { Metadata } from 'next';
 
@@ -197,6 +199,24 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                 </>
               )}
             </div>
+          </div>
+
+          {/* Internal-linking — country-specific landing pages for
+              this category. Each chip links to a dedicated SEO page so
+              the category hub passes equity into the country×category
+              programmatic surface. */}
+          <div className="mt-8 md:mt-10">
+            <CrossLinkChips
+              title={`Shop ${cat.title} from African countries`}
+              hint={`Curated selections of ${cat.title.toLowerCase()} sourced by country.`}
+              chips={FEATURED_COUNTRY_CODES.map((code) => COUNTRIES[code]).map(
+                (c) => ({
+                  href: `/shop/country/${c.slug}/${params.category}`,
+                  label: `${c.name} ${cat.title.toLowerCase()}`,
+                  prefix: c.flag,
+                }),
+              )}
+            />
           </div>
         </div>
       </main>

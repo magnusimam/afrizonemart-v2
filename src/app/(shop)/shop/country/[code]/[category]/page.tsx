@@ -5,6 +5,7 @@ import { ChevronRight, Globe2, Home as HomeIcon } from 'lucide-react';
 import { ApiProductCard } from '@/components/product/ApiProductCard';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { Flag } from '@/components/common/Flag';
+import { CrossLinkChips } from '@/components/seo/CrossLinkChips';
 import { fetchProducts } from '@/lib/api/products';
 import { listCategories } from '@/lib/api/categories';
 import { fetchSiteContent } from '@/lib/site-content';
@@ -302,54 +303,26 @@ export default async function CountryCategoryLandingPage({ params }: PageProps) 
             </section>
           )}
 
-          {/* Internal-linking: other categories from this country */}
-          {otherCategories.length > 0 && (
-            <section className="rounded-card border border-border bg-white p-5 md:p-6">
-              <h2 className="font-raleway text-lg font-bold text-navy md:text-xl">
-                More from {country.name}
-              </h2>
-              <p className="mt-1 font-sans text-sm text-muted">
-                Other categories sourced from {country.name}.
-              </p>
-              <ul className="mt-4 flex flex-wrap gap-2">
-                {otherCategories.map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      href={`/shop/country/${country.slug}/${c.slug}`}
-                      className="inline-flex items-center rounded-pill border border-border bg-page px-3 py-1.5 font-raleway text-xs font-semibold text-navy hover:border-amber hover:text-amber"
-                    >
-                      {c.name} from {country.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          {/* Internal-linking — uses the shared CrossLinkChips. Each
+              self-hides when its list is empty. */}
+          <CrossLinkChips
+            title={`More from ${country.name}`}
+            hint={`Other categories sourced from ${country.name}.`}
+            chips={otherCategories.map((c) => ({
+              href: `/shop/country/${country.slug}/${c.slug}`,
+              label: `${c.name} from ${country.name}`,
+            }))}
+          />
 
-          {/* Internal-linking: same category from other countries */}
-          {otherCountries.length > 0 && (
-            <section className="rounded-card border border-border bg-white p-5 md:p-6">
-              <h2 className="font-raleway text-lg font-bold text-navy md:text-xl">
-                {category.name} from other African countries
-              </h2>
-              <p className="mt-1 font-sans text-sm text-muted">
-                Compare {category.name.toLowerCase()} sourced across the continent.
-              </p>
-              <ul className="mt-4 flex flex-wrap gap-2">
-                {otherCountries.map((c) => (
-                  <li key={c.code}>
-                    <Link
-                      href={`/shop/country/${c.slug}/${category.slug}`}
-                      className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-page px-3 py-1.5 font-raleway text-xs font-semibold text-navy hover:border-amber hover:text-amber"
-                    >
-                      <span aria-hidden>{c.flag}</span>
-                      {category.name} from {c.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          <CrossLinkChips
+            title={`${category.name} from other African countries`}
+            hint={`Compare ${category.name.toLowerCase()} sourced across the continent.`}
+            chips={otherCountries.map((c) => ({
+              href: `/shop/country/${c.slug}/${category.slug}`,
+              label: `${category.name} from ${c.name}`,
+              prefix: c.flag,
+            }))}
+          />
         </div>
       </main>
     </>
