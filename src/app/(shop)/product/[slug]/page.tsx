@@ -5,6 +5,7 @@ import { AboutProductSection } from '@/components/product/AboutProductSection';
 import { DynamicFieldList } from '@/components/product/DynamicFieldDisplay';
 import { ProductGallery } from '@/components/product/ProductGallery';
 import { ProductInfo } from '@/components/product/ProductInfo';
+import { ViewTracker } from '@/components/product/ViewTracker';
 import { ProductReviews } from '@/components/product/ProductReviews';
 import { RelatedProducts } from '@/components/product/RelatedProducts';
 import { CrossLinkChips } from '@/components/seo/CrossLinkChips';
@@ -156,6 +157,10 @@ export default async function ProductPage({ params }: PageProps) {
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {/* Client dwell-time view tracker — fires POST /api/views after
+          2s. Renders nothing; SSR-safe (no-ops on server). Feeds the
+          same trending rollup the mobile PDP feeds. */}
+      <ViewTracker productSlug={product.slug} />
       <main className="bg-white">
         <nav
           aria-label="Breadcrumb"
