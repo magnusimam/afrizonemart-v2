@@ -2500,3 +2500,65 @@ export function adminDeletePaymentBankAccount(id: string): Promise<void> {
     { method: 'DELETE' },
   );
 }
+
+// ─────────────────────────────────────────────────────────────────
+// View tracker / analytics — capability: analytics.read
+// Powers the /admin/views dashboard.
+// ─────────────────────────────────────────────────────────────────
+
+export interface AdminTopProduct {
+  productId: string;
+  slug: string;
+  name: string;
+  image: string | null;
+  viewCount: number;
+  uniqueSessions: number;
+  uniqueUsers: number;
+}
+
+export interface AdminTopProductsResponse {
+  items: AdminTopProduct[];
+  totalProducts: number;
+  totalViews: number;
+  rangeDays: number;
+  since: string;
+}
+
+export function adminListTopProducts(params: {
+  days?: number;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<AdminTopProductsResponse> {
+  const qs = new URLSearchParams();
+  if (params.days) qs.set('days', String(params.days));
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  return apiFetchAuthed(`/api/admin/views/top-products?${qs.toString()}`);
+}
+
+export interface AdminProductViewsResponse {
+  product: { id: string; slug: string; name: string; image: string | null };
+  rangeDays: number;
+  since: string;
+  totalViews: number;
+  uniqueSessions: number;
+  uniqueUsers: number;
+  anonymousViews: number;
+  dailySeries: Array<{ day: string; views: number }>;
+  signedInViewers: Array<{
+    userId: string;
+    name: string | null;
+    email: string;
+    views: number;
+    lastViewed: string;
+  }>;
+}
+
+export function adminGetProductViews(
+  slug: string,
+  days = 30,
+): Promise<AdminProductViewsResponse> {
+  return apiFetchAuthed(
+    `/api/admin/views/product/${encodeURIComponent(slug)}?days=${days}`,
+  );
+}
