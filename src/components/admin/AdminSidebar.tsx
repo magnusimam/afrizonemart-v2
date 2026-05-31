@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Coins,
   CreditCard,
+  Eye,
   FileClock,
   Home,
   LayoutGrid,
@@ -85,6 +86,7 @@ const NAV: NavItem[] = [
   { href: '/admin/landing-pages', label: 'Landing Pages', icon: Globe2, cap: 'content.write' },
   { href: '/admin/blog', label: 'Blog', icon: Newspaper, cap: 'blog.write' },
   { href: '/admin/audit', label: 'Audit Log', icon: FileClock, cap: 'audit.read' },
+  { href: '/admin/views', label: 'View Analytics', icon: Eye, cap: 'analytics.read' },
   { href: '/admin/settings', label: 'Settings', icon: Settings, cap: 'settings.write' },
 ];
 
