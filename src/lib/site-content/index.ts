@@ -20,6 +20,11 @@ export interface ImageWithAlt {
   /// `/supplier`, or `https://...` for external). Mobile parses
   /// internally; storefront can route via Next.js Link when set.
   link?: string;
+  /// Optional featured-product slugs to overlay on the slide as
+  /// floating cards. Used by **category-page heroes only** today;
+  /// home heroes ignore this so Home stays editorial. Cap of 2
+  /// cards per slide is enforced in the mobile renderer.
+  products?: string[];
 }
 
 export interface SiteContent {
