@@ -2,6 +2,7 @@
 
 import { AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { ImageUploader } from './ImageUploader';
+import { ProductMultiPicker } from './ProductMultiPicker';
 import { SlideLinkPicker } from './SlideLinkPicker';
 import type { ImageWithAlt } from '@/lib/site-content';
 
@@ -51,6 +52,16 @@ export interface SlideListEditorProps {
   folder?: 'hero-slides' | 'banners' | 'misc';
   /// Optional helper tip rendered below the Add button.
   hint?: string;
+  /// When true, each slide gets a "Featured products" picker that
+  /// writes up to 2 product slugs into `slide.products`. Mobile
+  /// renders them as floating cards on top of the slide image (used
+  /// by category heroes only — Home heroes deliberately leave this
+  /// off so Home stays editorial).
+  enableProducts?: boolean;
+  /// Wording for the Add button — defaults to "Add image" which is
+  /// right for hero slides but wrong for collection chips. Callers
+  /// like /admin/home-collections override to "Add chip".
+  addLabel?: string;
 }
 
 export function SlideListEditor({
@@ -58,6 +69,8 @@ export function SlideListEditor({
   onChange,
   folder = 'hero-slides',
   hint,
+  enableProducts = false,
+  addLabel = 'Add image',
 }: SlideListEditorProps) {
   const update = (i: number, patch: Partial<ImageWithAlt>) =>
     onChange(slides.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
@@ -103,6 +116,27 @@ export function SlideListEditor({
                 value={it.link}
                 onChange={(next) => update(i, { link: next ?? undefined })}
               />
+              {enableProducts ? (
+                <div className="flex flex-col gap-1.5 rounded-input border border-border bg-page p-3">
+                  <span className="font-raleway text-[11px] font-bold uppercase tracking-btn text-navy">
+                    Featured products on this slide
+                  </span>
+                  <span className="font-sans text-[11px] text-muted">
+                    Up to 2. Mobile floats these as small cards on the
+                    right side of the slide; tapping a card opens the
+                    product page.
+                  </span>
+                  <ProductMultiPicker
+                    value={it.products ?? []}
+                    onChange={(next) =>
+                      update(i, {
+                        products: next.length > 0 ? next : undefined,
+                      })
+                    }
+                    max={2}
+                  />
+                </div>
+              ) : null}
             </div>
             <button
               type="button"
@@ -120,7 +154,7 @@ export function SlideListEditor({
         onClick={add}
         className="flex items-center justify-center gap-2 rounded-btn border border-dashed border-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-navy hover:text-white"
       >
-        <Plus size={14} aria-hidden /> Add image
+        <Plus size={14} aria-hidden /> {addLabel}
       </button>
       {hint && (
         <p className="font-sans text-[11px] text-muted">{hint}</p>

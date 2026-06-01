@@ -228,7 +228,8 @@ export default function AdminCategoryHeroesPage() {
                       <SlideListEditor
                         slides={slides}
                         onChange={(next) => setSlidesForSlug(cat.slug, next)}
-                        hint="Tip: 16:9 art reads best (mobile renders the slider full-bleed at 16:9). Add a link per slide if tapping should route somewhere — products, categories, countries, or external URLs all work."
+                        enableProducts
+                        hint="Tip: 16:9 art reads best (mobile renders the slider full-bleed at 16:9). Add a link per slide if tapping should route somewhere. Optionally pick up to 2 Featured products per slide — mobile floats them as cards on the right side of the slide."
                       />
                       <div className="flex items-center justify-end">
                         <button
