@@ -24,6 +24,7 @@ function statusToUi(s: Order['status']): UiOrderStatus {
     case 'FULFILLING':
       return 'processing';
     case 'SHIPPED':
+    case 'OUT_FOR_DELIVERY':
       return 'shipped';
     case 'DELIVERED':
       return 'delivered';
