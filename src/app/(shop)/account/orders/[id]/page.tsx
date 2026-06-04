@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { ChevronRight, Home as HomeIcon, Package } from 'lucide-react';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
+import { OrderTimeline } from '@/components/account/OrderTimeline';
 import { formatPriceNGN } from '@/lib/format';
 import { getCountry } from '@/lib/countries';
 import { getOrder, type Order } from '@/lib/api/orders';
@@ -166,6 +167,13 @@ export default function OrderDetailPage({ params }: PageProps) {
                     </div>
                     <OrderStatusBadge status={statusToUi(order.status)} />
                   </header>
+
+                  <section className="rounded-card border border-border bg-white p-5 md:p-6">
+                    <h2 className="mb-4 font-raleway text-lg font-bold text-navy">
+                      Status
+                    </h2>
+                    <OrderTimeline order={order} />
+                  </section>
 
                   <section className="rounded-card border border-border bg-white p-5 md:p-6">
                     <h2 className="mb-4 flex items-center gap-2 font-raleway text-lg font-bold text-navy">
