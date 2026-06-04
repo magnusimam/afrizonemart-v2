@@ -22,6 +22,24 @@ export interface OrderItem {
   lineTotal: number;
 }
 
+export type OrderEventType =
+  | 'STATUS_CHANGED'
+  | 'NOTE'
+  | 'PAYMENT_RECEIVED'
+  | 'SHIPMENT_UPDATED'
+  | 'REFUND_RECORDED'
+  | 'CANCELLED';
+
+/// Customer-visible event on the order timeline. Payload varies per
+/// type. The timeline derivation only reads STATUS_CHANGED
+/// (`{ from, to }`) and PAYMENT_RECEIVED.
+export interface OrderEvent {
+  id: string;
+  type: OrderEventType;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -43,6 +61,11 @@ export interface Order {
   paymentMethod: PaymentMethodId;
   paymentRef: string | null;
   items: OrderItem[];
+  /// Customer-visible timeline events, oldest first. Only present
+  /// on `GET /api/orders/:id` — the list endpoint omits it.
+  events?: OrderEvent[];
+  cancelledAt?: string | null;
+  refundedTotal?: number;
   createdAt: string;
   updatedAt: string;
 }
