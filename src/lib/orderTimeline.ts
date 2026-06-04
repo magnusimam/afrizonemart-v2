@@ -29,6 +29,7 @@ export type TimelineStageKey =
   | 'paid'
   | 'preparing'
   | 'shipped'
+  | 'out_for_delivery'
   | 'delivered'
   | 'cancelled'
   | 'refunded';
@@ -48,7 +49,8 @@ const STATUS_RANK: Record<OrderStatus, number> = {
   PAID: 1,
   FULFILLING: 2,
   SHIPPED: 3,
-  DELIVERED: 4,
+  OUT_FOR_DELIVERY: 4,
+  DELIVERED: 5,
   CANCELLED: -1,
   REFUNDED: -1,
 };
@@ -121,9 +123,16 @@ export function buildOrderTimeline(order: Order): TimelineStage[] {
       at: findTransitionEvent(events, 'SHIPPED')?.createdAt ?? null,
     },
     {
+      key: 'out_for_delivery',
+      label: 'Out for delivery',
+      state: stageState(4, currentRank, reachedRank, isCancelled || isRefunded),
+      at:
+        findTransitionEvent(events, 'OUT_FOR_DELIVERY')?.createdAt ?? null,
+    },
+    {
       key: 'delivered',
       label: 'Delivered',
-      state: stageState(4, currentRank, reachedRank, isCancelled || isRefunded),
+      state: stageState(5, currentRank, reachedRank, isCancelled || isRefunded),
       at: findTransitionEvent(events, 'DELIVERED')?.createdAt ?? null,
       note:
         isRefunded && !isCancelled && reachedRank >= STATUS_RANK.DELIVERED
@@ -177,7 +186,9 @@ export function orderStatusSummary(order: Order): string {
     case 'FULFILLING':
       return 'Preparing your order';
     case 'SHIPPED':
-      return 'On the way';
+      return 'Shipped';
+    case 'OUT_FOR_DELIVERY':
+      return 'Out for delivery';
     case 'DELIVERED':
       return 'Delivered';
     case 'CANCELLED':
