@@ -78,8 +78,8 @@ const columns: LinkColumn[] = [
   {
     heading: 'Legal',
     links: [
-      { label: 'Privacy & Security', href: '/legal/privacy' },
-      { label: 'Terms of Use', href: '/legal/terms' },
+      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'Terms of Service', href: '/terms' },
       {
         label: 'Do Not Sell Your Personal Information',
         href: '/legal/do-not-sell',
