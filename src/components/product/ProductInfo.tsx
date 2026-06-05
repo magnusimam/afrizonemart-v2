@@ -15,6 +15,11 @@ import {
   Truck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import {
+  TRACK,
+  cartValueBucket,
+  trackEvent,
+} from '@/components/providers/AnalyticsProvider';
 import { useCartStore } from '@/stores/cartStore';
 import { useCheckoutStore, type ShippingAddress } from '@/stores/checkoutStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -170,6 +175,15 @@ export function ProductInfo({ product }: ProductInfoProps) {
       },
       quantity,
     );
+    /// Analytics — coarse properties only, no PII. Mirrors the
+    /// mobile add_to_cart event so the cross-platform funnel reads
+    /// the same on the dashboard.
+    trackEvent(TRACK.ADD_TO_CART, {
+      product_slug: product.slug,
+      category_slug: product.category?.slug,
+      quantity,
+      price_bucket: cartValueBucket(selectedBundle.price * quantity),
+    });
   };
 
   /// "Buy Now" fast-buy prep. Tries to land the customer straight on

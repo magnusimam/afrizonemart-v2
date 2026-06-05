@@ -11,6 +11,11 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { CheckoutOrderSummary } from '@/components/checkout/CheckoutOrderSummary';
+import {
+  TRACK,
+  cartValueBucket,
+  trackEvent,
+} from '@/components/providers/AnalyticsProvider';
 import { PaymentMethodForm } from '@/components/checkout/PaymentMethodForm';
 import {
   PaymentGatewaySelector,
@@ -240,6 +245,14 @@ export default function PaymentPage() {
         coinRedeemCoins: coinRedeemRequest > 0 ? coinRedeemRequest : undefined,
       });
       setOrderId(order.orderNumber);
+      trackEvent(TRACK.ORDER_PLACED, {
+        order_id: order.id,
+        order_number: order.orderNumber,
+        payment_method: PAYMENT_METHOD_MAP[selected],
+        item_count: order.items.length,
+        total_bucket: cartValueBucket(order.total),
+        currency: order.currency,
+      });
 
       // Online methods (card / mobile money / USSD / crypto) all flow
       // through the gateway. Bank transfer + pay-on-delivery skip the
