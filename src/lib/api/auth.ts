@@ -248,6 +248,21 @@ export function updateMe(
   });
 }
 
+/// 2026-06-05 — Play Store compliance: in-app account deletion.
+/// Server requires `confirmation = "DELETE MY ACCOUNT"` exactly.
+/// Returns 204 on success. The refresh cookie is cleared on the
+/// server side; client should also clear local auth state.
+export function deleteAccount(
+  accessToken: string,
+  input: { confirmation: string; reason?: string | null },
+): Promise<void> {
+  return authFetch<void>('/api/auth/me', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(input),
+  });
+}
+
 export function requestPasswordReset(email: string): Promise<void> {
   return authFetch<void>('/api/auth/forgot-password', {
     method: 'POST',
