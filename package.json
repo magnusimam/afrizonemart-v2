@@ -23,7 +23,7 @@
     "lucide-react": "^1.11.0",
     "next": "14.2.35",
     "pngjs": "^7.0.0",
-    "posthog-js": "^1.372.3",
+    "posthog-js": "^1.380.1",
     "react": "^18",
     "react-dom": "^18",
     "react-simple-maps": "^3.0.0",
