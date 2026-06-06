@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ChevronRight, Home as HomeIcon, Package } from 'lucide-react';
+import { ChevronRight, Home as HomeIcon, Package, Star } from 'lucide-react';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
 import { OrderTimeline } from '@/components/account/OrderTimeline';
@@ -190,6 +190,39 @@ export default function OrderDetailPage({ params }: PageProps) {
                       order={order}
                       onConfirmed={(updated) => setOrder(updated)}
                     />
+                  )}
+
+                  {/* Rate-this-order CTA — same surface the mobile
+                      app shows. Visible whenever the order is
+                      DELIVERED so the customer always has a clear
+                      entry into the review flow. */}
+                  {order.status === 'DELIVERED' && (
+                    <Link
+                      href={`/account/orders/${order.id}/rate`}
+                      className="flex items-center gap-4 rounded-card border border-amber/40 bg-amber/5 p-5 transition-colors hover:bg-amber/10 md:p-6"
+                    >
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber/15">
+                        <Star
+                          size={22}
+                          className="fill-amber text-amber"
+                          aria-hidden
+                        />
+                      </span>
+                      <span className="flex-1">
+                        <span className="block font-raleway text-base font-bold text-navy">
+                          Rate this order
+                        </span>
+                        <span className="block font-sans text-sm text-muted">
+                          Help other shoppers and post verified reviews
+                          for what you bought.
+                        </span>
+                      </span>
+                      <ChevronRight
+                        size={18}
+                        className="shrink-0 text-amber"
+                        aria-hidden
+                      />
+                    </Link>
                   )}
 
                   <section className="rounded-card border border-border bg-white p-5 md:p-6">

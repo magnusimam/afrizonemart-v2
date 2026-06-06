@@ -36,6 +36,9 @@ export const TRACK = {
   CHECKOUT_STEP: 'checkout_step',
   ORDER_PLACED: 'order_placed',
   PUSH_OPENED: 'push_opened',
+  /// Post-delivery review flow (rate-this-order page on web,
+  /// RateOrderScreen on mobile). Fired after a bulk-submit pass.
+  REVIEW_SUBMITTED: 'review_submitted',
   HANDLED_ERROR: 'handled_error',
 } as const;
 
