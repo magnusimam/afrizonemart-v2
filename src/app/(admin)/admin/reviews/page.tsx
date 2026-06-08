@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Star, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle2, Eye, EyeOff, Star, Trash2, XCircle } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { Column, DataTable } from '@/components/admin/DataTable';
@@ -19,6 +19,7 @@ export default function AdminReviewsPage() {
   const [page, setPage] = useState(1);
   const [verifiedFilter, setVerifiedFilter] = useState<'all' | 'true' | 'false'>('all');
   const [ratingFilter, setRatingFilter] = useState<'' | '1' | '2' | '3' | '4' | '5'>('');
+  const [hiddenFilter, setHiddenFilter] = useState<'all' | 'true' | 'false'>('false');
   const [data, setData] = useState<{
     items: AdminReview[];
     pagination: { page: number; pages: number; total: number };
@@ -30,7 +31,7 @@ export default function AdminReviewsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [verifiedFilter, ratingFilter]);
+  }, [verifiedFilter, ratingFilter, hiddenFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +43,7 @@ export default function AdminReviewsPage() {
           limit: 25,
           verified: verifiedFilter === 'all' ? undefined : verifiedFilter === 'true',
           rating: ratingFilter ? Number(ratingFilter) : undefined,
+          hidden: hiddenFilter === 'all' ? undefined : hiddenFilter === 'true',
         });
         if (!cancelled) setData(r);
       } catch (e) {
@@ -53,12 +55,36 @@ export default function AdminReviewsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, verifiedFilter, ratingFilter, reloadToken]);
+  }, [page, verifiedFilter, ratingFilter, hiddenFilter, reloadToken]);
 
   const toggleVerified = async (r: AdminReview) => {
     try {
       await adminUpdateReview(r.id, { verified: !r.verified });
       toast(r.verified ? 'Marked unverified' : 'Marked verified');
+      setReloadToken((t) => t + 1);
+    } catch (e) {
+      toast(e instanceof HttpApiError ? e.message : 'Failed to update', 'error');
+    }
+  };
+
+  const toggleHidden = async (r: AdminReview) => {
+    const reason = r.hidden
+      ? null
+      : window.prompt(
+          'Reason for hiding (optional, recorded on the row for audit):',
+          '',
+        );
+    /// `null` reason on unhide; on hide, the empty string is fine
+    /// (just no reason recorded). User cancelling the prompt
+    /// returns null which we treat as cancel ONLY when hiding —
+    /// allow unhide without a prompt at all.
+    if (!r.hidden && reason === null) return;
+    try {
+      await adminUpdateReview(r.id, {
+        hidden: !r.hidden,
+        hiddenReason: r.hidden ? null : reason,
+      });
+      toast(r.hidden ? 'Review unhidden' : 'Review hidden');
       setReloadToken((t) => t + 1);
     } catch (e) {
       toast(e instanceof HttpApiError ? e.message : 'Failed to update', 'error');
@@ -134,18 +160,29 @@ export default function AdminReviewsPage() {
       ),
     },
     {
-      key: 'verified',
-      header: 'Verified',
-      render: (r) =>
-        r.verified ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 font-sans text-[11px] font-bold text-success">
-            <CheckCircle2 size={11} aria-hidden /> Verified
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-border/40 px-2 py-0.5 font-sans text-[11px] font-bold text-muted">
-            <XCircle size={11} aria-hidden /> Pending
-          </span>
-        ),
+      key: 'status',
+      header: 'Status',
+      render: (r) => (
+        <div className="flex flex-col items-start gap-1">
+          {r.verified ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 font-sans text-[11px] font-bold text-success">
+              <CheckCircle2 size={11} aria-hidden /> Verified
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-border/40 px-2 py-0.5 font-sans text-[11px] font-bold text-muted">
+              <XCircle size={11} aria-hidden /> Pending
+            </span>
+          )}
+          {r.hidden ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2 py-0.5 font-sans text-[11px] font-bold text-danger"
+              title={r.hiddenReason ?? undefined}
+            >
+              <EyeOff size={11} aria-hidden /> Hidden
+            </span>
+          ) : null}
+        </div>
+      ),
     },
     {
       key: 'actions',
@@ -162,9 +199,27 @@ export default function AdminReviewsPage() {
           </button>
           <button
             type="button"
+            onClick={() => toggleHidden(r)}
+            className={
+              r.hidden
+                ? 'rounded-md p-1.5 text-amber hover:bg-amber/10'
+                : 'rounded-md p-1.5 text-muted hover:bg-amber/10 hover:text-amber'
+            }
+            aria-label={r.hidden ? 'Unhide review' : 'Hide review'}
+            title={
+              r.hidden
+                ? `Unhide${r.hiddenReason ? ` (hidden reason: ${r.hiddenReason})` : ''}`
+                : 'Hide review'
+            }
+          >
+            {r.hidden ? <Eye size={15} aria-hidden /> : <EyeOff size={15} aria-hidden />}
+          </button>
+          <button
+            type="button"
             onClick={() => setPendingDelete(r)}
             className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger"
             aria-label="Delete review"
+            title="Hard delete (permanent — use Hide for moderation)"
           >
             <Trash2 size={15} aria-hidden />
           </button>
@@ -201,6 +256,16 @@ export default function AdminReviewsPage() {
               {n} star{n === 1 ? '' : 's'}
             </option>
           ))}
+        </select>
+        <select
+          value={hiddenFilter}
+          onChange={(e) => setHiddenFilter(e.target.value as 'all' | 'true' | 'false')}
+          className="rounded-input border border-border bg-white px-3 py-2 font-sans text-sm text-charcoal focus:border-navy focus:outline-none"
+          title="Hidden visibility filter"
+        >
+          <option value="false">Visible only</option>
+          <option value="true">Hidden only</option>
+          <option value="all">All visibility</option>
         </select>
       </div>
 

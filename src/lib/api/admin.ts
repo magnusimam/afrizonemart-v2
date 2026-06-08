@@ -365,6 +365,11 @@ export function adminDeleteCategory(id: string): Promise<void> {
 
 export interface AdminReview extends ApiReview {
   product?: { id: string; slug: string; name: string };
+  /// 2026-06-08 — soft-delete flag + audit string. Hidden reviews
+  /// are excluded from the public PDP list AND the product
+  /// rating aggregate.
+  hidden?: boolean;
+  hiddenReason?: string | null;
 }
 
 export interface AdminReviewListParams {
@@ -373,6 +378,7 @@ export interface AdminReviewListParams {
   productId?: string;
   rating?: number;
   verified?: boolean;
+  hidden?: boolean;
 }
 
 export interface AdminReviewList {
@@ -389,13 +395,21 @@ export function adminListReviews(
   if (params.productId) sp.set('productId', params.productId);
   if (params.rating) sp.set('rating', String(params.rating));
   if (params.verified !== undefined) sp.set('verified', String(params.verified));
+  if (params.hidden !== undefined) sp.set('hidden', String(params.hidden));
   const qs = sp.toString();
   return apiFetchAuthed<AdminReviewList>(`/api/admin/reviews${qs ? `?${qs}` : ''}`);
 }
 
 export function adminUpdateReview(
   id: string,
-  input: { verified?: boolean; title?: string | null; body?: string; rating?: number },
+  input: {
+    verified?: boolean;
+    title?: string | null;
+    body?: string;
+    rating?: number;
+    hidden?: boolean;
+    hiddenReason?: string | null;
+  },
 ): Promise<AdminReview> {
   return apiFetchAuthed<AdminReview>(`/api/admin/reviews/${id}`, {
     method: 'PATCH',
