@@ -702,6 +702,7 @@ them.
 | Date | Event |
 |---|---|
 | 2026-06-08 | Doc created. Magnus + Claude aligned on brain-before-face approach. Three open decisions: name, Anthropic account, single-vs-dual floating button. |
+| 2026-06-08 | Revolutionary Bets (§16) added — six ideas Magnus + Claude landed on as the ambitious end of the AI roadmap, separate from the chat-assistant v1. |
 
 ---
 
@@ -728,3 +729,339 @@ this order:
    cultural context doc.
 
 Each PR is one half-day to one day. Whole stack in 3-4 weeks.
+
+---
+
+## 16. Revolutionary bets
+
+The v1 chat-assistant in §1-§15 is genuinely useful but it's
+incremental UX over what Shein / Amazon Rufus / Walmart Sparky
+already do. This section captures the ambitious end of the
+roadmap — ideas that would change the fundamental assumptions of
+how Afrizonemart shopping works, not just polish the existing
+flow.
+
+Each idea is rated on three axes:
+
+- **Production-readiness** (★ = research-grade, ★★★★★ = ship today)
+- **Moat potential** (★ = competitors copy in a month, ★★★★★ = compounds over time / requires data they don't have)
+- **Build cost** (S = days, M = weeks, L = months, XL = quarter+)
+
+These are NOT in §11's v1 timeline. They sit alongside as
+separate workstreams to greenlight individually as energy and
+capital allow.
+
+### 16.1 WhatsApp-as-the-app
+
+★★★★★ readiness · ★★★★★ moat · M cost
+
+**The inversion**: most e-commerce assumes the customer comes to
+the site or installs the app. The reality for African shoppers:
+WhatsApp is open all day, app downloads cost data + storage on
+cheap phones + decision fatigue, websites lose connection
+mid-checkout. Don't pull customers to a new place — meet them
+where they already are.
+
+**What it is**: full shopping happens inside WhatsApp. Customer
+messages our number. The AI assistant is the storefront, the
+cart, the checkout. It sends product images, the customer
+replies with what they want, the AI sends a Squad payment link,
+the customer pays in-app, the AI tracks delivery via the same
+chat.
+
+**Why it's revolutionary for Afrizonemart specifically**:
+
+- Jumia would have built this if they were started in 2024.
+  They weren't, and now have an app-acquisition cost problem.
+- Western competitors (Amazon, Shein, Temu) don't build this
+  because their markets don't need it — they have cheap data
+  and high-storage phones. Their moat-shaped advantage doesn't
+  cross to ours.
+- We already have Meta Business + WhatsApp template
+  infrastructure planned (currently paused on verification;
+  see FEATURES_BACKLOG.md and project_whatsapp_admin_alerts).
+  Reuses sunk cost.
+- Skips the Play Store / App Store install friction entirely
+  for the rural + diaspora segments that struggle with native
+  app installs.
+- Conversion-rate impact: industry case studies on
+  WhatsApp-commerce (Reliance Jio's JioMart-on-WhatsApp,
+  Wati.io customers, Yalo) report 3-5× higher conversion vs
+  web for low-tech-literacy markets.
+
+**What it looks like**:
+
+```
+Customer:  morning, I need rice
+AI:        [4 product cards as WhatsApp media attachments]
+           Here are the popular options. Reply 1-4 to add to cart.
+Customer:  2 plus the small ones
+AI:        Added 1× Aso-Oke Long Grain 25kg + 1× same 5kg.
+           Subtotal ₦42,000.
+           Want to checkout? Reply 'pay'.
+Customer:  pay
+AI:        [Squad payment link as WhatsApp button]
+           Tap to pay. I'll let you know when payment lands.
+```
+
+**Architecture**:
+
+- WhatsApp Business Cloud API (already plumbed for admin alerts)
+- New inbound webhook for customer-sent messages
+- Per-customer conversation state in Postgres (similar to
+  AssistantSession + AssistantMessage but with WhatsApp
+  channel)
+- Same Claude backend with the same tool surface — just
+  rendered as WhatsApp message templates instead of HTML
+- Product cards become WhatsApp catalog items (Meta's native
+  WhatsApp Commerce API supports this)
+- Squad payment link generation via existing payment module
+
+**Cost**:
+
+- Meta WhatsApp Business: $0.005-0.015 per conversation
+  (varies by country). For NG specifically: $0.008.
+- At launch volume (100 conversations/day): ~$25/mo
+- At 1,000/day: ~$240/mo
+- Plus Anthropic Claude (same cost model as web assistant)
+
+**Risks**:
+
+- Meta WhatsApp template approval — needed for any non-replied
+  message (proactive notifications). Reply-to-customer-message
+  is unrestricted.
+- 24-hour conversation window — if the customer doesn't reply
+  in 24h, the AI can only re-engage via approved template
+  messages (low rate of free-form re-engagement).
+- WhatsApp Commerce API has feature gaps (limited catalog
+  size, no full product attribute support yet).
+
+**Recommended next step**: this deserves its own tracker doc
+(`WHATSAPP_COMMERCE_TRACKER.md`). It's a sister workstream to
+the chat-assistant, not a subsection. Once the Meta verification
+in FEATURES_BACKLOG clears, we have the foundation to build it
+fast.
+
+### 16.2 Code-switching voice + text agent
+
+★★★★ readiness · ★★★★ moat · S cost
+
+**The pain**: Nigerians (and most African shoppers) code-switch
+constantly. A real query in the wild:
+
+> "I dey find that thing, you know that ankara fabric — the one
+> wey get red flowers, abi maybe blue — anything you fit show
+> me?"
+
+That's English + Pidgin grammar + a Yoruba-style sentence flow,
+in one query. Most LLMs handle a paragraph in one language well.
+They handle code-switching badly — they "correct" to standard
+English, miss the intent, or respond in stiff formal English
+that breaks the conversation rapport.
+
+**What it is**: the assistant matches the customer's register
++ language switches in real time. If you message in Pidgin, it
+replies in Pidgin. If you mix Yoruba + English, it answers the
+same way.
+
+**Why revolutionary**: no major e-commerce assistant does this
+well today. Most "multilingual" support means "we have separate
+English, French, Portuguese versions." Code-switching IS the
+mother tongue of urban Africa. The first one that lets users
+shop in their actual mental language wins them.
+
+**Build approach**:
+
+- Claude already handles code-switching reasonably (~80% with
+  a generic prompt). Strong system-prompt engineering gets it
+  to ~95% — emphasize "mirror the customer's register, never
+  correct their language, respond in the same blend they
+  used."
+- Voice input via Whisper handles African accents better than
+  browser-native STT. Worth the ~$0.006/min cost.
+- Optional fine-tune later on a corpus of code-switched
+  customer-service transcripts (collect via early adoption +
+  consent).
+
+**Status in this tracker**: already in v1's design (§4, §8.1).
+The "revolutionary" framing is: don't treat this as
+multilingual support. Treat it as the brand-defining
+characteristic of Adaeze. Lead the marketing with it.
+
+### 16.3 AI seller assistant (raising the marketplace floor)
+
+★★★★ readiness · ★★★★★ moat · M cost
+
+**The inversion**: every AI-commerce startup thinks about
+helping the buyer. Our marketplace has thousands of small
+African sellers — artisans, ethnic-food producers, small
+fashion brands — many of whom don't speak fluent English. Their
+listings reflect that: titles like "good quality fabric small
+size", no SEO keywords, missing attributes, blurry photos.
+Result: bad search rank, no sales, seller churn, the catalog
+floor stays low.
+
+**What it is**: when a seller uploads a product:
+
+1. They upload a photo + a few sentences in their own language
+   (Yoruba / Igbo / Hausa / Swahili / French / Portuguese).
+2. AI generates a full English (and bonus French / Portuguese)
+   listing with culturally appropriate copy.
+3. AI suggests pricing based on similar items already on the
+   marketplace.
+4. AI flags missing-but-valuable attributes ("you didn't
+   mention what country the cocoa is from — buyers care").
+5. AI writes SEO-friendly title + meta description.
+6. AI inspects the photo and offers to enhance (background
+   removal, white-bg standardisation) before publish.
+
+**Why revolutionary**:
+
+- Inverts the AI-commerce playbook. Buyer-helping AI is a race
+  to the bottom (everyone has Rufus / Sparky / Adaeze). Seller-
+  helping AI in the African context is a moat — the data
+  (thousands of small-seller listings + how good listings
+  perform) is ours and ours alone.
+- Compound effect: better listings → better search → more
+  sales → less seller churn → bigger catalog → better
+  discovery → more buyers. Self-reinforcing loop.
+- Lifts the entire marketplace floor in months, not years.
+
+**Build cost**: cheaper than the buyer-side assistant. Same
+Claude backend, fewer tools (no order lookup, no payment, no
+shipping calc — just text generation + image cleanup). One
+focused screen in the seller admin.
+
+**Recommended next step**: after v1 of the buyer assistant
+ships and we've proven the LLM plumbing works, this is the
+fastest follow-on with the highest marketplace-wide ROI.
+
+### 16.4 AI return prevention
+
+★★★ readiness · ★★ moat · S cost
+
+**The idea**: AI catches "you're about to buy something you'll
+return" patterns before checkout and intervenes.
+
+Customer adds size-M ankara dress. AI checks: customer's previous
+orders show they returned the last two size-M dresses (size ran
+small). Cart sidebar surfaces: *"Heads up — for dresses with
+this brand, customers like you often size up. Try size L?"*
+
+**Production-readiness**: high once we have ~3 months of
+purchase + return history. Today the dataset's too thin.
+
+**Why interesting**: returns are 1-3% of revenue lost (shipping
+back, restocking, write-offs). Cutting returns by 30% pays the
+entire AI infrastructure cost.
+
+**Why only ★★ moat**: incremental UX — easily copied. But the
+data is ours.
+
+**Build cost**: S (small). Single tool that runs at add-to-cart
+time, RAG over the customer's return history.
+
+**Status**: not a v1 — needs purchase + return data we haven't
+accumulated yet. Park for ~6 months post-launch.
+
+### 16.5 AI gift planning across the year
+
+★★★ readiness · ★★★★ moat · M cost
+
+**The flip**: instead of helping with one purchase, help with a
+year of purchases.
+
+**The pain**: diaspora users obsess over the gifting calendar.
+Mum's birthday in March. Sister's wedding anniversary in July.
+Father's Day in June. Cousin's traditional naming ceremony
+sometime in September. Eid + Christmas + Boxing Day. They plan
+manually, often late, often last-minute-stressed.
+
+**What it is**: give the AI your social graph — mum, dad,
+siblings, friends, kids — their birthdays, anniversaries,
+religious occasions, taste profiles. AI plans 14 gifts for the
+year in advance. You sign off on the slate. AI batch-orders
+monthly with delivery scheduled to arrive on the right day.
+
+**Why revolutionary**:
+
+- The diaspora segment has the highest order value AND the
+  highest emotional stakes per purchase. Winning their loyalty
+  is worth more per user than the in-country segment.
+- It's a relationship product, not a shopping product. Users
+  hire Adaeze to think for them. Loyalty effect is enormous.
+- Very hard to copy without the cultural-occasion knowledge.
+
+**Build cost**: M. Needs:
+
+- Social-graph capture UI (a one-time setup wizard)
+- Calendar with cultural occasions pre-seeded for each
+  African country
+- Scheduled-order pipeline (queue an order to fulfil 7-10 days
+  before the occasion)
+- Approval flow (user reviews the slate, swaps items,
+  approves)
+- Reminders + change-of-mind handling
+
+**Why ★★★ readiness** (not ★★★★): the social-graph capture has
+PII implications (you're storing data about non-users — the
+gift recipients). NDPR + GDPR review needed before launch.
+
+**Recommended next step**: greenlight after v1 ships AND
+diaspora becomes a measurable segment. Builds on existing user
+profile + addressing infrastructure.
+
+### 16.6 AI clothing fitter (camera body-mapping)
+
+★ readiness · ★★★ moat · L cost
+
+**The vision**: point your phone camera at yourself, AI maps
+your body proportions, then shows clothing fitted to your
+actual size. Not generic S/M/L — your exact body.
+
+**Production-readiness**: low. The good versions of this
+(Bold Metrics, EyeEm, retail-grade fit-tech) require either
+calibrated rooms or specific stationary poses. Phone-camera
+versions exist (Wannaby, Fit:Match) but quality varies wildly
+with lighting, clothing, camera quality. Promising research,
+not production-grade for a Nigerian-shopper context where
+lighting is variable and phones are mid-range Androids.
+
+**Why we'd want it**: fashion is a meaningful category for us
+(ankara, traditional wear, modern Afro-fusion). Fit-driven
+returns are a known cost.
+
+**Why we should defer**: it's a research project today, not a
+ship-it. Building it well takes 3-6 months and the tech is
+moving fast — what we build in June 2026 might be obsolete by
+January 2027. Wait for a vendor to package it.
+
+**What we can do TODAY in this category**: ask sellers to
+upload size charts in a standard format. Show "customers like
+you sized this way" stats on the PDP based on review data.
+Cheaper, more reliable, ships in days.
+
+**Recommended next step**: park. Revisit Q3 2027. If a
+production-grade vendor emerges (a Stripe-of-fit-tech), plug
+in via API rather than build in-house.
+
+---
+
+## Summary — what we'd actually green-light from §16
+
+In priority order of "we'd actually build this":
+
+1. **§16.2 Code-switching voice + text agent** — already in v1
+   scope. Reframe as the brand-defining capability, not a
+   side-feature. No new build needed.
+2. **§16.1 WhatsApp-as-the-app** — sister workstream. Own
+   tracker doc. Greenlight once Meta verification clears (it's
+   blocked there today regardless).
+3. **§16.3 AI seller assistant** — first follow-on after v1
+   ships. Highest marketplace-wide ROI.
+4. **§16.5 AI gift planning** — second follow-on. Diaspora moat.
+5. **§16.4 AI return prevention** — third follow-on (needs
+   accumulated data). Practical, not revolutionary.
+6. **§16.6 AI clothing fitter** — park. Wait for the tech.
+
+---
