@@ -427,7 +427,7 @@ function buildCards(
             </ul>
           ) : (
             <p className="font-sans text-sm opacity-80">
-              No big discoveries this year — but next year's coming.
+              No big discoveries this year — but next year&apos;s coming.
             </p>
           )}
         </div>
