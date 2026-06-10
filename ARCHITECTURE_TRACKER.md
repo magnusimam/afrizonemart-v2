@@ -248,6 +248,48 @@ watchdog keeps catching the next env drift without code changes.
 
 ---
 
+## 🎁 [x] Afrizonemart Wrap — admin console + live demo (2026-06-10)
+
+Wrap aggregation infra shipped earlier (WrappedSnapshot schema +
+daily aggregation + admin recompute/preview endpoints). What was
+missing: an admin surface to **see** what the wrap captures + a
+**live demo** with mock data so designers / stakeholders / ops can
+preview the deck without seeding a real user with 3+ qualifying
+orders.
+
+**Files (api):**
+- `src/modules/wrap/mock.ts` — pure persona → `WrappedStatsV1`
+  synth. Four archetypes (Connector / Patriot / Explorer / Curator).
+- `src/modules/wrap/admin.controller.ts` — added
+  `adminMockPreviewWrapHandler` + `adminWrapStatsHandler`.
+- `src/modules/wrap/admin.routes.ts` — mounted
+  `POST /api/admin/wrap/mock-preview` and `GET /api/admin/wrap/stats`.
+
+**Files (v2):**
+- `src/lib/api/wrap.ts` — client mirror of `WrappedStatsV1` +
+  three fetchers (stats, preview, mock-preview).
+- `src/components/admin/wrap/WrapDeck.tsx` — shared 9-card 9:16
+  deck visualisation. Used by both index preview and demo page.
+- `src/app/(admin)/admin/wrap/page.tsx` — index: snapshot counts
+  by year, 9-card data dictionary, user lookup → live preview.
+- `src/app/(admin)/admin/wrap/demo/page.tsx` — interactive demo
+  with persona buttons + tweak knobs (home country, total orders,
+  name) + auto-recompute on change.
+- `src/components/admin/AdminSidebar.tsx` — added "Afrizonemart
+  Wrap" link gated on `content.write` capability.
+
+**Not in scope this PR** (still WRAP_TRACKER §10 PR 4-6):
+- Customer-facing `/wrapped/[year]` route
+- Mobile WrapScreen
+- Satori share-image pipeline
+- Dec 1 drop campaign
+
+The deck visual here is the **data-shape preview**, not the
+production pixel-polish design. Card backgrounds + typography +
+animation get the proper pass when PR 4 lands.
+
+---
+
 ## 📊 Marketing & ML Data Infrastructure (queued 2026-05-13)
 
 Magnus asked for a data-infrastructure audit so the marketing team can
