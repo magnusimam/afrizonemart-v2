@@ -660,6 +660,8 @@ one batch (slower, more expensive, riskier).
 | Date | Event |
 |---|---|
 | 2026-06-08 | Doc created. Magnus + Claude aligned on framing (cultural + relational, not vanity stats). 9 card concepts drafted. Seller-wrap parked as sister feature pending §6.1 seller attribution. |
+| 2026-06-08 | PR 1 shipped: `WrappedSnapshot` schema + migration applied to prod; `computeUserWrap` aggregation + daily cron + annual publish cron registered; admin preview / recompute / publish / hide endpoints under `/api/admin/wrap`. |
+| 2026-06-10 | **Wrap admin console + live demo** shipped: `/admin/wrap` index (snapshot counts by year, 9-card data dictionary, user-ID preview), `/admin/wrap/demo` interactive demo (4 persona archetypes, tweakable knobs), shared `WrapDeck` 9-card visual. Adds `POST /api/admin/wrap/mock-preview` + `GET /api/admin/wrap/stats`. PR 4 still needed for production customer-facing renderer. |
 
 ---
 
