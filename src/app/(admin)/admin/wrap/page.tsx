@@ -6,7 +6,6 @@ import {
   BookOpen,
   Coins,
   Eye,
-  EyeOff,
   Gift,
   Globe2,
   Heart,
@@ -15,8 +14,6 @@ import {
   Sparkles,
   Sprout,
   Star,
-  Trophy,
-  Users,
 } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { WrapDeck } from '@/components/admin/wrap/WrapDeck';
@@ -172,7 +169,7 @@ export default function AdminWrapIndexPage() {
       {/* ── Live preview by userId ──────────────────────────────── */}
       <section>
         <h2 className="mb-3 font-raleway text-sm font-bold uppercase tracking-btn text-muted">
-          Preview a real user's wrap
+          Preview a real user&apos;s wrap
         </h2>
         <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-white p-4 shadow-sm">
           <div className="flex-1 min-w-[220px]">
