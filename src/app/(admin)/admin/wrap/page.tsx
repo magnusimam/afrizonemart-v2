@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BookOpen,
   Coins,
@@ -9,11 +9,15 @@ import {
   Gift,
   Globe2,
   Heart,
+  Music,
   PartyPopper,
+  Save,
   Search,
   Sparkles,
   Sprout,
   Star,
+  Trash2,
+  Upload,
 } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { WrapDeck } from '@/components/admin/wrap/WrapDeck';
@@ -24,6 +28,10 @@ import {
   type WrappedStatsV1,
   type WrapYearStats,
 } from '@/lib/api/wrap';
+import { adminGetContentOverrides, adminUpdateContent } from '@/lib/api/admin';
+import { uploadAudio, UploadApiError } from '@/lib/api/uploads';
+
+const WRAP_MUSIC_KEY = 'content.wrap.backgroundMusic';
 
 /**
  * /admin/wrap — the Wrap operations console.
@@ -51,11 +59,61 @@ export default function AdminWrapIndexPage() {
   const [previewReason, setPreviewReason] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // ── Background music ──────────────────────────────────────────────
+  const [savedMusicUrl, setSavedMusicUrl] = useState<string | null>(null);
+  const [stagedMusicUrl, setStagedMusicUrl] = useState<string | null>(null);
+  const [musicUploading, setMusicUploading] = useState(false);
+  const [musicSaving, setMusicSaving] = useState(false);
+  const musicInputRef = useRef<HTMLInputElement | null>(null);
+  const musicDirty = stagedMusicUrl !== savedMusicUrl;
+
   useEffect(() => {
     void adminWrapStats()
       .then((r) => setStats(r.years))
       .catch((e) => toast(e instanceof Error ? e.message : 'Failed to load stats', 'error'));
+    void adminGetContentOverrides()
+      .then((r) => {
+        const v = r.overrides[WRAP_MUSIC_KEY];
+        const url = typeof v === 'string' && v.length > 0 ? v : null;
+        setSavedMusicUrl(url);
+        setStagedMusicUrl(url);
+      })
+      .catch(() => {
+        /* non-fatal — music panel just starts empty */
+      });
   }, []);
+
+  const onPickMusic = async (file: File | undefined) => {
+    if (!file) return;
+    setMusicUploading(true);
+    try {
+      const asset = await uploadAudio(file);
+      setStagedMusicUrl(asset.url);
+      toast('Track uploaded — press Save to make it live', 'success');
+    } catch (e) {
+      const msg =
+        e instanceof UploadApiError || e instanceof Error
+          ? e.message
+          : 'Audio upload failed';
+      toast(msg, 'error');
+    } finally {
+      setMusicUploading(false);
+      if (musicInputRef.current) musicInputRef.current.value = '';
+    }
+  };
+
+  const saveMusic = async () => {
+    setMusicSaving(true);
+    try {
+      await adminUpdateContent([{ key: WRAP_MUSIC_KEY, value: stagedMusicUrl }]);
+      setSavedMusicUrl(stagedMusicUrl);
+      toast(stagedMusicUrl ? 'Background music saved' : 'Background music cleared', 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Save failed', 'error');
+    } finally {
+      setMusicSaving(false);
+    }
+  };
 
   const yearOptions = useMemo(() => {
     const now = new Date().getUTCFullYear();
@@ -132,6 +190,84 @@ export default function AdminWrapIndexPage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* ── Background music ────────────────────────────────────── */}
+      <section className="mb-10">
+        <h2 className="mb-3 flex items-center gap-2 font-raleway text-sm font-bold uppercase tracking-btn text-muted">
+          <Music size={14} aria-hidden /> Background music
+        </h2>
+        <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
+          <p className="mb-3 font-sans text-xs text-muted">
+            Upload a track to play behind the wrap slides. Saved to the
+            database — takes effect for the deck on Save. Use a
+            royalty-free / licensed file (mp3, m4a, ogg or wav, max 8MB).
+          </p>
+
+          {stagedMusicUrl ? (
+            <div className="mb-3 flex flex-col gap-2 rounded-md border border-border bg-page/50 px-3 py-2">
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <audio
+                src={stagedMusicUrl}
+                controls
+                preload="none"
+                className="w-full"
+              />
+              <p className="truncate font-mono text-[10px] text-muted">
+                {stagedMusicUrl}
+              </p>
+            </div>
+          ) : (
+            <p className="mb-3 rounded-md border border-dashed border-border bg-page/40 px-3 py-4 text-center font-sans text-xs text-muted">
+              No track set — the wrap plays silently.
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={musicInputRef}
+              type="file"
+              accept="audio/*"
+              hidden
+              onChange={(e) => void onPickMusic(e.target.files?.[0])}
+            />
+            <button
+              type="button"
+              onClick={() => musicInputRef.current?.click()}
+              disabled={musicUploading}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-page disabled:opacity-40"
+            >
+              <Upload size={13} aria-hidden />{' '}
+              {musicUploading ? 'Uploading…' : stagedMusicUrl ? 'Replace track' : 'Upload track'}
+            </button>
+
+            {stagedMusicUrl && (
+              <button
+                type="button"
+                onClick={() => setStagedMusicUrl(null)}
+                disabled={musicUploading || musicSaving}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-red-600 hover:bg-red-50 disabled:opacity-40"
+              >
+                <Trash2 size={13} aria-hidden /> Remove
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={saveMusic}
+              disabled={!musicDirty || musicSaving || musicUploading}
+              className="inline-flex items-center gap-2 rounded-md bg-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-navy/90 disabled:opacity-40"
+            >
+              <Save size={13} aria-hidden /> {musicSaving ? 'Saving…' : 'Save'}
+            </button>
+
+            {musicDirty && (
+              <span className="font-sans text-[11px] italic text-amber">
+                Unsaved changes
+              </span>
+            )}
+          </div>
+        </div>
       </section>
 
       {/* ── What's captured ─────────────────────────────────────── */}
@@ -226,7 +362,7 @@ export default function AdminWrapIndexPage() {
 
         {previewStats && (
           <div className="mt-6 flex flex-col items-center gap-4 rounded-lg border border-border bg-page/40 p-6">
-            <WrapDeck stats={previewStats} />
+            <WrapDeck stats={previewStats} musicUrl={stagedMusicUrl} />
             <details className="w-full max-w-2xl">
               <summary className="cursor-pointer font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
                 Raw stats JSON

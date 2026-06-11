@@ -11,6 +11,9 @@ import {
   type WrappedPersonality,
   type WrappedStatsV1,
 } from '@/lib/api/wrap';
+import { adminGetContentOverrides } from '@/lib/api/admin';
+
+const WRAP_MUSIC_KEY = 'content.wrap.backgroundMusic';
 
 /**
  * /admin/wrap/demo — live preview with mock data.
@@ -87,6 +90,19 @@ export default function AdminWrapDemoPage() {
 
   const [stats, setStats] = useState<WrappedStatsV1 | null>(null);
   const [busy, setBusy] = useState(false);
+  const [musicUrl, setMusicUrl] = useState<string | null>(null);
+
+  /// Pull the admin-saved background track so the demo deck can play it.
+  useEffect(() => {
+    void adminGetContentOverrides()
+      .then((r) => {
+        const v = r.overrides[WRAP_MUSIC_KEY];
+        setMusicUrl(typeof v === 'string' && v.length > 0 ? v : null);
+      })
+      .catch(() => {
+        /* non-fatal */
+      });
+  }, []);
 
   /// Snap defaults whenever the persona changes — saves a click.
   const selectPersona = (p: WrappedPersonality) => {
@@ -245,7 +261,11 @@ export default function AdminWrapDemoPage() {
         {/* ── Deck preview ────────────────────────────────────────── */}
         <section className="flex flex-col items-center gap-4 rounded-lg border border-border bg-page/40 p-6">
           {stats ? (
-            <WrapDeck stats={stats} customerName={customerName || null} />
+            <WrapDeck
+              stats={stats}
+              customerName={customerName || null}
+              musicUrl={musicUrl}
+            />
           ) : busy ? (
             <p className="font-sans text-sm text-muted">Computing…</p>
           ) : (
