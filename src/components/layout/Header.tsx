@@ -11,6 +11,7 @@ import { CurrencySwitcher } from '@/components/common/CurrencySwitcher';
 import { CategoriesDropdown } from '@/components/layout/CategoriesDropdown';
 import { MobileMenu } from '@/components/layout/MobileMenu';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { WrapHeaderPill } from '@/components/wrap/WrapHeaderPill';
 
 // Static nav items rendered AFTER the All Categories dropdown
 // (desktop only — mobile shows everything in the drawer instead).
@@ -170,6 +171,12 @@ export function Header() {
               </Link>
             </li>
           ))}
+          {/* Reveal entry — only renders once the wrap is live. */}
+          <li className="shrink-0 pl-4 md:pl-6">
+            <SafeBoundary name="header:wrap-pill" fallback={null}>
+              <WrapHeaderPill />
+            </SafeBoundary>
+          </li>
         </ul>
       </nav>
 

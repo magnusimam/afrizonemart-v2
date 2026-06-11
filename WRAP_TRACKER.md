@@ -506,19 +506,29 @@ on R2 + Cloudflare for 30d.
 
 **Web** (afrizonemart-v2): `/wrapped/[year]` route.
 
-- Auth gate; 401 → in-page "sign in to see your wrap" prompt
-  (link to /login?redirect=/wrapped/<year>).
-- Fetches `/api/wrap/me?year=2026`, branches on `status`:
-  - `locked` → "unlock at 3 orders, you're at N" teaser.
-  - `pending` → "drops Dec 1" anticipation screen + live countdown.
-  - `optedOut` → re-enable hint → /account.
-  - `ready` → renders the `WrapDeck` (shared with admin preview) +
-    background music (admin-managed) + Share.
-- Share: PR 4 ships URL share via Web Share API (clipboard fallback);
-  per-card Satori PNGs are PR 3.
+**Reveal model (Magnus, 2026-06-11): the wrap is HIDDEN until it's
+live.** No pre-drop teasers. `/wrapped/[year]` renders the deck ONLY
+for a `status: 'ready'` viewer; every other state (pending / locked /
+optedOut / 401 / error) silently `router.replace('/')` so a direct or
+guessed URL never reveals the feature before Dec 1. (The pending/
+locked/optedOut API states still exist — used by mobile + future
+surfaces — the web page just doesn't render them.)
+
 - Built in PR 4: `src/app/wrapped/[year]/page.tsx` (+ `/wrapped`
   redirect to current year). Top-level route → full-screen, no shop
-  chrome.
+  chrome. `WrapDeck` (shared with admin preview) + admin-managed
+  background music + Share (Web Share API, clipboard fallback;
+  per-card Satori PNGs remain PR 3).
+
+**Reveal surfaces** — all gated on the shared `useWrapReveal()` hook
+(`stores/wrapStatusStore.ts`, one `/api/wrap/me` call/session, true
+only when `ready`). They appear automatically when the Dec 1 cron
+publishes:
+  - `WrapHeaderPill` — persistent "My Wrap" pill in the header nav.
+  - `WrapHomeBanner` — dismissible homepage strip (per-year localStorage).
+  - `WrapLoginPopup` — one-time site-wide modal (per-year localStorage),
+    mounted in the root layout.
+  - `WrapDashboardCard` — permanent re-entry card on /account.
 
 **Mobile** (afrizonemart-mobile): `WrapScreen`.
 
@@ -672,7 +682,8 @@ one batch (slower, more expensive, riskier).
 | 2026-06-10 | **Wrap admin console + live demo** shipped: `/admin/wrap` index (snapshot counts by year, 9-card data dictionary, user-ID preview), `/admin/wrap/demo` interactive demo (4 persona archetypes, tweakable knobs), shared `WrapDeck` 9-card visual. Adds `POST /api/admin/wrap/mock-preview` + `GET /api/admin/wrap/stats`. PR 4 still needed for production customer-facing renderer. |
 | 2026-06-11 | **PR 1.5 API backfill + UI polish**: rebuilt the never-committed `mock-preview`/`stats` endpoints (api #58); white logo mark on every deck card (v2 #115); admin-managed **background music** — audio upload + `content.wrap.backgroundMusic` slot + `/admin/wrap` panel + deck playback (api #59, v2 #116). |
 | 2026-06-11 | **PR 2 shipped** (api #60, deployed): customer `GET /api/wrap/me` — 200 discriminated `status` (ready/pending/locked/optedOut), not 404. New `/api/wrap` router; `me.service.ts`. |
-| 2026-06-11 | **PR 4 shipped** (v2): `/wrapped/[year]` customer page — full-screen, all 4 states + sign-in prompt, reuses `WrapDeck` + music, URL share. Per-card PNG share still pending (PR 3). |
+| 2026-06-11 | **PR 4 shipped** (v2): `/wrapped/[year]` customer page — full-screen, reuses `WrapDeck` + music, URL share. Per-card PNG share still pending (PR 3). |
+| 2026-06-11 | **Reveal gating** (v2, same PR): wrap hidden until live — page redirects home for any non-`ready` viewer. Four reveal surfaces (header pill / home banner / one-time login popup / dashboard card) gated on `useWrapReveal()`, all appear only when the Dec 1 cron publishes. |
 
 ---
 
