@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,6 +13,8 @@ import {
   Sprout,
   Star,
   Trophy,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import type { WrappedStatsV1 } from '@/lib/api/wrap';
 
@@ -34,6 +36,11 @@ interface Props {
   /// Optional name to personalise card 1 ("You are a CONNECTOR")
   /// → ("Magnus, you are a CONNECTOR"). Demo defaults to blank.
   customerName?: string | null;
+  /// Optional background-music track (the admin-uploaded URL from
+  /// `content.wrap.backgroundMusic`). When set, a speaker toggle
+  /// appears; playback starts on the user's tap (browsers block
+  /// autoplay-with-sound) and loops.
+  musicUrl?: string | null;
 }
 
 const MONTH_LABELS = [
@@ -65,8 +72,10 @@ const PERSONALITY_TAGLINE: Record<WrappedStatsV1['personality'], string> = {
   CURATOR: 'A small, specific catalog of love.',
 };
 
-export function WrapDeck({ stats, customerName }: Props) {
+export function WrapDeck({ stats, customerName, musicUrl }: Props) {
   const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const cards = buildCards(stats, customerName);
 
   /// Reset to card 1 if the underlying stats blob changes — happens
@@ -74,6 +83,28 @@ export function WrapDeck({ stats, customerName }: Props) {
   useEffect(() => {
     setIndex(0);
   }, [stats]);
+
+  /// Stop + reset playback whenever the track changes or is removed.
+  useEffect(() => {
+    const el = audioRef.current;
+    setPlaying(false);
+    if (el) {
+      el.pause();
+      el.currentTime = 0;
+    }
+  }, [musicUrl]);
+
+  const toggleMusic = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (playing) {
+      el.pause();
+      setPlaying(false);
+    } else {
+      // User gesture → allowed to play with sound.
+      void el.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    }
+  };
 
   const card = cards[index];
   const go = (dir: -1 | 1) =>
@@ -91,6 +122,27 @@ export function WrapDeck({ stats, customerName }: Props) {
             color: card.foreground,
           }}
         >
+          {/* Background-music toggle — only when a track is configured.
+              Starts on tap (autoplay-with-sound is blocked) and loops. */}
+          {musicUrl && (
+            <>
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <audio ref={audioRef} src={musicUrl} loop preload="none" />
+              <button
+                type="button"
+                onClick={toggleMusic}
+                aria-label={playing ? 'Mute music' : 'Play music'}
+                className="absolute right-3 top-3 z-10 rounded-full bg-black/30 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/50"
+              >
+                {playing ? (
+                  <Volume2 size={14} aria-hidden />
+                ) : (
+                  <VolumeX size={14} aria-hidden />
+                )}
+              </button>
+            </>
+          )}
+
           {/* Top progress bar — one segment per card, fills up to index. */}
           <div className="flex gap-1 px-4 pt-3">
             {cards.map((_, i) => (
