@@ -106,3 +106,23 @@ export function adminWrapMockPreview(
     body: JSON.stringify(input),
   });
 }
+
+/**
+ * Customer-facing wrap state — mirror of the API's WrapMeResult
+ * (afrizonemart-api/src/modules/wrap/me.service.ts). Discriminated by
+ * `status`; the /wrapped page branches on it. Keep in lockstep.
+ */
+export type WrapMeResult =
+  | { status: 'ready'; year: number; publishedAt: string; stats: WrappedStatsV1 }
+  | { status: 'pending'; year: number; dropAt: string }
+  | { status: 'locked'; year: number; ordersCount: number; minOrders: number }
+  | { status: 'optedOut'; year: number };
+
+/**
+ * GET /api/wrap/me — the logged-in user's own wrap for a year.
+ * Requires auth (apiFetchAuthed attaches the token + refresh dance).
+ */
+export function getWrapMe(year?: number): Promise<WrapMeResult> {
+  const qs = year ? `?year=${year}` : '';
+  return apiFetchAuthed(`/api/wrap/me${qs}`);
+}
