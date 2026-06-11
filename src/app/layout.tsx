@@ -14,6 +14,7 @@ import { GeoBanner } from '@/components/common/GeoBanner';
 import { ConfigWatchdog } from '@/components/common/ConfigWatchdog';
 import { ApiStatusBanner } from '@/components/common/ApiStatusBanner';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { WrapLoginPopup } from '@/components/wrap/WrapLoginPopup';
 import { SiteJsonLd } from '@/components/seo/SiteJsonLd';
 import {
   SITE_DEFAULT_DESCRIPTION,
@@ -153,6 +154,9 @@ export default function RootLayout({
                   <ApiStatusBanner />
                 </SafeBoundary>
                 {children}
+                <SafeBoundary name="layout:wrap-popup" fallback={null}>
+                  <WrapLoginPopup />
+                </SafeBoundary>
                 <GoogleTranslate />
               </CartSyncProvider>
             </GeoProvider>

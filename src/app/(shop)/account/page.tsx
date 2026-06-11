@@ -13,6 +13,7 @@ import { countWishlist } from '@/lib/api/wishlist';
 import { getMyLoyalty } from '@/lib/api/loyalty';
 import { useAuthStore } from '@/stores/authStore';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { WrapDashboardCard } from '@/components/wrap/WrapDashboardCard';
 import type { OrderStatus as UiOrderStatus } from '@/types';
 
 function statusToUi(s: Order['status']): UiOrderStatus {
@@ -117,6 +118,13 @@ export default function AccountDashboardPage() {
               account pages without burning vertical real estate. */}
           <SafeBoundary name="account:mobile-nav" fallback={null}>
             <AccountMobileNav active="/account" />
+          </SafeBoundary>
+
+          {/* Permanent wrap re-entry — only renders once it's live. */}
+          <SafeBoundary name="account:wrap-card" fallback={null}>
+            <div className="mb-6">
+              <WrapDashboardCard />
+            </div>
           </SafeBoundary>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">

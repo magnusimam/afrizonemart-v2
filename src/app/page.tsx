@@ -3,6 +3,7 @@ import { FloatingMobileCart } from '@/components/cart/FloatingMobileCart';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { Hero } from '@/components/layout/Hero';
+import { WrapHomeBanner } from '@/components/wrap/WrapHomeBanner';
 import { BooksSection } from '@/components/sections/BooksSection';
 import { BrandBanner } from '@/components/sections/BrandBanner';
 import { CategoriesSection } from '@/components/sections/CategoriesSection';
@@ -41,6 +42,7 @@ export default async function Home() {
   return (
     <>
       <SafeBoundary name="header"><Header /></SafeBoundary>
+      <SafeBoundary name="wrap-banner" fallback={null}><WrapHomeBanner /></SafeBoundary>
       <main>
         <S name="hero">
           <Hero slides={heroSlides.length > 0 ? heroSlides.map((s) => ({ src: s.url, alt: s.alt })) : undefined} />
