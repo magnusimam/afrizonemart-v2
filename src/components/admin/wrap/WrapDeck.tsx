@@ -105,12 +105,24 @@ export function WrapDeck({ stats, customerName }: Props) {
             ))}
           </div>
 
-          <div className="flex flex-1 flex-col items-center justify-center px-6 py-8 text-center">
+          {/* Persistent brand mark — knocked out to white so it reads on
+              every gradient. Sits above each card's own thematic icon. */}
+          <div className="flex justify-center pt-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/logo.png"
+              alt="Afrizonemart"
+              className="h-5 w-auto opacity-90"
+              style={{ filter: 'brightness(0) invert(1)' }}
+            />
+          </div>
+
+          <div className="flex flex-1 flex-col items-center justify-center px-6 py-6 text-center">
             {card.body}
           </div>
 
           <div className="flex items-center justify-between px-4 pb-4 text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">
-            <span>AFRIZONEMART WRAP</span>
+            <span>WRAP {new Date().getUTCFullYear()}</span>
             <span>
               {index + 1} / {cards.length}
             </span>
