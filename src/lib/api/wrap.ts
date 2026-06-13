@@ -108,6 +108,18 @@ export function adminWrapMockPreview(
 }
 
 /**
+ * POST /api/admin/wrap/backfill — re-index every eligible user (≥3
+ * orders), not just recently active ones. Run before the Dec 1 drop
+ * or to recover after an outage. Returns upsert counts.
+ */
+export function adminWrapBackfill(
+  year?: number,
+): Promise<{ eligible: number; upserted: number; skipped: number; failed: number }> {
+  const qs = year ? `?year=${year}` : '';
+  return apiFetchAuthed(`/api/admin/wrap/backfill${qs}`, { method: 'POST' });
+}
+
+/**
  * Customer-facing wrap state — mirror of the API's WrapMeResult
  * (afrizonemart-api/src/modules/wrap/me.service.ts). Discriminated by
  * `status`; the /wrapped page branches on it. Keep in lockstep.

@@ -11,6 +11,7 @@ import {
   Heart,
   Music,
   PartyPopper,
+  RefreshCw,
   Save,
   Search,
   Sparkles,
@@ -23,6 +24,7 @@ import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { WrapDeck } from '@/components/admin/wrap/WrapDeck';
 import { toast } from '@/components/admin/Toast';
 import {
+  adminWrapBackfill,
   adminWrapPreview,
   adminWrapStats,
   type WrappedStatsV1,
@@ -115,6 +117,26 @@ export default function AdminWrapIndexPage() {
     }
   };
 
+  const [backfilling, setBackfilling] = useState(false);
+  const runBackfill = async () => {
+    setBackfilling(true);
+    try {
+      const r = await adminWrapBackfill();
+      toast(
+        `Re-indexed ${r.eligible} eligible — ${r.upserted} written, ${r.skipped} skipped${
+          r.failed ? `, ${r.failed} failed` : ''
+        }`,
+        r.failed ? 'error' : 'success',
+      );
+      const s = await adminWrapStats();
+      setStats(s.years);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Backfill failed', 'error');
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   const yearOptions = useMemo(() => {
     const now = new Date().getUTCFullYear();
     return [now, now - 1, now - 2];
@@ -156,9 +178,25 @@ export default function AdminWrapIndexPage() {
 
       {/* ── Snapshot counts ─────────────────────────────────────── */}
       <section className="mb-10">
-        <h2 className="mb-3 font-raleway text-sm font-bold uppercase tracking-btn text-muted">
-          Snapshots in database
-        </h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-raleway text-sm font-bold uppercase tracking-btn text-muted">
+            Snapshots in database
+          </h2>
+          <button
+            type="button"
+            onClick={runBackfill}
+            disabled={backfilling}
+            title="Re-index every eligible user (≥3 orders), not just recently active. Run before the Dec 1 drop or after an outage."
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-navy hover:bg-page disabled:opacity-40"
+          >
+            <RefreshCw
+              size={12}
+              className={backfilling ? 'animate-spin' : ''}
+              aria-hidden
+            />{' '}
+            {backfilling ? 'Re-indexing…' : 'Re-index all eligible'}
+          </button>
+        </div>
         {stats === null && (
           <p className="font-sans text-sm text-muted">Loading…</p>
         )}
