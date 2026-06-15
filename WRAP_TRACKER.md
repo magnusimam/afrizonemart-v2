@@ -695,6 +695,7 @@ one batch (slower, more expensive, riskier).
 | 2026-06-11 | **Reveal gating** (v2, same PR): wrap hidden until live — page redirects home for any non-`ready` viewer. Four reveal surfaces (header pill / home banner / one-time login popup / dashboard card) gated on `useWrapReveal()`, all appear only when the Dec 1 cron publishes. |
 | 2026-06-13 | **Full backfill safety net** (api #61, v2 #118): `runFullWrapBackfill` + November nightly full-sweep cron + `POST /api/admin/wrap/backfill` + "Re-index all eligible" admin button. Closes the incremental-sweep gap (users missed during a >36h outage). |
 | 2026-06-15 | **PR 3 shipped** — per-card share images. api #62: signed share token + public `/api/wrap/shared`. v2 #119: `/api/wrap/card/[year]/[cardKey]` @vercel/og renderer (all 9 cards) + "Share this card" buttons + file-share. Needs a published wrap for full QA. |
+| 2026-06-15 | **PR 8 shipped (web)** — wrap opt-out. api #63: `wrapOptOut` on `PATCH /api/auth/me` + surfaced on the user object. v2 #121: "Include me in my yearly Wrap" toggle on /account/profile. Mobile half of PR 8 still pending. |
 
 ---
 
