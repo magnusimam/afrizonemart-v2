@@ -5,6 +5,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Coins,
+  Loader2,
+  Share2,
   Gift,
   Globe2,
   Heart,
@@ -41,6 +43,12 @@ interface Props {
   /// appears; playback starts on the user's tap (browsers block
   /// autoplay-with-sound) and loops.
   musicUrl?: string | null;
+  /// When provided, a per-card "Share" button appears below the deck
+  /// and calls this with the current card's key. The customer page
+  /// wires it to share the rendered PNG; the admin preview omits it.
+  onShareCard?: (cardKey: string) => void;
+  /// Shows a busy state on the share button while the PNG is fetched.
+  sharingCard?: boolean;
 }
 
 const MONTH_LABELS = [
@@ -72,7 +80,13 @@ const PERSONALITY_TAGLINE: Record<WrappedStatsV1['personality'], string> = {
   CURATOR: 'A small, specific catalog of love.',
 };
 
-export function WrapDeck({ stats, customerName, musicUrl }: Props) {
+export function WrapDeck({
+  stats,
+  customerName,
+  musicUrl,
+  onShareCard,
+  sharingCard,
+}: Props) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -202,14 +216,32 @@ export function WrapDeck({ stats, customerName, musicUrl }: Props) {
         </button>
       </div>
 
-      <p className="font-sans text-xs text-muted">
-        {card.title}
-      </p>
+      <div className="flex flex-col items-center gap-3">
+        {onShareCard && (
+          <button
+            type="button"
+            onClick={() => onShareCard(card.key)}
+            disabled={sharingCard}
+            className="inline-flex items-center gap-2 rounded-full bg-amber px-5 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy transition-transform hover:scale-105 disabled:opacity-50"
+          >
+            {sharingCard ? (
+              <Loader2 size={14} className="animate-spin" aria-hidden />
+            ) : (
+              <Share2 size={14} aria-hidden />
+            )}
+            Share this card
+          </button>
+        )}
+        <p className="font-sans text-xs text-muted">{card.title}</p>
+      </div>
     </div>
   );
 }
 
 interface CardDef {
+  /// Stable share-image key — matches the cardKey in the
+  /// /api/wrap/card/[year]/[cardKey] renderer.
+  key: string;
   title: string;
   background: string;
   foreground: string;
@@ -225,6 +257,7 @@ function buildCards(
 
   // ── Card 1 — Personality ────────────────────────────────────────
   cards.push({
+    key: 'personality',
     title: '1 of 9 — Personality',
     background:
       'linear-gradient(160deg, #000066 0%, #1A1A8A 60%, #2D2DAA 100%)',
@@ -250,6 +283,7 @@ function buildCards(
 
   // ── Card 2 — Continent on your doorstep ─────────────────────────
   cards.push({
+    key: 'geography',
     title: '2 of 9 — Where your orders came from',
     background:
       'linear-gradient(140deg, #033E5A 0%, #045E76 60%, #07A09D 100%)',
@@ -292,6 +326,7 @@ function buildCards(
 
   // ── Card 3 — Cultural year ──────────────────────────────────────
   cards.push({
+    key: 'cultural',
     title: '3 of 9 — Your cultural year',
     background:
       'linear-gradient(160deg, #4A0A4F 0%, #7A1075 50%, #B71D6C 100%)',
@@ -328,6 +363,7 @@ function buildCards(
 
   // ── Card 4 — You supported ──────────────────────────────────────
   cards.push({
+    key: 'supported',
     title: '4 of 9 — You supported',
     background:
       'linear-gradient(160deg, #11342B 0%, #1A6C42 60%, #2DB07A 100%)',
@@ -362,6 +398,7 @@ function buildCards(
   // ── Card 5 — Top categories ─────────────────────────────────────
   const top = stats.topCategories[0];
   cards.push({
+    key: 'categories',
     title: '5 of 9 — Top category',
     background:
       'linear-gradient(160deg, #5B1B05 0%, #8C2F09 60%, #D34F0E 100%)',
@@ -398,6 +435,7 @@ function buildCards(
   // ── Card 6 — Continental Rewards ────────────────────────────────
   const tier = stats.loyalty.finalTier;
   cards.push({
+    key: 'rewards',
     title: '6 of 9 — Continental Rewards',
     background:
       'linear-gradient(160deg, #000066 0%, #131388 60%, #1F1FB4 100%)',
@@ -436,6 +474,7 @@ function buildCards(
   // ── Card 7 — Care packages (CONNECTOR-flavoured) ────────────────
   if (stats.carePackagesCount > 0) {
     cards.push({
+      key: 'care',
       title: '7 of 9 — Care packages',
       background:
         'linear-gradient(160deg, #6B0E0A 0%, #9F1B12 60%, #D9382B 100%)',
@@ -465,6 +504,7 @@ function buildCards(
     });
   } else {
     cards.push({
+      key: 'discoveries',
       title: '7 of 9 — Discoveries',
       background:
         'linear-gradient(160deg, #1F0E40 0%, #3B1F7A 60%, #5733AE 100%)',
@@ -502,6 +542,7 @@ function buildCards(
   // ── Card 8 — Discoveries (only if not already shown) ────────────
   if (stats.carePackagesCount > 0 && stats.discoveries.length > 0) {
     cards.push({
+      key: 'discoveries',
       title: '8 of 9 — Discoveries',
       background:
         'linear-gradient(160deg, #1F0E40 0%, #3B1F7A 60%, #5733AE 100%)',
@@ -530,6 +571,7 @@ function buildCards(
 
   // ── Final — Share ───────────────────────────────────────────────
   cards.push({
+    key: 'summary',
     title: `${cards.length + 1} of ${cards.length + 1} — Share`,
     background:
       'linear-gradient(160deg, #000066 0%, #281580 60%, #FBAC34 110%)',
