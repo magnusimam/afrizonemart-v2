@@ -41,6 +41,9 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
   const [permissions, setPermissions] = useState<Set<Capability>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /// When the email already belongs to a customer, the API returns
+  /// CUSTOMER_EXISTS and we show this confirm instead of an error.
+  const [promotePrompt, setPromotePrompt] = useState<string | null>(null);
 
   /// Group the API-provided capabilities by their `domain` for the
   /// checkbox UI. When matrix is null this is an empty object — the
@@ -65,6 +68,7 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
     setShowPwd(false);
     setPermissions(new Set());
     setError(null);
+    setPromotePrompt(null);
   };
 
   const close = () => {
@@ -97,8 +101,7 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (promoteExisting: boolean) => {
     setError(null);
     if (role === 'STAFF' && permissions.size === 0) {
       setError('Pick at least one section this staff member can access.');
@@ -111,14 +114,26 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
         name: name.trim() || undefined,
         jobTitle: jobTitle.trim() || undefined,
         role,
-        password,
+        // Promote keeps the customer's existing login — no password.
+        password: promoteExisting ? undefined : password,
         permissions: role === 'STAFF' ? Array.from(permissions) : undefined,
+        ...(promoteExisting ? { promoteExisting: true } : {}),
       });
-      toast(`Added ${created.email} as ${created.role}`);
+      toast(
+        promoteExisting
+          ? `Promoted ${created.email} to ${created.role}`
+          : `Added ${created.email} as ${created.role}`,
+      );
       onCreated(created);
       reset();
       onClose();
     } catch (err) {
+      // Existing customer → offer to promote in place instead of erroring.
+      if (err instanceof HttpApiError && err.code === 'CUSTOMER_EXISTS') {
+        setPromotePrompt(err.message);
+        setBusy(false);
+        return;
+      }
       setError(
         err instanceof HttpApiError
           ? err.message
@@ -140,7 +155,10 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
     >
       <form
         onClick={(e) => e.stopPropagation()}
-        onSubmit={handleSubmit}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit(false);
+        }}
         className="flex max-h-full w-full max-w-2xl flex-col rounded-card bg-white shadow-card-hover"
       >
         <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
@@ -330,6 +348,34 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
             <p className="rounded-input border border-danger/30 bg-danger/5 px-3 py-2 font-sans text-sm text-danger">
               {error}
             </p>
+          )}
+
+          {promotePrompt && (
+            <div className="rounded-input border border-amber/50 bg-amber/10 px-3 py-3">
+              <p className="font-sans text-sm text-charcoal">{promotePrompt}</p>
+              <p className="mt-1 font-sans text-xs text-muted">
+                Their existing account, orders and login stay — they just
+                gain {role} access with the permissions you ticked.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void submit(true)}
+                  disabled={busy}
+                  className="rounded-btn bg-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy disabled:opacity-50"
+                >
+                  {busy ? 'Promoting…' : `Promote to ${role}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPromotePrompt(null)}
+                  disabled={busy}
+                  className="rounded-btn border border-border bg-white px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-charcoal hover:bg-page disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
