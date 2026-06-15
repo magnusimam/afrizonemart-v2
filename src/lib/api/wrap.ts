@@ -138,3 +138,14 @@ export function getWrapMe(year?: number): Promise<WrapMeResult> {
   const qs = year ? `?year=${year}` : '';
   return apiFetchAuthed(`/api/wrap/me${qs}`);
 }
+
+/**
+ * GET /api/wrap/me/share-token — mints a short-lived token the
+ * share-image route exchanges for stats. Owner-only.
+ */
+export function getWrapShareToken(
+  year?: number,
+): Promise<{ token: string; year: number }> {
+  const qs = year ? `?year=${year}` : '';
+  return apiFetchAuthed(`/api/wrap/me/share-token${qs}`);
+}

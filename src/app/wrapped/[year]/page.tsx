@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Share2 } from 'lucide-react';
 import { WrapDeck } from '@/components/admin/wrap/WrapDeck';
-import { getWrapMe, type WrapMeResult } from '@/lib/api/wrap';
+import {
+  getWrapMe,
+  getWrapShareToken,
+  type WrapMeResult,
+} from '@/lib/api/wrap';
 import { useAuthStore } from '@/stores/authStore';
 
 /**
@@ -103,23 +107,79 @@ function ReadyScreen({
   firstName: string | null;
 }) {
   const [shareNote, setShareNote] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [sharingCard, setSharingCard] = useState(false);
 
-  const onShare = async () => {
-    const url = typeof window !== 'undefined' ? window.location.href : '';
-    const shareData = {
-      title: `My Afrizonemart Wrap ${result.year}`,
-      text: `Here's my ${result.year} on Afrizonemart 🌍`,
-      url,
+  // Mint a share token so each card can be rendered as a PNG.
+  useEffect(() => {
+    let cancelled = false;
+    void getWrapShareToken(result.year)
+      .then((r) => {
+        if (!cancelled) setToken(r.token);
+      })
+      .catch(() => {
+        /* sharing just stays unavailable */
+      });
+    return () => {
+      cancelled = true;
     };
+  }, [result.year]);
+
+  // Per-card share — fetch the rendered PNG and share it as a FILE
+  // (bytes embedded, so the recipient sees the image regardless of
+  // token expiry). Falls back to opening the image if file-share
+  // isn't supported (most desktops).
+  const shareCard = async (cardKey: string) => {
+    if (!token) {
+      setShareNote('Sharing not ready yet — try again in a moment.');
+      return;
+    }
+    setSharingCard(true);
+    setShareNote(null);
+    try {
+      const url = `/api/wrap/card/${result.year}/${cardKey}?token=${encodeURIComponent(token)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('render failed');
+      const blob = await res.blob();
+      const file = new File(
+        [blob],
+        `afrizonemart-wrap-${result.year}-${cardKey}.png`,
+        { type: 'image/png' },
+      );
+      const nav = navigator as Navigator & {
+        canShare?: (d: { files: File[] }) => boolean;
+      };
+      if (nav.share && nav.canShare?.({ files: [file] })) {
+        await nav.share({
+          files: [file],
+          title: `My ${result.year} Afrizonemart Wrap`,
+        });
+      } else {
+        // Desktop / unsupported: open the PNG so they can save it.
+        window.open(URL.createObjectURL(blob), '_blank');
+      }
+    } catch {
+      setShareNote('Could not generate the image — please try again.');
+    } finally {
+      setSharingCard(false);
+    }
+  };
+
+  const shareWholeWrap = async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
     try {
       if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share(shareData);
+        await navigator.share({
+          title: `My Afrizonemart Wrap ${result.year}`,
+          text: `Here's my ${result.year} on Afrizonemart 🌍`,
+          url,
+        });
         return;
       }
       await navigator.clipboard.writeText(url);
       setShareNote('Link copied');
     } catch {
-      /* user cancelled share — ignore */
+      /* cancelled */
     }
   };
 
@@ -128,13 +188,19 @@ function ReadyScreen({
       <h1 className="text-center font-raleway text-lg font-bold uppercase tracking-[0.3em] text-amber">
         Your {result.year} Wrap
       </h1>
-      <WrapDeck stats={result.stats} customerName={firstName} musicUrl={musicUrl} />
+      <WrapDeck
+        stats={result.stats}
+        customerName={firstName}
+        musicUrl={musicUrl}
+        onShareCard={(cardKey) => void shareCard(cardKey)}
+        sharingCard={sharingCard}
+      />
       <button
         type="button"
-        onClick={onShare}
-        className="inline-flex items-center gap-2 rounded-full bg-amber px-6 py-3 font-raleway text-sm font-bold uppercase tracking-btn text-navy transition-transform hover:scale-105"
+        onClick={shareWholeWrap}
+        className="inline-flex items-center gap-2 rounded-full border border-white/30 px-6 py-3 font-raleway text-sm font-bold uppercase tracking-btn text-white transition-colors hover:bg-white/10"
       >
-        <Share2 size={16} aria-hidden /> Share my wrap
+        <Share2 size={16} aria-hidden /> Share my wrap (link)
       </button>
       {shareNote && <p className="font-sans text-xs text-white/70">{shareNote}</p>}
     </div>
