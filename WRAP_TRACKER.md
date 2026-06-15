@@ -491,16 +491,25 @@ POST /api/admin/wrap/:id/hide
   their wrap be hidden, or when ops finds a data issue.
 ```
 
-### 4.5 Image generation
+### 4.5 Image generation — SHIPPED (PR 3, 2026-06-15)
 
-The shareable image-per-card uses the existing Satori pipeline
-already wired for `share-as-image` (see
-`project_share_as_image_v3`). Each card has a JSX template that
-renders to a 1080×1920 PNG.
+All 9 cards render individually to 1080×1920 PNGs via `@vercel/og`
+(the same engine as the product share cards), on the storefront:
 
-`/api/wrap/me/card/:cardKey.png` — public, signed-URL-equivalent
-based on a hash of (userId, year, cardKey, snapshotHash). Cached
-on R2 + Cloudflare for 30d.
+`GET /api/wrap/card/[year]/[cardKey]?token=<t>` (afrizonemart-v2).
+Card keys: personality / geography / cultural / supported /
+categories / rewards / care / discoveries / summary — matching the
+`key` on each `WrapDeck` CardDef.
+
+**Auth (implemented, differs from the original hash idea):** public
+but **token-gated**. The owner's `/wrapped` page mints a signed token
+(`GET /api/wrap/me/share-token`, HMAC-`JWT_SECRET`, 1h TTL); the image
+route exchanges it via `GET /api/wrap/shared?token=` (afrizonemart-api
+#62) which returns stats only for a **live** wrap (published+visible),
+404 otherwise — so id-guessing leaks nothing. The user shares the PNG
+**file** (`navigator.share({files})`), so the short TTL only has to
+outlive the share tap, not the posted image. No R2 caching needed
+(Vercel edge-caches the render; shared bytes are embedded).
 
 ### 4.6 Frontend deck
 
@@ -684,6 +693,8 @@ one batch (slower, more expensive, riskier).
 | 2026-06-11 | **PR 2 shipped** (api #60, deployed): customer `GET /api/wrap/me` — 200 discriminated `status` (ready/pending/locked/optedOut), not 404. New `/api/wrap` router; `me.service.ts`. |
 | 2026-06-11 | **PR 4 shipped** (v2): `/wrapped/[year]` customer page — full-screen, reuses `WrapDeck` + music, URL share. Per-card PNG share still pending (PR 3). |
 | 2026-06-11 | **Reveal gating** (v2, same PR): wrap hidden until live — page redirects home for any non-`ready` viewer. Four reveal surfaces (header pill / home banner / one-time login popup / dashboard card) gated on `useWrapReveal()`, all appear only when the Dec 1 cron publishes. |
+| 2026-06-13 | **Full backfill safety net** (api #61, v2 #118): `runFullWrapBackfill` + November nightly full-sweep cron + `POST /api/admin/wrap/backfill` + "Re-index all eligible" admin button. Closes the incremental-sweep gap (users missed during a >36h outage). |
+| 2026-06-15 | **PR 3 shipped** — per-card share images. api #62: signed share token + public `/api/wrap/shared`. v2 #119: `/api/wrap/card/[year]/[cardKey]` @vercel/og renderer (all 9 cards) + "Share this card" buttons + file-share. Needs a published wrap for full QA. |
 
 ---
 
