@@ -681,8 +681,13 @@ export function adminCreateStaff(input: {
   name?: string;
   jobTitle?: string;
   role: StaffCreatableRole;
-  password: string;
+  /// Optional when promoting an existing customer (they already have a
+  /// login); required for a brand-new account.
+  password?: string;
   permissions?: Capability[];
+  /// Set true to promote an existing CUSTOMER in place (after the
+  /// CUSTOMER_EXISTS confirm). Keeps their account, orders + login.
+  promoteExisting?: boolean;
 }): Promise<StaffMember> {
   return apiFetchAuthed<StaffMember>('/api/admin/staff', {
     method: 'POST',
