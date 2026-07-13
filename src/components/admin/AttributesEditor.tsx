@@ -50,6 +50,7 @@ const EMPTY: ProductAttributes = {
 interface Props {
   value: ProductAttributes;
   onChange: (next: ProductAttributes) => void;
+  hideBundles?: boolean;
 }
 
 /**
@@ -58,7 +59,7 @@ interface Props {
  * is a small repeater. Power users can flip to the raw JSON tab below
  * to edit the value directly.
  */
-export function AttributesEditor({ value, onChange }: Props) {
+export function AttributesEditor({ value, onChange, hideBundles = false }: Props) {
   const v: ProductAttributes = {
     ...EMPTY,
     ...value,
@@ -148,6 +149,7 @@ export function AttributesEditor({ value, onChange }: Props) {
 
       {tab === 'structured' ? (
         <div className="flex flex-col gap-5">
+          {!hideBundles && (
           <Subsection
             title="Bundles"
             subtitle="Pricing tiers (1 pack, 3 pack, 6 pack, …)."
@@ -190,6 +192,7 @@ export function AttributesEditor({ value, onChange }: Props) {
               </Row>
             ))}
           </Subsection>
+          )}
 
           <Subsection
             title="Features"
