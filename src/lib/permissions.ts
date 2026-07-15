@@ -35,7 +35,7 @@
 /// is intentional; see file header.
 export type Capability = string;
 
-export type StaffRole = 'CUSTOMER' | 'SELLER' | 'ADMIN' | 'STAFF';
+export type StaffRole = 'CUSTOMER' | 'SELLER' | 'ADMIN' | 'STAFF' | 'SUPPLIER';
 
 /// SELLER capabilities are hardcoded here because they're a role-level
 /// default, not a per-section grant — same logic as the API's
@@ -55,6 +55,8 @@ export const ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
     'Full platform access. Can manage everything — products, orders, customers, refunds, other staff. Use sparingly.',
   STAFF:
     'Per-user-permissions account. Each staff member only sees the admin sections you grant them. Used for interns, contractors, and scoped employees.',
+  SUPPLIER:
+    'Vendor going through the 10-stage supplier onboarding pipeline. Sees the Supplier Portal — not the admin console.',
 };
 
 /**
