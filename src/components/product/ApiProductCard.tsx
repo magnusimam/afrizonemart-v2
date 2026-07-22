@@ -32,6 +32,7 @@ export function ApiProductCard({ product, buttonVariant, delivery }: Props) {
       comparePrice={product.comparePrice ?? undefined}
       discountPercent={discountPercent}
       origin={product.origin ?? undefined}
+      sellableCountries={product.sellableCountries}
       outOfStock={!product.inStock}
       buttonVariant={buttonVariant}
       delivery={delivery}

@@ -14,6 +14,10 @@ export interface CartLine {
   comparePrice: number | null;
   image: string | null;
   origin: string | null;
+  /// Countries this line's product can be sold/shipped to. Empty =
+  /// sellable everywhere. `origin` is always implicitly sellable there
+  /// even if not listed here.
+  sellableCountries: string[];
   quantity: number;
   lineTotal: number;
   inStock: boolean;

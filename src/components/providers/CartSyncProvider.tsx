@@ -30,6 +30,7 @@ function toLocalCartItem(line: CartLine): CartItem {
     comparePrice: line.comparePrice ?? undefined,
     image: line.image ?? '',
     origin: line.origin ?? undefined,
+    sellableCountries: line.sellableCountries,
     variant: displayVariant || undefined,
     quantity: line.quantity,
   };

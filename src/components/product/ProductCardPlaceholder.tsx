@@ -8,6 +8,7 @@ import { useCartStore } from '@/stores/cartStore';
 import { getCountry } from '@/lib/countries';
 import { Flag } from '@/components/common/Flag';
 import { DisplayPrice } from '@/components/product/DisplayPrice';
+import { SellableCountriesBadge } from '@/components/product/SellableCountriesBadge';
 import { AnimatedAddToCartButton } from '@/components/product/AnimatedAddToCartButton';
 import { CardCartStepper } from '@/components/product/CardCartStepper';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
@@ -26,6 +27,7 @@ interface ProductCardPlaceholderProps {
   discountPercent?: number;
   buttonVariant?: ButtonVariant;
   origin?: string;
+  sellableCountries?: string[];
   imageSrc?: string;
   imageAlt?: string;
 }
@@ -52,6 +54,7 @@ export function ProductCardPlaceholder({
   discountPercent,
   buttonVariant = 'navy',
   origin,
+  sellableCountries = [],
   imageSrc,
   imageAlt,
 }: ProductCardPlaceholderProps) {
@@ -124,6 +127,7 @@ export function ProductCardPlaceholder({
       discountPercent,
       image: '',
       origin,
+      sellableCountries,
     });
   };
 
@@ -167,6 +171,7 @@ export function ProductCardPlaceholder({
         </div>
       ) : null}
 
+      <div className="relative">
       <Link
         href={`/product/${productSlug}`}
         className="relative flex aspect-square items-center justify-center overflow-hidden bg-page"
@@ -212,6 +217,13 @@ export function ProductCardPlaceholder({
           </div>
         )}
       </Link>
+
+      <SellableCountriesBadge
+        sellableCountries={sellableCountries}
+        origin={origin}
+        variant="card"
+      />
+      </div>
 
       <div className="flex flex-1 flex-col gap-2 p-2.5">
         {/* Title bumped to text-xs (12px) on mobile so product

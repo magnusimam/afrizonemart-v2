@@ -23,6 +23,8 @@ interface PageProps {
     minRating?: string;
     inStock?: string;
     onSale?: string;
+    shipsToMe?: string;
+    country?: string;
     sort?: string;
   };
 }
@@ -43,6 +45,12 @@ function parseFilters(sp: PageProps['searchParams']): {
   const minRating = sp.minRating ? Number.parseFloat(sp.minRating) : undefined;
   const inStock = sp.inStock === 'true' ? true : undefined;
   const onSale = sp.onSale === 'true' ? true : undefined;
+  /// Independent of `inStock` — separate filter, only takes effect
+  /// when `country` is also present (the visitor's known delivery
+  /// country, set client-side by FiltersSidebar from the checkout
+  /// store).
+  const shipsToMe = sp.shipsToMe === 'true' ? true : undefined;
+  const country = sp.country?.trim() || undefined;
   const sort: SortValue =
     sp.sort && (SORT_VALUES as readonly string[]).includes(sp.sort)
       ? (sp.sort as SortValue)
@@ -59,9 +67,13 @@ function parseFilters(sp: PageProps['searchParams']): {
       minRating: Number.isFinite(minRating) && (minRating ?? -1) > 0 ? minRating : undefined,
       inStock,
       onSale,
+      shipsToMe,
+      country: shipsToMe ? country : undefined,
       sort,
     },
-    hasAnyFilter: Boolean(origin || category || minPrice || maxPrice || minRating || inStock || onSale),
+    hasAnyFilter: Boolean(
+      origin || category || minPrice || maxPrice || minRating || inStock || onSale || shipsToMe,
+    ),
   };
 }
 
@@ -75,6 +87,8 @@ function buildPageQuery(apiParams: ListProductsParams, page: number): string {
   if (apiParams.minRating !== undefined) sp.set('minRating', String(apiParams.minRating));
   if (apiParams.inStock) sp.set('inStock', 'true');
   if (apiParams.onSale) sp.set('onSale', 'true');
+  if (apiParams.shipsToMe) sp.set('shipsToMe', 'true');
+  if (apiParams.country) sp.set('country', apiParams.country);
   if (apiParams.sort && apiParams.sort !== 'featured') sp.set('sort', apiParams.sort);
   return sp.toString();
 }
