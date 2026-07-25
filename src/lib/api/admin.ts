@@ -649,6 +649,10 @@ export interface StaffMember {
   name: string | null;
   role: StaffRole;
   jobTitle: string | null;
+  /// Structured department label (e.g. "Marketing"). Cosmetic + a
+  /// one-click capability-preset trigger in the staff editor — does
+  /// NOT itself grant access. Null when unset.
+  department: string | null;
   /// Per-user permissions (only meaningful when role=STAFF).
   permissions: string[];
   /// Effective capabilities the user has right now (role-default ∪ per-user
@@ -666,6 +670,9 @@ export interface PermissionsMatrix {
     description: string;
     capabilities: Capability[];
   }>;
+  /// Named department → starter capability bundle (e.g. "Marketing").
+  /// Drives the one-click preset in the staff editor / add dialog.
+  departments: Array<{ name: string; capabilities: Capability[] }>;
 }
 
 export function adminListStaff(): Promise<{ items: StaffMember[] }> {
@@ -680,6 +687,7 @@ export function adminCreateStaff(input: {
   email: string;
   name?: string;
   jobTitle?: string;
+  department?: string;
   role: StaffCreatableRole;
   /// Optional when promoting an existing customer (they already have a
   /// login); required for a brand-new account.
@@ -701,6 +709,7 @@ export function adminUpdateStaff(
     name?: string;
     role?: StaffCreatableRole;
     jobTitle?: string | null;
+    department?: string | null;
     permissions?: Capability[];
     password?: string;
   },
