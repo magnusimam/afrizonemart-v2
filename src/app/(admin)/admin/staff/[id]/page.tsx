@@ -82,7 +82,7 @@ export default function AdminStaffEditPage() {
         /// other stored value → treated as a custom label so it isn't
         /// silently dropped from the field.
         const isKnownDept = s.department
-          ? m.departments.some((d) => d.name === s.department)
+          ? (m.departments ?? []).some((d) => d.name === s.department)
           : false;
         setDepartment(isKnownDept ? (s.department as string) : s.department ? '__custom__' : '');
         setCustomDepartment(isKnownDept ? '' : s.department ?? '');
@@ -149,7 +149,7 @@ export default function AdminStaffEditPage() {
   /// staff member's department label never silently rewrites a
   /// hand-tuned permission set.
   const handleApplyPreset = () => {
-    const preset = matrix?.departments.find((d) => d.name === department);
+    const preset = matrix?.departments?.find((d) => d.name === department);
     if (!preset) return;
     setPermissions((prev) => new Set([...Array.from(prev), ...preset.capabilities]));
     toast(`Applied ${department}'s starter permissions.`);
@@ -331,7 +331,7 @@ export default function AdminStaffEditPage() {
               className={`${inputClass} cursor-pointer`}
             >
               <option value="">No department</option>
-              {matrix?.departments.map((d) => (
+              {(matrix?.departments ?? []).map((d) => (
                 <option key={d.name} value={d.name}>
                   {d.name}
                 </option>
