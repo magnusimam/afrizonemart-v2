@@ -96,7 +96,7 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
   const applyDepartmentPreset = (dept: string) => {
     setDepartment(dept);
     if (dept === '__custom__') return;
-    const preset = matrix?.departments.find((d) => d.name === dept);
+    const preset = matrix?.departments?.find((d) => d.name === dept);
     if (!preset) return;
     setPermissions((prev) => new Set([...Array.from(prev), ...preset.capabilities]));
   };
@@ -275,7 +275,7 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
                   className={inputClass}
                 >
                   <option value="">No department</option>
-                  {matrix?.departments.map((d) => (
+                  {(matrix?.departments ?? []).map((d) => (
                     <option key={d.name} value={d.name}>
                       {d.name}
                     </option>
