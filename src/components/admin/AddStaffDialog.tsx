@@ -35,6 +35,8 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [jobTitle, setJobTitle] = useState('');
+  const [department, setDepartment] = useState('');
+  const [customDepartment, setCustomDepartment] = useState('');
   const [role, setRole] = useState<StaffCreatableRole>('STAFF');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -63,6 +65,8 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
     setEmail('');
     setName('');
     setJobTitle('');
+    setDepartment('');
+    setCustomDepartment('');
     setRole('STAFF');
     setPassword('');
     setShowPwd(false);
@@ -84,6 +88,17 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
       else next.add(cap);
       return next;
     });
+  };
+
+  /// Selecting a known department merges its starter capability bundle
+  /// into whatever's already ticked (additive, never removes) so
+  /// picking a department is a fast starting point, not a hard reset.
+  const applyDepartmentPreset = (dept: string) => {
+    setDepartment(dept);
+    if (dept === '__custom__') return;
+    const preset = matrix?.departments.find((d) => d.name === dept);
+    if (!preset) return;
+    setPermissions((prev) => new Set([...Array.from(prev), ...preset.capabilities]));
   };
 
   const toggleDomain = (domain: string) => {
@@ -109,10 +124,13 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
     }
     setBusy(true);
     try {
+      const resolvedDepartment =
+        department === '__custom__' ? customDepartment.trim() : department;
       const created = await adminCreateStaff({
         email: email.trim(),
         name: name.trim() || undefined,
         jobTitle: jobTitle.trim() || undefined,
+        department: resolvedDepartment || undefined,
         role,
         // Promote keeps the customer's existing login — no password.
         password: promoteExisting ? undefined : password,
@@ -249,6 +267,37 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
                 Cosmetic. Shown in the staff list and on their dashboard. Doesn&apos;t change permissions.
               </p>
             </Field>
+            {role === 'STAFF' && (
+              <Field label="Department">
+                <select
+                  value={department}
+                  onChange={(e) => applyDepartmentPreset(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">No department</option>
+                  {matrix?.departments.map((d) => (
+                    <option key={d.name} value={d.name}>
+                      {d.name}
+                    </option>
+                  ))}
+                  <option value="__custom__">Custom…</option>
+                </select>
+                {department === '__custom__' && (
+                  <input
+                    type="text"
+                    value={customDepartment}
+                    onChange={(e) => setCustomDepartment(e.target.value)}
+                    placeholder="Department name"
+                    maxLength={60}
+                    className={`${inputClass} mt-1.5`}
+                  />
+                )}
+                <p className="mt-1 font-sans text-[11px] leading-snug text-muted">
+                  Picking one ticks its starter sections below — still
+                  yours to adjust.
+                </p>
+              </Field>
+            )}
             <Field label="Initial password" required>
               <div className="relative">
                 <input
