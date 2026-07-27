@@ -36,3 +36,11 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Supplier source material — reference docs and Google Forms exports.
+# Kept out of git: they carry supplier PII and are large binaries.
+/*.pdf
+/*.docx
+/*.png
+/*Google Forms.html
+/*Google Forms_files/

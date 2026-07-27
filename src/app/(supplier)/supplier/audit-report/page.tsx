@@ -1,0 +1,57 @@
+'use client';
+
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
+import { ChevronLeft } from 'lucide-react';
+import { AuditReportDocument, type AuditReportData } from '@/components/supplier/AuditReportDocument';
+import { useSupplierMe } from '@/lib/api/supplier-hooks';
+import { getSupplierAudit } from '@/lib/api/supplier';
+
+export default function SupplierAuditReportPage() {
+  const { data: me } = useSupplierMe();
+  const { data: audit, isLoading } = useQuery({
+    queryKey: ['supplier', 'audit'],
+    queryFn: getSupplierAudit,
+    retry: false,
+  });
+
+  if (isLoading) {
+    return <p className="mx-auto max-w-3xl px-4 py-10 font-sans text-sm text-muted">Loading report…</p>;
+  }
+  if (!audit) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-10">
+        <p className="font-sans text-sm text-muted">Your audit report isn’t available yet.</p>
+        <Link href="/supplier/stages/6" className="mt-3 inline-flex items-center gap-1 font-raleway text-sm font-semibold text-navy hover:text-amber-dark">
+          <ChevronLeft size={16} aria-hidden /> Back to Stage 6
+        </Link>
+      </div>
+    );
+  }
+
+  const data: AuditReportData = {
+    company: me?.companyName ?? 'Supplier',
+    categoryName: audit.categoryName,
+    categoryCode: audit.template?.code ?? null,
+    conductedAt: audit.conductedAt,
+    outcome: audit.outcome,
+    indicativeScore: audit.indicativeScore,
+    counts: audit.counts,
+    summary: audit.summary,
+    recommendations: audit.recommendations,
+    sections: audit.template?.sections ?? [],
+    responses: audit.responses,
+    capa: audit.capa,
+  };
+
+  return (
+    <div>
+      <div className="no-print mx-auto max-w-3xl px-4 pt-6">
+        <Link href="/supplier/stages/6" className="inline-flex items-center gap-1 font-raleway text-sm font-semibold text-muted hover:text-navy">
+          <ChevronLeft size={16} aria-hidden /> Back to Stage 6
+        </Link>
+      </div>
+      <AuditReportDocument data={data} />
+    </div>
+  );
+}
