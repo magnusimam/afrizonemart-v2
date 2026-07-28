@@ -21,9 +21,20 @@ export default function SupplierSetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  const [missingToken, setMissingToken] = useState(false);
+
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('token');
     setToken(t);
+    setMissingToken(!t);
+    // Take the token out of the address bar once we hold it. It's a
+    // credential: leaving it there puts it in browser history, in any
+    // screenshot of this page, and in the Referer header of anything the
+    // supplier clicks next. Replace rather than push so Back doesn't
+    // resurrect it.
+    if (t) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -31,6 +42,16 @@ export default function SupplierSetPasswordPage() {
     setError(null);
     if (!token) {
       setError('This link is missing its token. Please use the link from your invite email.');
+      return;
+    }
+    // Mirror the rule stated under the field (and enforced by the API), so a
+    // weak password fails here with guidance instead of as a server error.
+    if (password.length < 8) {
+      setError('Use at least 8 characters.');
+      return;
+    }
+    if (!/[0-9]|[^A-Za-z0-9]|[A-Z]/.test(password)) {
+      setError('Add a number, a symbol, or a capital letter.');
       return;
     }
     if (password !== confirm) {
@@ -73,6 +94,15 @@ export default function SupplierSetPasswordPage() {
             <Link href="/supplier/login" className="font-raleway text-sm font-bold text-amber hover:text-white">
               Go to sign-in now
             </Link>
+          </div>
+        ) : missingToken ? (
+          <div role="alert" className="rounded-input border border-danger/30 bg-danger/15 px-4 py-3 text-center font-sans text-sm text-white">
+            This link is missing its invite token. Open the link from your
+            invite email, or{' '}
+            <Link href="/forgot-password" className="font-bold text-amber hover:text-white">
+              request a new one
+            </Link>
+            .
           </div>
         ) : (
           <>

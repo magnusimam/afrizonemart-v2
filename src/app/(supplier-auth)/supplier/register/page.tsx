@@ -18,6 +18,12 @@ import { useAuthStore } from '@/stores/authStore';
 export default function SupplierRegisterPage() {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
+  // An already-signed-in AZM user gets the supplier profile attached to their
+  // existing account — the API takes the authenticated user and ignores any
+  // email/password in the body. The form used to demand both anyway, so
+  // someone signed in could type a *different* email and silently get the
+  // profile on their own account. Hide those fields instead.
+  const signedInEmail = useAuthStore((s) => s.user?.email ?? null);
 
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
@@ -37,8 +43,8 @@ export default function SupplierRegisterPage() {
     setSubmitting(true);
     try {
       const result = await applySupplier({
-        email,
-        password,
+        // Omitted entirely when signed in — the API keys off the token.
+        ...(signedInEmail ? {} : { email, password }),
         name: contactName,
         companyName,
         contactName,
@@ -122,16 +128,24 @@ export default function SupplierRegisterPage() {
                 className={inputClass}
               />
             </Field>
-            <Field label="Email" required>
-              <input
-                required
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="username"
-                className={inputClass}
-              />
-            </Field>
+            {signedInEmail ? (
+              <Field label="Email">
+                <p className="rounded-input border border-white/10 bg-white/5 px-3 py-2.5 font-sans text-sm text-white/70">
+                  {signedInEmail}
+                </p>
+              </Field>
+            ) : (
+              <Field label="Email" required>
+                <input
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="username"
+                  className={inputClass}
+                />
+              </Field>
+            )}
             <Field label="Phone" required>
               <input
                 required
@@ -177,19 +191,26 @@ export default function SupplierRegisterPage() {
             </Field>
           </div>
 
-          <Field label="Password" required>
-            <input
-              required
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-              className={inputClass}
-            />
-            <span className="font-sans text-[11px] text-white/40">
-              At least 8 characters, with a number, symbol, or capital letter.
-            </span>
-          </Field>
+          {signedInEmail ? (
+            <p className="rounded-input border border-white/10 bg-white/5 px-3 py-2.5 font-sans text-xs text-white/60">
+              You’re signed in, so your application will be attached to this
+              account — no new password needed.
+            </p>
+          ) : (
+            <Field label="Password" required>
+              <input
+                required
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                className={inputClass}
+              />
+              <span className="font-sans text-[11px] text-white/40">
+                At least 8 characters, with a number, symbol, or capital letter.
+              </span>
+            </Field>
+          )}
 
           <button
             type="submit"

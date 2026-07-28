@@ -291,6 +291,46 @@ volume.
 
 ---
 
+## Pass 5 — the auth surfaces
+
+### W-13 🟠 The invite token stayed in the address bar
+**`/supplier/set-password`**
+
+The page read `?token=…` from the query string and left it there. That token
+is a credential — a 14-day single-use key to set an account's password — and
+leaving it in the URL puts it in browser history, in any screenshot of the
+page, and in the `Referer` header of the next link the supplier clicks.
+
+**Fix** — `history.replaceState` strips it as soon as it's read (replace, not
+push, so Back can't resurrect it).
+
+Two smaller things on the same page:
+- The stated rule ("at least 8 characters, with a number, symbol, or capital
+  letter") wasn't enforced client-side, so a weak password came back as a
+  server error instead of inline guidance. Now checked before submitting.
+- Arriving with no token at all rendered the full form and only failed after
+  the supplier had typed a password twice. It now says so immediately, with a
+  link to request a new invite.
+
+### W-14 🟡 The apply form demanded credentials it then ignored
+**`/supplier/register`**
+
+`applyAsSupplier` keys off the authenticated user when there is one: it skips
+account creation entirely and attaches the supplier profile to that account,
+ignoring any `email`/`password` in the body. But the form always demanded
+both as required fields.
+
+So a signed-in AZM customer applying to supply was asked to invent a second
+password — and if they typed a *different* email than the one they were
+signed in as, the profile silently attached to their **signed-in** account
+anyway. The form said one thing and the server did another.
+
+**Fix** — when a session exists the form shows the signed-in address read-only,
+drops the password field, explains that the application attaches to that
+account, and omits both fields from the request.
+
+---
+
 ## Noted, not a code bug
 
 - **Orientation video is served by the API.** `GET /api/orientation/video`
