@@ -138,25 +138,14 @@ export function getSupplierMe(): Promise<SupplierProfile> {
   return apiFetchAuthed<SupplierProfile>('/api/suppliers/me');
 }
 
-export type UpdateSupplierInput = Partial<
-  Pick<
-    SupplierProfile,
-    | 'companyName'
-    | 'contactName'
-    | 'phone'
-    | 'country'
-    | 'region'
-    | 'category'
-    | 'legalName'
-    | 'regNumber'
-    | 'taxId'
-    | 'yearEstablished'
-    | 'employees'
-    | 'factoryType'
-    | 'factoryAddress'
-    | 'businessLicenseUrl'
-  >
->;
+/**
+ * What a supplier may change unassisted. Identity and compliance fields
+ * (legal name, registration number, tax ID, country, category, factory
+ * address, licence) go through a reviewed change request instead — they
+ * appear on the signed agreement and define the audit scope. Bank details
+ * are never self-serve. See `updateSupplierBodySchema` in the API.
+ */
+export type UpdateSupplierInput = Partial<Pick<SupplierProfile, 'contactName' | 'phone'>>;
 
 /** PATCH /api/suppliers/me — update own profile. */
 export function updateSupplierMe(body: UpdateSupplierInput): Promise<SupplierProfile> {

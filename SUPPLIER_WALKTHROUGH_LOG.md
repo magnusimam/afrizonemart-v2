@@ -329,6 +329,56 @@ anyway. The form said one thing and the server did another.
 drops the password field, explains that the application attaches to that
 account, and omits both fields from the request.
 
+### W-15 🔴 A supplier could rewrite their own compliance record
+**`PATCH /api/suppliers/me`**
+
+This is the resolution of W-08, and checking the endpoint turned up something
+worse than the missing UI.
+
+`updateSupplierBodySchema` accepted **legal name, registration number, tax ID,
+country, category, factory address and business-licence URL** — every identity
+and compliance field on the supplier record — from the supplier themselves,
+with no review. No UI exposed it, but the route was live to any authenticated
+supplier holding a token.
+
+A supplier could therefore change the legal entity on their record after an
+audit was completed against it, or swap the business-licence URL for a
+document nobody had checked.
+
+**Fix — the tiering, per standard vendor-management practice:**
+
+| Tier | Fields | Path |
+|---|---|---|
+| **Self-serve** | contact name, phone | `PATCH /me` — now the whole allowlist |
+| **Reviewed change request** | legal name, registration number, tax ID, country, category, factory address, business licence | supplier desk — these appear on the signed agreement, decide which audit template applies, and define the facility-visit scope |
+| **Never self-serve, dual control** | bank / payout details | change request verified out-of-band against a known-good contact, approved by someone other than the requester |
+
+The reasoning behind the middle tier: a silent change between an audit and a
+signature invalidates both. The reasoning behind the third: supplier
+payment-redirection is the classic invoice-fraud vector, and the standard
+control is out-of-band verification plus dual approval — never a form field.
+
+The schema is `.strict()`, so the reviewed and never-self-serve fields are now
+rejected as unknown keys rather than silently ignored.
+
+Verified: contact name + phone → 200; legal name, registration number and
+business-licence URL → 400 each.
+
+---
+
+## Cleanup pass
+
+- **Extracted the duplicated date validation** I'd written twice (facility
+  visit, PO deadline) into `src/lib/date-input.ts` — `futureDateString({
+  horizonDays })`. Same behaviour, one implementation, and the next endpoint
+  taking a human-picked date gets it for free. Re-verified after the
+  refactor: past → 400, garbage → 400, valid → 200.
+- **Removed the dead field mapping** in `updateSupplier` — it was still
+  spreading twelve fields the schema no longer accepts.
+- Checked the supplier surface for `console.log`, `any` casts and unused
+  exports: none, apart from `updateSupplierMe`, which is deliberately kept as
+  the client for the self-serve tier above.
+
 ---
 
 ## Noted, not a code bug
