@@ -6,7 +6,7 @@ import { PIQFormEngine } from '@/components/supplier/piq/PIQFormEngine';
 import type { PIQFormConfig } from '@/lib/supplier/piq-config';
 import { completeStage, getStageAnswers, saveStageAnswers } from '@/lib/api/supplier';
 import { supplierKeys } from '@/lib/api/supplier-hooks';
-import { stageHref } from '@/lib/supplier/stages';
+import { stageHref, SUPPLIER_MAX_STAGE } from '@/lib/supplier/stages';
 
 /**
  * Live wrapper for the journey forms (stages 1–3). Loads the supplier's
@@ -52,10 +52,6 @@ export function StageFormLive({
         await saveStageAnswers(stage, answers);
       }}
       onSubmit={async (answers) => {
-        // completeStage advances the journey and returns the updated profile,
-        // so the next destination comes from the server rather than being
-        // guessed as `stage + 1` (which would overshoot a supplier who is
-        // revisiting an earlier form).
         const profile = await completeStage(stage, answers);
         // Seed the new profile rather than only invalidating: the stage we're
         // about to open is gated on currentStage, and a refetch that hasn't
@@ -64,10 +60,12 @@ export function StageFormLive({
         queryClient.setQueryData(supplierKeys.me, profile);
         queryClient.invalidateQueries({ queryKey: supplierKeys.me });
         queryClient.invalidateQueries({ queryKey: ['supplier', 'stage', stage] });
-        // Carry them straight into the next stage — "save & continue" should
-        // continue, not dump them back on the dashboard. The short delay lets
-        // the form's own confirmation message register first.
-        const next = stageHref(profile.currentStage);
+        // "Continue" means the next step in the journey — stage + 1 — NOT the
+        // supplier's furthest stage. Someone at Stage 4 revisiting Discovery
+        // expects to land on Expression of Interest, not be thrown forward to
+        // their PIQs. completeStage never moves anyone backwards, so the next
+        // stage is always reachable.
+        const next = stageHref(Math.min(stage + 1, SUPPLIER_MAX_STAGE));
         setTimeout(() => router.push(next), 1200);
       }}
     />
