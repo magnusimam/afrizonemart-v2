@@ -151,6 +151,52 @@ advances, re-complete earlier → 200 with no regression.
 
 ---
 
+## Pass 2 — re-walking stages 1–10
+
+Second lap after the pass-1 fixes, this time probing edges rather than the
+happy path.
+
+### Held up ✅
+
+| Check | Result |
+|---|---|
+| Apply: duplicate email / bad email / weak password / empty or 1000-char company name | 409 / 400 / 400 / 400 / 400 |
+| Supplier B reads, edits, or submits supplier A's PIQ | 404 on all three; A's record untouched |
+| Supplier token against all 6 admin endpoints | 403 on every one |
+| Supplier PATCHes their own stage via the admin route | 403 |
+| Supplier token against `/api/billie` | 401 (not a service token) |
+| Stage-order guard (W-07) re-tested | 1→9 and 1→2 both 400; current stage 200 |
+| Every internal link in the supplier UI (11 routes) | all 200 |
+| Admin → supplier round-trip: submit → queue → request-changes → supplier sees status, summary and per-field feedback | clean |
+
+### W-08 🟡 Suppliers can't correct their own profile
+**Profile page**
+
+`PATCH /api/suppliers/me` exists and works, but the profile page's only
+affordance is **"Request a change"** → a link to the support page. So a
+supplier who mistypes their phone number has to email AZM about it, despite
+the endpoint being ready.
+
+**Not fixed — this is a policy call, not a defect.** For a supplier network,
+letting a company silently rewrite its own legal name, registration number or
+bank details between an audit and a partnership signature may be exactly what
+you *don't* want. The sensible split is probably: self-serve for contact
+details (phone, contact name, website), reviewed change-request for anything
+that appears on the agreement or the audit report.
+
+Tell me which fields fall on which side and I'll wire it.
+
+### Rate limiting works — and it stopped me
+Repeated `POST /api/auth/login` during testing returned
+**429 "Too many sign-in attempts. Wait 15 minutes"**. Working as intended;
+noting it because it blocked the last admin round-trip (facility-visit
+confirm) at the end of pass 2. That path uses the same admin→supplier
+mechanism as the PIQ review round-trip verified above, and is recorded as
+verified end-to-end in `SUPPLIER_BACKEND_PLAN` §6j — but I did not personally
+re-confirm it in this pass. Flagging rather than claiming it.
+
+---
+
 ## Noted, not a code bug
 
 - **Orientation video is served by the API.** `GET /api/orientation/video`
