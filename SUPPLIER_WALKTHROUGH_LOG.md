@@ -90,6 +90,75 @@ documents, and the efficacy/toxicology uploads on the PIQ.
 Verified: PDF → `images.afrizonemart.com/supplier-docs/…`; `.exe` → 400
 "Only image or PDF uploads are allowed"; no token → 401.
 
+### W-05 🟠 An empty questionnaire could be submitted for review
+**Stage 4 · PIQ**
+
+Created a PIQ and immediately submitted it — no answers, 0% complete. The API
+returned 200 and set it `UNDER_REVIEW`. That is exactly how the "Autosave Test"
+record (12% complete) reached the real review queue.
+
+The web form *does* block this correctly — it lists missing required fields and
+jumps to the first gap. But the check is client-side only, so the API accepted
+whatever it was sent.
+
+**Fix** — `submitPIQ` refuses a questionnaire with no answers at all.
+
+The API can't run the *full* required-field check, because the question schema
+lives in the web app rather than the API (`PIQConfig` as a server-side model is
+the proper long-term fix — it's already sketched in the backend plan §2). The
+empty case is the one that actually pollutes reviewers' queues, and it's now
+closed. Verified: empty → 400, one answer → 200.
+
+### W-06 🟡 A facility visit could be booked in the past
+**Stage 6 · Facility visit**
+
+`preferredDate` was validated as `z.string().min(1).max(120)` — any text at
+all. Proposed `2020-01-01`, got 200: the visits team receives a booking request
+for six years ago. `"next tuesday"` was equally acceptable.
+
+**Fix** — a real ISO `YYYY-MM-DD`, from today to a year out. The "not in the
+past" comparison is done date-only in UTC, so a supplier proposing *today* from
+a timezone ahead of UTC isn't wrongly rejected.
+
+Verified: past → 400, garbage → 400, 10 years out → 400, valid future → 200,
+today → 200.
+
+### W-07 🔴 The whole journey could be skipped with one request
+**Every stage — server-side**
+
+The worst issue in this pass. A brand-new supplier at Stage 1:
+
+```
+POST /api/suppliers/me/stages/9/complete   →  200, currentStage: 10
+```
+
+Straight from Discovery to Continuous Engagement — **no product audit, no
+partnership agreement, no facility visit, no PIQ review.** `completeStage`
+advanced `currentStage` with no check on where the supplier actually was.
+
+`StageAccessGate` (fixed earlier this session) is client-side, so it stops the
+UI but nothing else. The server had no ordering guard at all — meaning the
+entire onboarding sequence, including the compliance steps the whole programme
+exists to enforce, was bypassable with a single curl.
+
+**Fix** — `completeStage` rejects any stage beyond the supplier's current one.
+Re-completing an *earlier* stage stays allowed, since suppliers legitimately go
+back to revise Discovery or their EoI, and the advance logic never moves anyone
+backwards.
+
+Verified: 1→9 → 400, 1→2 → 400 (even one ahead), complete current → 200 and
+advances, re-complete earlier → 200 with no regression.
+
+---
+
+## Noted, not a code bug
+
+- **Orientation video is served by the API.** `GET /api/orientation/video`
+  streams a **741MB** local file (range requests work — 206). Fine in dev, but
+  in production this streams from the app server unless `ORIENTATION_VIDEO_URL`
+  points at R2/CDN. Already tracked in `PRODUCTION_CUTOVER.md` §6; flagging it
+  here because it surfaced during the walk.
+
 ---
 
 ## Housekeeping done during the walk
