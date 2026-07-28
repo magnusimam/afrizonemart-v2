@@ -232,6 +232,65 @@ re-submit after APPROVED → 400.
 
 ---
 
+## Pass 4 — the admin side
+
+Same question asked of the admin surfaces: where does the server trust the
+client? The supplier-side PO transitions turned out to be properly guarded
+(`ISSUED → ACKNOWLEDGED → FULFILLED` is enforced). Three gaps on the admin
+side were not.
+
+### W-10 🟠 A fulfilled purchase order could be cancelled
+**Admin · Activation & trade**
+
+`cancelPurchaseOrder` set `status = 'CANCELLED'` with no check. So a PO the
+supplier had already **shipped against** could be flipped to cancelled —
+asserting they never delivered goods that are physically gone. It also drops
+silently out of `valueFulfilled` on their Stage-10 performance card, quietly
+reducing their recorded trading history.
+
+**Fix** — `FULFILLED` and already-`CANCELLED` orders are refused, pointing at
+a return or credit note instead. Verified: fulfilled → 400, issued → 200,
+double-cancel → 400.
+
+### W-11 🟡 Purchase-order deadlines were unvalidated
+**Admin · Activation & trade**
+
+`dueDate` was a bare `z.string().optional()` handed to `new Date(...)`. A
+past date produced a PO overdue the moment it was issued; a non-date produced
+an `Invalid Date` and a Prisma 500 rather than a clean 400. Same shape as the
+facility-visit bug (W-06). Now a real ISO date, today or later.
+
+Verified: past → 400, `"whenever"` → 400, valid future → 201.
+
+### W-12 🔴 A completed audit could be silently overwritten
+**Admin · Product audits**
+
+Both `saveAudit` and `completeAudit` used a bare `upsert` with no status
+check. A **COMPLETED** audit could therefore be re-run: new findings, a new
+score, a different outcome — and another `supplier.audit.complete` email to
+the supplier — with no trace of the original.
+
+This is the audit that decides whether a supplier proceeds to Partnership or
+gets routed to CallyValley, and whose report the supplier can download as a
+formal PDF. Overwriting it in place destroys the compliance record it exists
+to be.
+
+The admin UI already treats a completed audit as read-only. The API didn't —
+exactly the same client-trusting split as the PIQ editor in W-09.
+
+**Fix** — both routes refuse once status is `COMPLETED`. Verified against the
+one real completed audit in the database (Adia Foods, PROVISIONAL, score 90):
+save → 400, re-complete → 400, and its summary was confirmed unchanged
+afterwards.
+
+**Follow-up worth a decision:** correcting a genuine error in a completed
+audit now requires a database touch. The right answer is an explicit
+*amendment* — a new revision carrying its own record and superseding the last,
+so the history survives. Worth building before the QC team is doing this at
+volume.
+
+---
+
 ## Noted, not a code bug
 
 - **Orientation video is served by the API.** `GET /api/orientation/video`
