@@ -34,6 +34,44 @@ export async function uploadListingPhoto(file: File, retryOn401 = true): Promise
   return (await res.json()) as { url: string };
 }
 
+export interface UploadedDocument {
+  url: string;
+  key: string;
+  contentType: string;
+  size: number;
+  originalName?: string;
+}
+
+/**
+ * Upload a supporting document for a journey form — business licence,
+ * certification, bank letter, product photo. Accepts images and PDFs
+ * (compliance paperwork is usually a PDF), unlike `uploadListingPhoto`.
+ */
+export async function uploadSupplierDocument(file: File, retryOn401 = true): Promise<UploadedDocument> {
+  const token = useAuthStore.getState().accessToken;
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(`${API_BASE}/api/suppliers/me/document`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: fd,
+  });
+  if (res.status === 401 && retryOn401) {
+    const nt = await useAuthStore.getState().refresh();
+    if (nt) return uploadSupplierDocument(file, false);
+  }
+  if (!res.ok) {
+    let msg = `Upload failed (${res.status})`;
+    try {
+      const j = await res.json();
+      msg = j?.error?.message ?? msg;
+    } catch { /* not JSON */ }
+    throw new Error(msg);
+  }
+  return (await res.json()) as UploadedDocument;
+}
+
 /**
  * Supplier portal API client. Talks to the Express API's `/api/suppliers/*`
  * routes via the token-aware `apiFetchAuthed` (bearer + 401-refresh).

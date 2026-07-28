@@ -9,6 +9,7 @@ import {
   HelpCircle,
   Loader2,
   PartyPopper,
+  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -18,6 +19,7 @@ import {
 } from '@/lib/supplier/piq-config';
 import { PIQGuidancePanel } from '@/components/supplier/piq/PIQGuidancePanel';
 import { DEFAULT_REGION_TERM, regionsFor } from '@/lib/supplier/regions';
+import { uploadSupplierDocument } from '@/lib/api/supplier';
 
 type AnswerValue = string | number | boolean | string[] | undefined;
 type Answers = Record<string, AnswerValue>;
@@ -734,26 +736,7 @@ function Field({
         </div>
       );
     case 'file':
-      return (
-        <div className="flex flex-col gap-1.5">
-          <input
-            id={q.id}
-            type="file"
-            disabled={readOnly}
-            accept={q.acceptedTypes?.join(',')}
-            onChange={(e) => onChange(e.target.files?.[0]?.name)}
-            className="block w-full font-sans text-sm text-muted file:mr-3 file:rounded-btn file:border-0 file:bg-navy file:px-4 file:py-2 file:font-raleway file:text-xs file:font-bold file:text-white hover:file:bg-navy-dark"
-          />
-          {value && (
-            <span className="font-sans text-xs text-success">Selected: {value as string}</span>
-          )}
-          {q.maxSizeMB && (
-            <span className="font-sans text-[11px] text-muted">
-              Max {q.maxSizeMB}MB{q.acceptedTypes ? ` · ${q.acceptedTypes.join(', ')}` : ''}
-            </span>
-          )}
-        </div>
-      );
+      return <FileField q={q} value={value} onChange={onChange} readOnly={readOnly} />;
     case 'text':
     default:
       return (
@@ -769,6 +752,110 @@ function Field({
         />
       );
   }
+}
+
+/**
+ * A file question — uploads for real.
+ *
+ * This previously stored only `file.name`, so a supplier could attach their
+ * business licence, see a green "Selected: licence.pdf", submit, and we'd
+ * have kept nothing but the string. The answer value is now the stored URL
+ * (comma-joined when a question takes several files), which is what the
+ * imported PIQ answers already hold.
+ */
+function FileField({
+  q,
+  value,
+  onChange,
+  readOnly,
+}: {
+  q: PIQQuestion;
+  value: AnswerValue;
+  onChange: (v: AnswerValue) => void;
+  readOnly: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const urls = typeof value === 'string' && value.trim() ? value.split(',').map((u) => u.trim()).filter(Boolean) : [];
+
+  const handleFiles = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    if (q.maxSizeMB && file.size > q.maxSizeMB * 1024 * 1024) {
+      setError(`That file is ${(file.size / 1024 / 1024).toFixed(1)}MB — the limit is ${q.maxSizeMB}MB.`);
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const { url } = await uploadSupplierDocument(file);
+      onChange([...urls, url].join(', '));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const removeAt = (i: number) => onChange(urls.filter((_, n) => n !== i).join(', '));
+
+  return (
+    <div className="flex flex-col gap-2">
+      <input
+        id={q.id}
+        ref={inputRef}
+        type="file"
+        disabled={readOnly || busy}
+        accept={q.acceptedTypes?.join(',')}
+        onChange={(e) => void handleFiles(e.target.files)}
+        className="block w-full font-sans text-sm text-muted file:mr-3 file:rounded-btn file:border-0 file:bg-navy file:px-4 file:py-2 file:font-raleway file:text-xs file:font-bold file:text-white hover:file:bg-navy-dark disabled:opacity-60"
+      />
+
+      {busy && (
+        <span className="inline-flex items-center gap-1.5 font-sans text-xs text-muted">
+          <Loader2 size={13} aria-hidden className="animate-spin" /> Uploading…
+        </span>
+      )}
+      {error && <span role="alert" className="font-sans text-xs text-danger">{error}</span>}
+
+      {urls.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {urls.map((url, i) => (
+            <li key={url} className="flex items-center gap-2">
+              <Check size={13} strokeWidth={3} aria-hidden className="shrink-0 text-success" />
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="truncate font-sans text-xs text-navy underline hover:text-amber-dark"
+              >
+                {url.split('/').pop()}
+              </a>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => removeAt(i)}
+                  aria-label="Remove this file"
+                  className="ml-auto shrink-0 text-muted hover:text-danger"
+                >
+                  <X size={13} aria-hidden />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {q.maxSizeMB && (
+        <span className="font-sans text-[11px] text-muted">
+          Max {q.maxSizeMB}MB{q.acceptedTypes ? ` · ${q.acceptedTypes.join(', ')}` : ''}
+        </span>
+      )}
+    </div>
+  );
 }
 
 function isAnswered(v: AnswerValue): boolean {
