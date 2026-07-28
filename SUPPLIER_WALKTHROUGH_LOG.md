@@ -197,6 +197,41 @@ re-confirm it in this pass. Flagging rather than claiming it.
 
 ---
 
+## Pass 3 — the PIQ lifecycle
+
+### W-09 🔴 An approved product could still be edited
+**Stage 4 · PIQ editor**
+
+The editor never passed a `readOnly` flag, and `updatePIQ` had no status check
+— so a supplier could open a PIQ in **any** state and rewrite its answers.
+
+Two ways that hurts:
+- **While a reviewer is reading it** (`SUBMITTED` / `UNDER_REVIEW`), the
+  supplier can change answers underneath them. The reviewer then approves
+  something they never actually saw.
+- **After approval.** An `APPROVED` product's answers could be silently
+  rewritten with no re-review. For a programme built on audits,
+  certifications and market-standard checks, that makes approval — and the
+  audit trail behind it — meaningless.
+
+Double-submitting also re-sent the acknowledgement email each time.
+
+**Fix** — one rule, enforced in both places. Editable = `DRAFT` or
+`REVISION_REQUIRED` (the revision loop *needs* edits). Everything else is
+locked:
+- **API** — `updatePIQ` and `submitPIQ` reject non-editable statuses, with a
+  message that says which case it is.
+- **Web** — the editor passes `readOnly`, drops the autosave/submit handlers,
+  and shows a panel explaining why it's locked instead of silently discarding
+  keystrokes.
+
+Verified across all four states: DRAFT edit → 200 · submit → 200 · edit while
+UNDER_REVIEW → 400 (answers verified unchanged) · double-submit → 400 · edit
+during REVISION_REQUIRED → 200 · resubmit → 200 · edit after APPROVED → 400 ·
+re-submit after APPROVED → 400.
+
+---
+
 ## Noted, not a code bug
 
 - **Orientation video is served by the API.** `GET /api/orientation/video`

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Lock } from 'lucide-react';
 import { PIQFormEngine } from '@/components/supplier/piq/PIQFormEngine';
 import { PIQ_GENERAL_CONFIG } from '@/lib/supplier/piq-config';
 import {
@@ -46,6 +46,17 @@ export default function PIQEditPage({ params }: { params: { id: string } }) {
 
   const productName = isNew ? 'New product' : data?.name ?? 'Product';
   const initialAnswers = (data?.answers ?? {}) as Record<string, string>;
+
+  // Only a draft or a requested revision is the supplier's to edit. While a
+  // reviewer holds it — or once it's approved — the form is read-only, so
+  // nobody can change answers underneath a review or after a decision.
+  const editable = !data || data.status === 'DRAFT' || data.status === 'REVISION_REQUIRED';
+  const lockedReason =
+    data?.status === 'APPROVED'
+      ? 'This product has been approved. Its answers are locked — contact the supplier desk if something needs to change.'
+      : data?.status === 'REJECTED'
+        ? 'This product was not approved. Its answers are locked.'
+        : 'This questionnaire is with our review team. You’ll be able to edit it again if they request changes.';
 
   const onAutosave = async (answers: Answers, completion: number) => {
     await updateSupplierPIQ(params.id, {
@@ -90,15 +101,27 @@ export default function PIQEditPage({ params }: { params: { id: string } }) {
             <div className="h-64 animate-pulse rounded-card bg-white shadow-card" />
           </div>
         ) : (
-          <PIQFormEngine
-            key={data?.id ?? 'loading'}
-            config={PIQ_GENERAL_CONFIG}
-            initialAnswers={initialAnswers}
-            feedback={data?.feedback ?? undefined}
-            reviewSummary={data?.reviewSummary ?? undefined}
-            onAutosave={onAutosave}
-            onSubmit={onSubmit}
-          />
+          <>
+            {!editable && (
+              <div
+                role="status"
+                className="mb-6 flex items-start gap-3 rounded-card border border-border bg-page p-5 shadow-card"
+              >
+                <Lock size={18} aria-hidden className="mt-0.5 shrink-0 text-muted" />
+                <p className="font-sans text-sm leading-relaxed text-charcoal">{lockedReason}</p>
+              </div>
+            )}
+            <PIQFormEngine
+              key={data?.id ?? 'loading'}
+              config={PIQ_GENERAL_CONFIG}
+              initialAnswers={initialAnswers}
+              feedback={data?.feedback ?? undefined}
+              reviewSummary={data?.reviewSummary ?? undefined}
+              readOnly={!editable}
+              onAutosave={editable ? onAutosave : undefined}
+              onSubmit={editable ? onSubmit : undefined}
+            />
+          </>
         )}
       </div>
     </div>
