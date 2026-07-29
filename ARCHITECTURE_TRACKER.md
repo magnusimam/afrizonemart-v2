@@ -46,6 +46,98 @@ gets ticked off here.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+## 🖼️ [x] Intern image queue — per-category image threshold (2026-07-29)
+
+**Problem:** an intern uploaded a Rwanda products CSV, then went to
+`/admin/intern-queue` → "add items" to claim image work for them, but
+kept getting real book products instead ("front and back" confusion),
+and later a claim returned **zero** results even though 75 Rwanda
+products genuinely needed photos.
+
+**Root cause #1:** `claimFromUnassignedPool` / `bulkAssign`
+(`afrizonemart-api/src/modules/intern/service.ts`) used one hardcoded
+rule for the whole catalog — fewer than 3 images = "needs work". Books
+are complete with just a cover (1 image), so ~190 already-finished
+book products sat permanently flagged incomplete in the shared
+unassigned pool, crowding out products that actually needed photos.
+
+**Root cause #2:** the first fix (PR #71) added a `Category.minImages`
+column (default 3, seeded to 1 for the whole `books` category tree via
+a recursive CTE) and made both claim paths read it per-product. But it
+also capped the candidate scan at `max(count*5, 100)` before
+filtering — and 441 already-satisfied books sit oldest-first ahead of
+the Rwanda batch, so that window was 100% satisfied products, filtered
+to zero, and "add items" claimed nothing. PR #72 removed the cap
+(unassigned pool is only ~550 rows, cheap to scan in full).
+
+**Cleanup done same session:**
+- Released 223 already-satisfied products that were stuck assigned to
+  interns from before the fix (Ifeyinwa favour 87, Antigha Ephraim 92,
+  Blessing Etura 16, Lesoda Ikara 8, Angel 20 — Angel's whole queue was
+  stale) — `assignedInternId` reset to null so they stop showing as
+  "to do".
+- Directly assigned all 75 Rwanda products to Ifeyinwa favour so her
+  queue isn't waiting on the shared oldest-first claim pool.
+
+**Where the code lives** (`afrizonemart-api`, PR #71 branch
+`fix/book-image-threshold`, PR #72 branch `fix/claim-pool-window`,
+both merged + deployed via `railway up` + `prisma migrate deploy`):
+- `prisma/schema.prisma` — `Category.minImages Int @default(3)`.
+- `prisma/migrations/20260729120000_category_min_images/` — adds the
+  column, backfills 1 for the `books` tree via recursive CTE.
+- `src/modules/intern/service.ts` — `claimFromUnassignedPool` and
+  `bulkAssign` both filter on `p.category?.minImages ?? 3` instead of
+  a hardcoded 3; no take-cap before filtering.
+
+**Known follow-up (not done):** the 3 oldest book products (imported
+2026-06-08: *Le Chant du lac*, *L'Arbre fétiche*, *Les Tresseurs de
+cord*) genuinely have zero images and need real cover art. Also found
+5 uncategorized products (`categoryId: null` — "EVOP Palm Oil" ×4,
+"Nylah's Granola 150g", imported 2026-06-15/18) stuck at 1/3 images;
+worth assigning them a category. Neither blocks the fix above.
+
+`npx tsc --noEmit` ✅ clean on both PRs.
+
+## 📨 [x] Telegram admin order alerts — every order event (2026-07-13)
+
+**Problem:** we had **no signal when an order comes in**. WhatsApp admin
+alerts (`whatsapp-dispatcher.ts`) are wired but dormant — blocked on Meta
+Business verification + template approval — so nothing actually reaches
+Magnus. Live orders were landing silently.
+
+**Fix:** a Telegram admin-alert channel that needs neither verification nor
+template approval. Create a bot with @BotFather, set two Railway env vars,
+alerts flow. Zero cost, no approval queue. Mirrors the WhatsApp provider +
+dispatcher pattern exactly.
+
+Scope (Magnus: "any type and form"): subscribes to the **whole** order
+lifecycle, not just `order.paid` — `order.placed` (pending), `order.paid`,
+`payment.failed`, `order.shipped`, `order.out_for_delivery`,
+`order.delivered`, `order.cancelled`, `order.refunded`. Each alert carries
+order #, total, customer, ship-to, status, and a deep link to
+`/admin/orders/<id>`.
+
+**Where the code lives** (`afrizonemart-api`, PR #65,
+branch `feat/telegram-order-alerts`):
+- `src/modules/notifications/telegram-provider.ts` — `BotApiTelegramProvider`
+  (Bot API `sendMessage`) + `ConsoleTelegramProvider` dev fallback, factory,
+  chat-id parser, HTML escaper. Treats `ok:false` 200s as hard failures.
+- `src/modules/notifications/telegram-dispatcher.ts` — one subscription per
+  event → shared `sendAlert()` fetches the order + fans a rich HTML summary
+  out to every configured chat. All errors swallowed/logged; never blocks the
+  sale path (outer guard + per-chat isolation).
+- `src/config/env.ts` — `TELEGRAM_BOT_TOKEN` + `ORDER_NOTIFY_TELEGRAM_CHAT_ID`
+  (both optional; dispatcher no-ops cleanly + logs a boot hint when unset).
+- `src/server.ts` — `startTelegramDispatcher()` next to the WhatsApp one.
+- `ORDER_LIFECYCLE.md` — Telegram column + subscriber note.
+
+**To go live (Magnus, ops):** @BotFather `/newbot` → copy token; message the
+bot once + tap Start; get chat id (@userinfobot or `getUpdates`); set
+`TELEGRAM_BOT_TOKEN` + `ORDER_NOTIFY_TELEGRAM_CHAT_ID` in Railway; redeploy.
+Until then the provider is in console mode and prod stays silent — safe merge.
+
+`npm run typecheck` ✅ clean.
+
 ## 🚨 Payment reconciliation cron — paid-but-stuck orders (2026-05-16)
 
 **Critical bug:** Magnus paid ₦2000 on Squad on 2026-05-15. Money was
