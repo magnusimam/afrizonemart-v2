@@ -1729,6 +1729,79 @@ export function adminDeleteBlogPost(id: string): Promise<void> {
   return apiFetchAuthed(`/api/admin/blog/${id}`, { method: 'DELETE' });
 }
 
+// ----- Civic Library documents -----
+
+export type AdminDocumentType = 'CONSTITUTION' | 'ACT' | 'BILL' | 'POLICY' | 'REGULATION' | 'TREATY';
+
+export interface AdminLibraryDocument {
+  id: string;
+  slug: string;
+  title: string;
+  country: string;
+  docType: AdminDocumentType;
+  description: string | null;
+  issuingBody: string | null;
+  officialSourceUrl: string | null;
+  publishedDate: string | null;
+  fileUrl: string;
+  fileSizeBytes: number | null;
+  status: 'DRAFT' | 'PUBLISHED';
+  downloadCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminLibraryDocumentList {
+  items: AdminLibraryDocument[];
+  pagination: { page: number; limit: number; total: number; pages: number };
+}
+
+export function adminListDocuments(params: {
+  page?: number;
+  limit?: number;
+  status?: 'DRAFT' | 'PUBLISHED' | 'ALL';
+  country?: string;
+  docType?: AdminDocumentType;
+  q?: string;
+}): Promise<AdminLibraryDocumentList> {
+  const sp = new URLSearchParams();
+  if (params.page) sp.set('page', String(params.page));
+  if (params.limit) sp.set('limit', String(params.limit));
+  if (params.status) sp.set('status', params.status);
+  if (params.country) sp.set('country', params.country);
+  if (params.docType) sp.set('docType', params.docType);
+  if (params.q) sp.set('q', params.q);
+  const qs = sp.toString();
+  return apiFetchAuthed(`/api/admin/documents${qs ? `?${qs}` : ''}`);
+}
+
+export function adminGetDocument(id: string): Promise<AdminLibraryDocument> {
+  return apiFetchAuthed(`/api/admin/documents/${id}`);
+}
+
+export function adminCreateDocument(
+  input: Partial<AdminLibraryDocument>,
+): Promise<AdminLibraryDocument> {
+  return apiFetchAuthed('/api/admin/documents', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminUpdateDocument(
+  id: string,
+  input: Partial<AdminLibraryDocument>,
+): Promise<AdminLibraryDocument> {
+  return apiFetchAuthed(`/api/admin/documents/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminDeleteDocument(id: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/documents/${id}`, { method: 'DELETE' });
+}
+
 // ----- Site content (text + image overrides) -----
 
 import type { SlotDef } from '@/lib/site-content/registry';
