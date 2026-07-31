@@ -4,18 +4,56 @@ import { useEffect, useState } from 'react';
 import { Save, Send } from 'lucide-react';
 import { FileUploader } from '@/components/admin/FileUploader';
 import { toast } from '@/components/admin/Toast';
-import { HttpApiError } from '@/lib/api/client';
 import { COUNTRY_CODES, COUNTRIES, type CountryCode } from '@/lib/countries';
-import {
-  adminCreateDocument,
-  adminUpdateDocument,
-  type AdminDocumentType,
-  type AdminLibraryDocument,
-} from '@/lib/api/admin';
+import type { AdminDocumentType } from '@/lib/api/admin';
+
+export interface DocumentFormValues {
+  title: string;
+  slug?: string;
+  country: string;
+  docType: AdminDocumentType;
+  description: string | null;
+  issuingBody: string | null;
+  officialSourceUrl: string | null;
+  publishedDate: string | null;
+  fileUrl: string;
+  fileSizeBytes: number | null;
+  /// Only present when `hideStatus` is false — intern submissions
+  /// don't carry a DRAFT/PUBLISHED status of their own.
+  status?: 'DRAFT' | 'PUBLISHED';
+}
+
+interface Initial {
+  title?: string;
+  slug?: string;
+  country?: string;
+  docType?: AdminDocumentType;
+  description?: string | null;
+  issuingBody?: string | null;
+  officialSourceUrl?: string | null;
+  publishedDate?: string | null;
+  fileUrl?: string;
+  fileSizeBytes?: number | null;
+  status?: 'DRAFT' | 'PUBLISHED';
+}
 
 interface Props {
-  initial?: AdminLibraryDocument;
-  onSaved: (doc: AdminLibraryDocument) => void;
+  initial?: Initial;
+  /// True while the caller's onSubmit promise is in flight — the
+  /// form doesn't make its own network calls (mirrors ProductForm's
+  /// contract, reused by both the admin editor and the intern
+  /// submission page).
+  submitting?: boolean;
+  submitLabel?: string;
+  onSubmit: (input: DocumentFormValues) => void | Promise<void>;
+  onCancel?: () => void;
+  /// Hides the Draft/Published sidebar + swaps the two Save buttons
+  /// for a single `submitLabel` button. Used on the intern submission
+  /// page, where status isn't the intern's to set — a reviewer's
+  /// approve/reject decides what happens next.
+  hideStatus?: boolean;
+  /// True when editing an existing row (disables slug auto-derive).
+  isEdit?: boolean;
 }
 
 const DOC_TYPES: { value: AdminDocumentType; label: string }[] = [
@@ -28,13 +66,23 @@ const DOC_TYPES: { value: AdminDocumentType; label: string }[] = [
 ];
 
 /**
- * Edit form for a GovDocument — used by both /admin/documents/new and
- * /admin/documents/[id]. Mirrors `BlogPostForm`'s structure (closest
- * existing DRAFT/PUBLISHED admin form) with Civic Library's own
- * fields swapped in. No SCHEDULED status — the API doesn't support
- * it for documents.
+ * Field-editing UI for a government document — shared by the admin
+ * editor (/admin/documents/new, /admin/documents/[id]) and the intern
+ * submission page (/admin/document-submissions). Mirrors
+ * `ProductForm`'s contract: this component owns form state and field
+ * validation only; the caller owns the network call and `submitting`
+ * state, same reasoning as the product-submission flow reusing the
+ * admin product editor's form.
  */
-export function DocumentForm({ initial, onSaved }: Props) {
+export function DocumentForm({
+  initial,
+  submitting = false,
+  submitLabel = 'Save document',
+  onSubmit,
+  onCancel,
+  hideStatus = false,
+  isEdit = false,
+}: Props) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [slug, setSlug] = useState(initial?.slug ?? '');
   const [country, setCountry] = useState<CountryCode | ''>(
@@ -52,49 +100,41 @@ export function DocumentForm({ initial, onSaved }: Props) {
     initial?.fileSizeBytes ?? null,
   );
   const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED'>(initial?.status ?? 'DRAFT');
-  const [saving, setSaving] = useState(false);
 
   // Auto-derive slug from title when slug is empty (only on new documents).
   useEffect(() => {
-    if (!initial && title && !slug) {
+    if (!isEdit && title && !slug) {
       setSlug(slugify(title));
     }
-  }, [title, initial, slug]);
+  }, [title, isEdit, slug]);
 
-  const save = async (overrideStatus?: 'DRAFT' | 'PUBLISHED') => {
+  const buildPayload = (overrideStatus?: 'DRAFT' | 'PUBLISHED'): DocumentFormValues | null => {
     if (!fileUrl) {
       toast('Upload the PDF before saving', 'error');
-      return;
+      return null;
     }
     if (!country) {
       toast('Pick a country', 'error');
-      return;
+      return null;
     }
-    setSaving(true);
-    try {
-      const payload = {
-        title: title.trim(),
-        slug: slug.trim() || undefined,
-        country,
-        docType,
-        description: description.trim() || null,
-        issuingBody: issuingBody.trim() || null,
-        officialSourceUrl: officialSourceUrl.trim() || null,
-        publishedDate: publishedDate ? new Date(publishedDate).toISOString() : null,
-        fileUrl,
-        fileSizeBytes,
-        status: overrideStatus ?? status,
-      };
-      const saved = initial
-        ? await adminUpdateDocument(initial.id, payload)
-        : await adminCreateDocument(payload);
-      toast(initial ? 'Saved' : 'Created');
-      onSaved(saved);
-    } catch (e) {
-      toast(e instanceof HttpApiError ? e.message : 'Failed to save', 'error');
-    } finally {
-      setSaving(false);
-    }
+    return {
+      title: title.trim(),
+      slug: slug.trim() || undefined,
+      country,
+      docType,
+      description: description.trim() || null,
+      issuingBody: issuingBody.trim() || null,
+      officialSourceUrl: officialSourceUrl.trim() || null,
+      publishedDate: publishedDate ? new Date(publishedDate).toISOString() : null,
+      fileUrl,
+      fileSizeBytes,
+      ...(hideStatus ? {} : { status: overrideStatus ?? status }),
+    };
+  };
+
+  const submit = (overrideStatus?: 'DRAFT' | 'PUBLISHED') => {
+    const payload = buildPayload(overrideStatus);
+    if (payload) void onSubmit(payload);
   };
 
   return (
@@ -161,37 +201,64 @@ export function DocumentForm({ initial, onSaved }: Props) {
       {/* Sidebar */}
       <aside className="flex flex-col gap-4">
         <div className="rounded-card border border-border bg-white p-4">
-          <p className="mb-3 font-raleway text-[11px] font-bold uppercase tracking-btn text-navy">
-            Publish
-          </p>
-          <Field label="Status">
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as 'DRAFT' | 'PUBLISHED')}
-              className={inputClass}
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published (live now)</option>
-            </select>
-          </Field>
+          {!hideStatus && (
+            <>
+              <p className="mb-3 font-raleway text-[11px] font-bold uppercase tracking-btn text-navy">
+                Publish
+              </p>
+              <Field label="Status">
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as 'DRAFT' | 'PUBLISHED')}
+                  className={inputClass}
+                >
+                  <option value="DRAFT">Draft</option>
+                  <option value="PUBLISHED">Published (live now)</option>
+                </select>
+              </Field>
+            </>
+          )}
 
-          <div className="mt-4 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => void save()}
-              disabled={saving || !title.trim()}
-              className="flex items-center justify-center gap-2 rounded-btn bg-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy disabled:opacity-50"
-            >
-              <Save size={14} aria-hidden /> {saving ? 'Saving…' : 'Save'}
-            </button>
-            {status !== 'PUBLISHED' && (
+          <div className={`flex flex-col gap-2 ${hideStatus ? '' : 'mt-4'}`}>
+            {hideStatus ? (
               <button
                 type="button"
-                onClick={() => void save('PUBLISHED')}
-                disabled={saving || !title.trim()}
-                className="flex items-center justify-center gap-2 rounded-btn bg-amber px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-white disabled:opacity-50"
+                onClick={() => submit()}
+                disabled={submitting || !title.trim()}
+                className="flex items-center justify-center gap-2 rounded-btn bg-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy disabled:opacity-50"
               >
-                <Send size={14} aria-hidden /> Save & publish now
+                <Send size={14} aria-hidden /> {submitting ? 'Submitting…' : submitLabel}
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => submit()}
+                  disabled={submitting || !title.trim()}
+                  className="flex items-center justify-center gap-2 rounded-btn bg-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy disabled:opacity-50"
+                >
+                  <Save size={14} aria-hidden /> {submitting ? 'Saving…' : 'Save'}
+                </button>
+                {status !== 'PUBLISHED' && (
+                  <button
+                    type="button"
+                    onClick={() => submit('PUBLISHED')}
+                    disabled={submitting || !title.trim()}
+                    className="flex items-center justify-center gap-2 rounded-btn bg-amber px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-navy hover:bg-white disabled:opacity-50"
+                  >
+                    <Send size={14} aria-hidden /> Save & publish now
+                  </button>
+                )}
+              </>
+            )}
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={submitting}
+                className="rounded-btn border border-border px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-muted hover:border-navy hover:text-navy disabled:opacity-50"
+              >
+                Cancel
               </button>
             )}
           </div>

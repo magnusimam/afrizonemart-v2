@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
-import { DocumentForm } from '@/components/admin/DocumentForm';
+import { DocumentForm, type DocumentFormValues } from '@/components/admin/DocumentForm';
 import { toast } from '@/components/admin/Toast';
-import { adminGetDocument, type AdminLibraryDocument } from '@/lib/api/admin';
+import { HttpApiError } from '@/lib/api/client';
+import { adminGetDocument, adminUpdateDocument, type AdminLibraryDocument } from '@/lib/api/admin';
 
 export default function EditDocumentPage({ params }: { params: { id: string } }) {
   const [doc, setDoc] = useState<AdminLibraryDocument | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     adminGetDocument(params.id)
@@ -20,6 +22,19 @@ export default function EditDocumentPage({ params }: { params: { id: string } })
   if (!doc) {
     return <div className="px-8 py-10 font-sans text-sm text-muted">Loading document…</div>;
   }
+
+  const handleSubmit = async (input: DocumentFormValues) => {
+    setSubmitting(true);
+    try {
+      const saved = await adminUpdateDocument(doc.id, input);
+      toast('Saved');
+      setDoc(saved);
+    } catch (e) {
+      toast(e instanceof HttpApiError ? e.message : 'Failed to save', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="px-8 py-10">
@@ -45,7 +60,7 @@ export default function EditDocumentPage({ params }: { params: { id: string } })
           )
         }
       />
-      <DocumentForm initial={doc} onSaved={setDoc} />
+      <DocumentForm initial={doc} isEdit submitting={submitting} onSubmit={handleSubmit} />
     </div>
   );
 }
