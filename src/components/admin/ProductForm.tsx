@@ -16,6 +16,7 @@ import {
 import { DynamicFieldInput } from '@/components/admin/DynamicFieldInput';
 import { ImageUploader } from '@/components/admin/ImageUploader';
 import { PlacementsEditor } from '@/components/admin/PlacementsEditor';
+import { CountryMultiSelect } from '@/components/admin/CountryMultiSelect';
 import { COUNTRIES } from '@/lib/countries';
 
 interface Props {
@@ -68,6 +69,9 @@ export function ProductForm({
     initial.comparePrice != null ? String(initial.comparePrice) : '',
   );
   const [origin, setOrigin] = useState(initial.origin ?? '');
+  const [sellableCountries, setSellableCountries] = useState<string[]>(
+    initial.sellableCountries ?? [],
+  );
   const [weightKg, setWeightKg] = useState(
     initial.weightKg != null ? String(initial.weightKg) : '',
   );
@@ -150,6 +154,7 @@ export function ProductForm({
       price: Number(price) || 0,
       comparePrice: comparePrice.trim() ? Number(comparePrice) : null,
       origin: origin.trim() ? origin.trim().toUpperCase() : null,
+      sellableCountries,
       weightKg: weightKg.trim() ? Number(weightKg) : null,
       inStock,
       rating: initial.rating ?? 0,
@@ -228,6 +233,12 @@ export function ProductForm({
               />
             </Field>
           </div>
+          <CountryMultiSelect
+            label="Sellable countries (leave empty = sellable everywhere)"
+            hint="Origin country is always included automatically, even if not selected here."
+            value={sellableCountries}
+            onChange={setSellableCountries}
+          />
         </Section>
 
         <Section title="Copy">

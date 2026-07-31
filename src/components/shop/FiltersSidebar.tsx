@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Star, X } from 'lucide-react';
 import { COUNTRIES, COUNTRY_CODES, type CountryCode } from '@/lib/countries';
 import type { ApiCategory } from '@/lib/api/categories';
+import { useCheckoutStore } from '@/stores/checkoutStore';
 
 /**
  * Storefront filter sidebar — every group writes back to the URL
@@ -54,6 +55,8 @@ const FILTER_PARAM_KEYS = [
   'minRating',
   'inStock',
   'onSale',
+  'shipsToMe',
+  'country',
 ] as const;
 
 const RATING_BUCKETS = [5, 4, 3, 2, 1] as const;
@@ -84,6 +87,12 @@ export function FiltersSidebar({
   const selectedCategory = searchParams.get('category') ?? '';
   const inStockOnly = searchParams.get('inStock') === 'true';
   const onSaleOnly = searchParams.get('onSale') === 'true';
+  /// Independent of `inStockOnly` — separate filter, separate URL key,
+  /// separate state. Needs the visitor's delivery country to have any
+  /// effect; for v1 we only know it once they've been through checkout
+  /// at least once (persisted in the checkout store). No geolocation.
+  const shipsToMeOnly = searchParams.get('shipsToMe') === 'true';
+  const deliveryCountry = useCheckoutStore((s) => s.shipping?.country);
   const minRating = (() => {
     const raw = searchParams.get('minRating');
     if (!raw) return 0;
@@ -389,6 +398,38 @@ export function FiltersSidebar({
                 onChange={(e) => setOrUnset('onSale', e.target.checked ? 'true' : null)}
               />
               On Sale
+            </label>
+          </li>
+          <li>
+            <label
+              className={`flex items-center gap-2 font-sans text-sm text-charcoal ${
+                deliveryCountry ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+              }`}
+              title={
+                deliveryCountry
+                  ? undefined
+                  : 'Set your delivery country in checkout to use this filter'
+              }
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 cursor-pointer accent-navy"
+                checked={shipsToMeOnly}
+                disabled={!deliveryCountry}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  writeParams((p) => {
+                    if (on && deliveryCountry) {
+                      p.set('shipsToMe', 'true');
+                      p.set('country', deliveryCountry);
+                    } else {
+                      p.delete('shipsToMe');
+                      p.delete('country');
+                    }
+                  });
+                }}
+              />
+              Ships to my country
             </label>
           </li>
         </ul>

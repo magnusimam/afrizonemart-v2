@@ -53,6 +53,7 @@ export interface ProductDetail {
   brand: string;
   category: { name: string; slug: string };
   origin: string;
+  sellableCountries: string[];
   rating: number;
   reviewCount: number;
   inStock: boolean;
@@ -201,6 +202,7 @@ export async function loadProductDetail(
         slug: api.category?.slug ?? '',
       },
       origin: api.origin ?? 'NG',
+      sellableCountries: api.sellableCountries ?? [],
       rating: api.rating,
       reviewCount: api.reviewCount,
       inStock: api.inStock,

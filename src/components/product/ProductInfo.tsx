@@ -30,6 +30,7 @@ import { BundleSelector } from './BundleSelector';
 import { ShareProductButton } from './ShareProductButton';
 import { ShareAsImageButton } from './ShareAsImageButton';
 import { ProductAccordion } from './ProductAccordion';
+import { SellableCountriesBadge } from './SellableCountriesBadge';
 import { QuantitySelector } from './QuantitySelector';
 import { DisplayPrice } from './DisplayPrice';
 import { AnimatedAddToCartButton } from './AnimatedAddToCartButton';
@@ -171,6 +172,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
         discountPercent: selectedBundle.savings ?? product.discountPercent,
         image: product.images[0]?.src ?? '',
         origin: product.origin,
+        sellableCountries: product.sellableCountries,
         variant: displayVariant,
       },
       quantity,
@@ -371,6 +373,13 @@ export function ProductInfo({ product }: ProductInfoProps) {
       />
 
       <div className="flex flex-col gap-3">
+        <SellableCountriesBadge
+          sellableCountries={product.sellableCountries}
+          origin={product.origin}
+          variant="pdp"
+          className="self-start"
+        />
+
         <div className="flex flex-wrap items-center gap-4">
           <span className="font-raleway text-sm font-bold text-navy">Quantity:</span>
           <QuantitySelector value={quantity} onChange={setQuantity} />

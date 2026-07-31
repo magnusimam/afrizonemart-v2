@@ -98,6 +98,10 @@ export interface ApiProduct {
   description: string | null;
   ingredients: string | null;
   origin: string | null;
+  /// Countries this product can be sold/shipped to. Empty = sellable
+  /// everywhere. `origin` is always implicitly sellable there even if
+  /// not listed here.
+  sellableCountries: string[];
   /// Phase 11 — shipping weight in kilograms. Null when admin
   /// hasn't set it yet; quote engine treats null as 0.5 kg.
   weightKg: number | null;
@@ -155,8 +159,11 @@ export interface ListProductsParams {
   minRating?: number;
   /** Phase 10.7 — placement key filter (e.g. "homepage_hero"). */
   placement?: string;
-  /** ISO-2 country used together with placement scoping. */
+  /** ISO-2 country used together with placement scoping, and by `shipsToMe`. */
   country?: string;
+  /** Storefront sidebar — "Ships to my country". Independent of `inStock`;
+   * only takes effect when `country` is also set. */
+  shipsToMe?: boolean;
   /**
    * Phase 10.8 — explicit product IDs. When set, the API returns only
    * these products in this order; other filters except `inStock` are

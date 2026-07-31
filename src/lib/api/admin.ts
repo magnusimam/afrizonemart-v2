@@ -52,6 +52,10 @@ export interface AdminProductInput {
   price: number;
   comparePrice?: number | null;
   origin?: string | null;
+  /// Countries this product can be sold/shipped to. Empty/omitted =
+  /// sellable everywhere. `origin` is always implicitly sellable there
+  /// even if not listed here.
+  sellableCountries?: string[];
   /// Phase 11 — shipping weight (kg). Drives the shipping quote.
   weightKg?: number | null;
   inStock: boolean;
