@@ -12,6 +12,7 @@ import { CategoriesDropdown } from '@/components/layout/CategoriesDropdown';
 import { MobileMenu } from '@/components/layout/MobileMenu';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { WrapHeaderPill } from '@/components/wrap/WrapHeaderPill';
+import { useFlag } from '@/lib/useFlag';
 
 // Static nav items rendered AFTER the All Categories dropdown
 // (desktop only — mobile shows everything in the drawer instead).
@@ -24,8 +25,15 @@ const navItems = [
   { label: 'Become A Supplier', href: '/suppliers' },
 ];
 
+const CIVIC_LIBRARY_ITEM = { label: 'Civic Library', href: '/library' };
+
 export function Header() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Civic Library launches dark — only shows once the pilot document
+  // batch is sourced and reviewed. Registry entry:
+  // afrizonemart-api/src/modules/feature-flags/registry.ts.
+  const civicLibraryOn = useFlag('civic_library_enabled', false);
+  const desktopNavItems = civicLibraryOn ? [...navItems, CIVIC_LIBRARY_ITEM] : navItems;
 
   return (
     <header className="w-full bg-white">
@@ -161,7 +169,7 @@ export function Header() {
               <CategoriesDropdown />
             </SafeBoundary>
           </li>
-          {navItems.map((item) => (
+          {desktopNavItems.map((item) => (
             <li key={item.label} className="shrink-0">
               <Link
                 href={item.href}

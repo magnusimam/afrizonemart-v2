@@ -16,6 +16,7 @@ import { selectCartTotalQuantity, useCartStore } from '@/stores/cartStore';
 import { CurrencySwitcher } from '@/components/common/CurrencySwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 import { listCategories, type ApiCategory } from '@/lib/api/categories';
+import { useFlag } from '@/lib/useFlag';
 
 interface MobileMenuProps {
   open: boolean;
@@ -31,6 +32,8 @@ const NAV_LINKS = [
   { label: 'Become A Supplier', href: '/suppliers' },
 ];
 
+const CIVIC_LIBRARY_LINK = { label: 'Civic Library', href: '/library' };
+
 /**
  * Full-height mobile drawer that slides in from the right when the
  * hamburger button is tapped. Houses every nav link, the categories
@@ -43,6 +46,8 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
   const totalQuantity = useCartStore(selectCartTotalQuantity);
   const [categories, setCategories] = useState<ApiCategory[] | null>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const civicLibraryOn = useFlag('civic_library_enabled', false);
+  const navLinks = civicLibraryOn ? [...NAV_LINKS, CIVIC_LIBRARY_LINK] : NAV_LINKS;
 
   // Lock body scroll while open.
   useEffect(() => {
@@ -241,7 +246,7 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
 
           {/* Other nav links */}
           <ul>
-            {NAV_LINKS.map((l) => (
+            {navLinks.map((l) => (
               <li key={l.label} className="border-b border-border">
                 <Link
                   href={l.href}
