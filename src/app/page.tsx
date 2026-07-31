@@ -7,6 +7,7 @@ import { WrapHomeBanner } from '@/components/wrap/WrapHomeBanner';
 import { BooksSection } from '@/components/sections/BooksSection';
 import { BrandBanner } from '@/components/sections/BrandBanner';
 import { CategoriesSection } from '@/components/sections/CategoriesSection';
+import { CivicLibrarySection } from '@/components/sections/CivicLibrarySection';
 import { DealsSection } from '@/components/sections/DealsSection';
 import { FavouritesSection } from '@/components/sections/FavouritesSection';
 import { FemaleProductsSection } from '@/components/sections/FemaleProductsSection';
@@ -71,6 +72,7 @@ export default async function Home() {
           />
         </S>
         <S name="books"><BooksSection /></S>
+        <S name="civic-library"><CivicLibrarySection /></S>
         <S name="services"><ServicesSection /></S>
         <S name="mixed-categories"><MixedCategoriesSection /></S>
         <S name="satisfaction-strip">
