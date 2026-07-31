@@ -44,7 +44,7 @@ The four workstreams below are committed for the current push, in order.
 Each one updates its proper Principle / Rule / Phase home as it lands and
 gets ticked off here.
 
-## 📄 [ ] Civic Library — free government document downloads (2026-07-30)
+## 📄 [~] Civic Library — free government document downloads (2026-07-30)
 
 **Goal**: new public `/library` section — free downloads of official
 government documents (constitutions, acts, bills, policies) per African
@@ -98,10 +98,38 @@ touched the suspect database. **Needs Magnus to confirm which
 DATABASE_URL is correct before anyone runs `prisma migrate dev`
 against local `.env` again.**
 
-**Remaining**: frontend PRs against `afrizonemart-v2` — (1) public
-`/library` page + nav (flag-gated, safe to merge dark), (2) admin CRUD
-UI (`/admin/documents`) + PDF `FileUploader`, (3) intern submission
-form + admin review queue UI.
+**Frontend shipped** (all against `afrizonemart-v2`, all open/not
+merged):
+- `afrizonemart-v2` PR #130 (`feat/civic-library-frontend`, base
+  `main`) — public `/library` page, `LibraryDocCard` +
+  `LibraryFiltersSidebar`, nav entries in `Header`/`MobileMenu`
+  gated behind `civic_library_enabled`. Also fixed a pagination bug
+  found during review: page number is URL-bound, not local
+  `useState`, so a filter change (which strips `page`) actually
+  resets to page 1.
+- `afrizonemart-v2` PR #131 (`feat/civic-library-admin-ui`, base
+  `main`) — `/admin/documents` list/new/[id], `FileUploader` (PDF
+  sibling of `ImageUploader`), sidebar entry. Includes a follow-up
+  commit refactoring `DocumentForm` to a caller-owned-submit contract
+  (mirrors `ProductForm`) so it's reusable by the submission form
+  below without a second drifting implementation.
+- `afrizonemart-v2` PR #132 (`feat/civic-library-submissions`, base
+  `feat/civic-library-admin-ui` — stacked) — `/admin/document-submissions`
+  (intern draft, reuses `DocumentForm` in `hideStatus` mode) and
+  `/admin/document-submissions-review` (reviewer approve/reject),
+  mirroring `/admin/product-submissions*`. Sidebar entries added.
+
+Merge order: `afrizonemart-api` #73 first (run `prisma migrate deploy`
+on Railway right after), then `afrizonemart-v2` #130 → #131 → #132 in
+that order (#132 is stacked on #131's branch). All `tsc --noEmit` and
+`next lint` clean on every PR. Full data-flow verification (grid
+loads real documents, upload → review → publish → download works
+end-to-end) was blocked locally by the DB drift above — confirmed via
+error logs that the code path is correct (`GovDocument` table simply
+doesn't exist in the local drifted DB); verify for real once #73
+merges and migrates on Railway. Feature flag stays OFF until the
+pilot batch (Nigeria/Kenya/Ghana/South Africa constitutions) is
+sourced and published — flip `civic_library_enabled` on then.
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
