@@ -10,6 +10,7 @@ import {
   GoogleTagManagerHead,
   GoogleTagManagerNoScript,
 } from '@/components/providers/GoogleTagManager';
+import { GoogleAnalytics } from '@/components/providers/GoogleAnalytics';
 import { GeoBanner } from '@/components/common/GeoBanner';
 import { ConfigWatchdog } from '@/components/common/ConfigWatchdog';
 import { ApiStatusBanner } from '@/components/common/ApiStatusBanner';
@@ -127,6 +128,7 @@ export default function RootLayout({
     <html lang="en" className={raleway.variable}>
       <head>
         <GoogleTagManagerHead />
+        <GoogleAnalytics />
         <SiteJsonLd />
       </head>
       <body className="bg-page font-sans text-charcoal antialiased">
