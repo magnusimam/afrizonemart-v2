@@ -2119,6 +2119,99 @@ export function adminGetInternPayRate(): Promise<{ rate: number }> {
   return apiFetchAuthed('/api/admin/intern/pay-rate');
 }
 
+// ----- Civic Library document intern submissions (2026-07-30) -----
+
+export type DocumentSubmissionStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+
+export interface DocumentSubmission {
+  id: string;
+  internId: string;
+  status: DocumentSubmissionStatus;
+  title: string;
+  slug: string;
+  country: string;
+  docType: AdminDocumentType;
+  description: string | null;
+  issuingBody: string | null;
+  officialSourceUrl: string | null;
+  publishedDate: string | null;
+  fileUrl: string;
+  fileSizeBytes: number | null;
+  rejectionReason: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  createdDocumentId: string | null;
+  payRate: number;
+  payoutId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/// Reviewer list rows carry the intern relation.
+export interface DocumentSubmissionForReview extends DocumentSubmission {
+  intern: { id: string; name: string | null; email: string };
+}
+
+/// Input for create/edit. title + country + docType + fileUrl required.
+export interface DocumentSubmissionInput {
+  title: string;
+  slug?: string;
+  country: string;
+  docType: AdminDocumentType;
+  description?: string | null;
+  issuingBody?: string | null;
+  officialSourceUrl?: string | null;
+  publishedDate?: string | null;
+  fileUrl: string;
+  fileSizeBytes?: number | null;
+}
+
+// Intern side (capability documents.submit)
+export function internListMyDocumentSubmissions(): Promise<{ items: DocumentSubmission[] }> {
+  return apiFetchAuthed('/api/intern/document-submissions');
+}
+
+export function internCreateDocumentSubmission(
+  body: DocumentSubmissionInput,
+): Promise<DocumentSubmission> {
+  return apiFetchAuthed('/api/intern/document-submissions', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function internUpdateDocumentSubmission(
+  id: string,
+  body: Partial<DocumentSubmissionInput>,
+): Promise<DocumentSubmission> {
+  return apiFetchAuthed(`/api/intern/document-submissions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+// Reviewer side (capability intern.review)
+export function adminListDocumentSubmissions(params: {
+  status?: DocumentSubmissionStatus;
+  internId?: string;
+} = {}): Promise<{ items: DocumentSubmissionForReview[] }> {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set('status', params.status);
+  if (params.internId) qs.set('internId', params.internId);
+  const s = qs.toString();
+  return apiFetchAuthed(`/api/admin/document-submissions${s ? `?${s}` : ''}`);
+}
+
+export function adminReviewDocumentSubmission(
+  id: string,
+  body: { action: 'approve' } | { action: 'reject'; reason: string },
+): Promise<DocumentSubmission> {
+  return apiFetchAuthed(`/api/admin/document-submissions/${id}/review`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 // ----- Intern payouts (Tracker #50, 2026-05-18) -----
 
 export interface InternPayoutSummary {
