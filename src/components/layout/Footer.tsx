@@ -58,7 +58,7 @@ const columns: LinkColumn[] = [
     heading: 'Make Money With Us',
     links: [
       { label: 'For Manufacturers', href: '/sell/manufacturers' },
-      { label: 'For Suppliers', href: '/sell/suppliers' },
+      { label: 'For Suppliers', href: '/suppliers' },
       { label: 'For Creative Entrepreneurs', href: '/sell/creatives' },
       { label: 'AfriZoneMart In-Store Franchise', href: '/sell/franchise' },
     ],
