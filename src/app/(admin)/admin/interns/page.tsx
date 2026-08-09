@@ -403,10 +403,38 @@ export default function AdminInternsPage() {
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   <Stat label="To do" value={p.todo} tone="muted" />
-                  <Stat label="Pending" value={p.pending} tone="info" />
-                  <Stat label="Approved" value={p.approved} tone="success" />
-                  <Stat label="Rejected" value={p.rejected} tone="danger" />
+                  <Stat
+                    label="Pending"
+                    value={p.pending + p.productPending}
+                    tone="info"
+                  />
+                  <Stat
+                    label="Approved"
+                    value={p.approved + p.productApproved}
+                    tone="success"
+                  />
+                  <Stat
+                    label="Rejected"
+                    value={p.rejected + p.productRejected}
+                    tone="danger"
+                  />
                 </div>
+                {p.productPending + p.productApproved + p.productRejected > 0 && (
+                  <p className="font-sans text-[11px] text-muted">
+                    Includes {p.productApproved} full-product submission
+                    {p.productApproved === 1 ? '' : 's'} approved
+                    {p.productPending > 0 ? `, ${p.productPending} pending` : ''}
+                    {p.productRejected > 0 ? `, ${p.productRejected} rejected` : ''} — review
+                    at{' '}
+                    <a
+                      href="/admin/product-submissions-review"
+                      className="underline hover:text-navy"
+                    >
+                      Product submissions
+                    </a>
+                    .
+                  </p>
+                )}
               </div>
             ))}
           </div>

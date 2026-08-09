@@ -1850,6 +1850,12 @@ export interface InternProgressItem {
   /// payout right now. The /admin/intern-payouts dropdown wants this.
   unpaidApproved: number;
   rejected: number;
+  /// Full-product submission counts (separate from image submissions
+  /// above) — an intern submitting a whole new product, not just images
+  /// for one already assigned.
+  productPending: number;
+  productApproved: number;
+  productRejected: number;
 }
 
 export function adminGetInternProgress(): Promise<{ items: InternProgressItem[] }> {
