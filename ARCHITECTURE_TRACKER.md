@@ -131,6 +131,35 @@ merges and migrates on Railway. Feature flag stays OFF until the
 pilot batch (Nigeria/Kenya/Ghana/South Africa constitutions) is
 sourced and published — flip `civic_library_enabled` on then.
 
+## 🖼️ [~] Civic Library — cover image + manual "Other" document type (2026-08-11)
+
+**Problem:** the document submission form (admin editor + intern
+submission panel) had no cover-image field — cards fell back to a
+generic file icon — and the Document type dropdown was a fixed list
+(`CONSTITUTION`/`ACT`/`BILL`/`POLICY`/`REGULATION`/`TREATY`) with no
+way to add a type that wasn't on it.
+
+**Fix:** `GovDocument`/`DocumentSubmission` get `coverImageUrl` (R2
+upload via `ImageUploader`, `documents` folder) and an `OTHER` enum
+value paired with a required `customDocType` free-text label, revealed
+in `DocumentForm` when "Other (type your own)" is picked. Threaded
+through admin CRUD, intern submission → review → approve/publish, and
+the public `/library` card + `LibraryFiltersSidebar`.
+
+- `afrizonemart-api` PR #76 (`feat/document-cover-image-custom-type`)
+  — migration `20260811000000_document_cover_image_custom_type`
+  (enum value added in its own statement, matching the
+  `OUT_FOR_DELIVERY` precedent), schema/service updates in
+  `modules/documents/` + `modules/document-submissions/`.
+- `afrizonemart-v2` PR #139 (same branch name) — `DocumentForm` cover
+  uploader + custom-type input, `DocumentSubmissionPanel`,
+  `LibraryDocCard` (renders the cover, falls back to the file icon),
+  `LibraryFiltersSidebar`, admin documents list/review pages.
+
+**Status:** both PRs open, not yet merged. `tsc --noEmit` clean on
+both repos; v2 pre-push build passed. Needs `prisma migrate deploy` on
+Railway after the API PR merges (manual step — no auto-migrate).
+
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
 ## 🖼️ [x] Intern image queue — per-category image threshold (2026-07-29)
