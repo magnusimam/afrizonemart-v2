@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Save, Send } from 'lucide-react';
 import { FileUploader } from '@/components/admin/FileUploader';
+import { ImageUploader } from '@/components/admin/ImageUploader';
 import { toast } from '@/components/admin/Toast';
 import { COUNTRY_CODES, COUNTRIES, type CountryCode } from '@/lib/countries';
 import type { AdminDocumentType } from '@/lib/api/admin';
@@ -12,10 +13,12 @@ export interface DocumentFormValues {
   slug?: string;
   country: string;
   docType: AdminDocumentType;
+  customDocType: string | null;
   description: string | null;
   issuingBody: string | null;
   officialSourceUrl: string | null;
   publishedDate: string | null;
+  coverImageUrl: string | null;
   fileUrl: string;
   fileSizeBytes: number | null;
   /// Only present when `hideStatus` is false — intern submissions
@@ -28,10 +31,12 @@ interface Initial {
   slug?: string;
   country?: string;
   docType?: AdminDocumentType;
+  customDocType?: string | null;
   description?: string | null;
   issuingBody?: string | null;
   officialSourceUrl?: string | null;
   publishedDate?: string | null;
+  coverImageUrl?: string | null;
   fileUrl?: string;
   fileSizeBytes?: number | null;
   status?: 'DRAFT' | 'PUBLISHED';
@@ -63,6 +68,7 @@ const DOC_TYPES: { value: AdminDocumentType; label: string }[] = [
   { value: 'POLICY', label: 'Policy' },
   { value: 'REGULATION', label: 'Regulation' },
   { value: 'TREATY', label: 'Treaty' },
+  { value: 'OTHER', label: 'Other (type your own)' },
 ];
 
 /**
@@ -89,12 +95,14 @@ export function DocumentForm({
     (initial?.country as CountryCode) ?? '',
   );
   const [docType, setDocType] = useState<AdminDocumentType>(initial?.docType ?? 'CONSTITUTION');
+  const [customDocType, setCustomDocType] = useState(initial?.customDocType ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [issuingBody, setIssuingBody] = useState(initial?.issuingBody ?? '');
   const [officialSourceUrl, setOfficialSourceUrl] = useState(initial?.officialSourceUrl ?? '');
   const [publishedDate, setPublishedDate] = useState(
     initial?.publishedDate ? initial.publishedDate.slice(0, 10) : '',
   );
+  const [coverImageUrl, setCoverImageUrl] = useState(initial?.coverImageUrl ?? '');
   const [fileUrl, setFileUrl] = useState(initial?.fileUrl ?? '');
   const [fileSizeBytes, setFileSizeBytes] = useState<number | null>(
     initial?.fileSizeBytes ?? null,
@@ -117,15 +125,21 @@ export function DocumentForm({
       toast('Pick a country', 'error');
       return null;
     }
+    if (docType === 'OTHER' && !customDocType.trim()) {
+      toast('Type the document type', 'error');
+      return null;
+    }
     return {
       title: title.trim(),
       slug: slug.trim() || undefined,
       country,
       docType,
+      customDocType: docType === 'OTHER' ? customDocType.trim() : null,
       description: description.trim() || null,
       issuingBody: issuingBody.trim() || null,
       officialSourceUrl: officialSourceUrl.trim() || null,
       publishedDate: publishedDate ? new Date(publishedDate).toISOString() : null,
+      coverImageUrl: coverImageUrl || null,
       fileUrl,
       fileSizeBytes,
       ...(hideStatus ? {} : { status: overrideStatus ?? status }),
@@ -184,6 +198,18 @@ export function DocumentForm({
             onChange={(e) => setOfficialSourceUrl(e.target.value)}
             className={inputClass}
             placeholder="https://nass.gov.ng"
+          />
+        </Field>
+
+        <Field
+          label="Cover image"
+          hint="Shown on the document card in place of the generic file icon"
+        >
+          <ImageUploader
+            value={coverImageUrl}
+            onChange={setCoverImageUrl}
+            folder="documents"
+            emptyHint="Drop an image or click to pick"
           />
         </Field>
 
@@ -295,6 +321,17 @@ export function DocumentForm({
               ))}
             </select>
           </Field>
+          {docType === 'OTHER' && (
+            <Field label="Custom type" required hint="Not in the list above — type it here">
+              <input
+                value={customDocType}
+                onChange={(e) => setCustomDocType(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. Executive Order"
+                maxLength={60}
+              />
+            </Field>
+          )}
           <Field label="Published date" hint="When the government issued this document">
             <input
               type="date"

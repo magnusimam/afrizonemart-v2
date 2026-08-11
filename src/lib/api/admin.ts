@@ -1735,7 +1735,14 @@ export function adminDeleteBlogPost(id: string): Promise<void> {
 
 // ----- Civic Library documents -----
 
-export type AdminDocumentType = 'CONSTITUTION' | 'ACT' | 'BILL' | 'POLICY' | 'REGULATION' | 'TREATY';
+export type AdminDocumentType =
+  | 'CONSTITUTION'
+  | 'ACT'
+  | 'BILL'
+  | 'POLICY'
+  | 'REGULATION'
+  | 'TREATY'
+  | 'OTHER';
 
 export interface AdminLibraryDocument {
   id: string;
@@ -1743,10 +1750,13 @@ export interface AdminLibraryDocument {
   title: string;
   country: string;
   docType: AdminDocumentType;
+  /// Label typed in when docType is OTHER — the dropdown didn't have a fit.
+  customDocType: string | null;
   description: string | null;
   issuingBody: string | null;
   officialSourceUrl: string | null;
   publishedDate: string | null;
+  coverImageUrl: string | null;
   fileUrl: string;
   fileSizeBytes: number | null;
   status: 'DRAFT' | 'PUBLISHED';
@@ -2141,10 +2151,12 @@ export interface DocumentSubmission {
   slug: string;
   country: string;
   docType: AdminDocumentType;
+  customDocType: string | null;
   description: string | null;
   issuingBody: string | null;
   officialSourceUrl: string | null;
   publishedDate: string | null;
+  coverImageUrl: string | null;
   fileUrl: string;
   fileSizeBytes: number | null;
   rejectionReason: string | null;
@@ -2168,10 +2180,12 @@ export interface DocumentSubmissionInput {
   slug?: string;
   country: string;
   docType: AdminDocumentType;
+  customDocType?: string | null;
   description?: string | null;
   issuingBody?: string | null;
   officialSourceUrl?: string | null;
   publishedDate?: string | null;
+  coverImageUrl?: string | null;
   fileUrl: string;
   fileSizeBytes?: number | null;
 }

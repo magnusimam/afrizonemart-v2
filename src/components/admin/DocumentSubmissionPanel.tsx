@@ -37,10 +37,12 @@ function submissionToInitial(s: DocumentSubmission) {
     slug: s.slug,
     country: s.country,
     docType: s.docType,
+    customDocType: s.customDocType,
     description: s.description,
     issuingBody: s.issuingBody,
     officialSourceUrl: s.officialSourceUrl,
     publishedDate: s.publishedDate,
+    coverImageUrl: s.coverImageUrl,
     fileUrl: s.fileUrl,
     fileSizeBytes: s.fileSizeBytes,
   };
@@ -82,10 +84,12 @@ export function DocumentSubmissionPanel() {
         slug: input.slug,
         country: input.country,
         docType: input.docType,
+        customDocType: input.customDocType,
         description: input.description,
         issuingBody: input.issuingBody,
         officialSourceUrl: input.officialSourceUrl,
         publishedDate: input.publishedDate,
+        coverImageUrl: input.coverImageUrl,
         fileUrl: input.fileUrl,
         fileSizeBytes: input.fileSizeBytes,
       };
@@ -142,7 +146,8 @@ export function DocumentSubmissionPanel() {
                   <div className="flex-1">
                     <p className="font-raleway font-semibold text-navy">{s.title}</p>
                     <p className="font-sans text-xs text-muted">
-                      {country ? `${country.flag} ${country.name}` : s.country} · {s.docType} ·{' '}
+                      {country ? `${country.flag} ${country.name}` : s.country} ·{' '}
+                      {s.docType === 'OTHER' ? (s.customDocType ?? 'Other') : s.docType} ·{' '}
                       {new Date(s.createdAt).toLocaleDateString()}
                       {s.createdDocumentId ? ' · published' : ''}
                     </p>
