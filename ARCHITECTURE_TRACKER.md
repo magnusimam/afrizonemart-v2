@@ -44,6 +44,22 @@ The four workstreams below are committed for the current push, in order.
 Each one updates its proper Principle / Rule / Phase home as it lands and
 gets ticked off here.
 
+## 🧠 [ ] Algorithm Systems — recommendations, pricing, delivery, trust, growth, platform intel (2026-08-11)
+
+**Goal**: build out the ~30 algorithmic/ML systems catalogued in
+`Afrizonemart_Algorithm_Systems.docx` (Magnus) — discovery/recommendations,
+delivery routing, dynamic pricing, inventory forecasting, fraud/credit
+trust systems, marketing growth systems, and cross-cutting platform
+intelligence. Sequenced across 3 phases (Launch → Scale → Data-rich) by
+revenue impact and data availability.
+
+**Tracker**: full catalog, phase assignments, and per-system status lives
+in `afrizonemart-api/ALGORITHM_SYSTEMS_TRACKER.md` — that file is the
+source of truth for this workstream, not this entry. Magnus is sending a
+detailed spec per algorithm as we build; don't design ahead of a spec.
+
+**Status**: stubbed only, nothing designed or built yet.
+
 ## 📄 [~] Civic Library — free government document downloads (2026-07-30)
 
 **Goal**: new public `/library` section — free downloads of official
