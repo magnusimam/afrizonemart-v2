@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Edit, ExternalLink, FileText, Plus, Search, Trash2 } from 'lucide-react';
@@ -131,7 +132,14 @@ export default function AdminDocumentsListPage() {
                         href={`/admin/documents/${d.id}`}
                         className="flex items-center gap-2 font-raleway font-semibold text-navy hover:text-amber"
                       >
-                        <FileText size={14} aria-hidden /> {d.title}
+                        {d.coverImageUrl ? (
+                          <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md bg-page">
+                            <Image src={d.coverImageUrl} alt="" fill className="object-cover" />
+                          </span>
+                        ) : (
+                          <FileText size={14} aria-hidden className="shrink-0" />
+                        )}
+                        {d.title}
                       </Link>
                       <span className="font-mono text-[11px] text-muted">/library/{d.slug}</span>
                     </td>
@@ -140,7 +148,7 @@ export default function AdminDocumentsListPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-navy/10 px-2 py-0.5 font-raleway text-[10px] font-bold uppercase tracking-btn text-navy">
-                        {d.docType}
+                        {d.docType === 'OTHER' ? (d.customDocType ?? 'Other') : d.docType}
                       </span>
                     </td>
                     <td className="px-4 py-3">

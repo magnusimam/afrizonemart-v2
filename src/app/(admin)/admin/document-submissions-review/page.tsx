@@ -136,7 +136,8 @@ export default function DocumentSubmissionsReviewPage() {
                     <p className="font-sans text-xs text-muted">
                       by {s.intern.name ?? s.intern.email} ·{' '}
                       {new Date(s.createdAt).toLocaleString()} ·{' '}
-                      {country ? `${country.flag} ${country.name}` : s.country} · {s.docType}
+                      {country ? `${country.flag} ${country.name}` : s.country} ·{' '}
+                      {s.docType === 'OTHER' ? (s.customDocType ?? 'Other') : s.docType}
                     </p>
                   </div>
                   {tab === 'PENDING_REVIEW' ? (
@@ -178,8 +179,15 @@ export default function DocumentSubmissionsReviewPage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-[200px_1fr]">
-                  {/* PDF link */}
+                  {/* Cover + PDF link */}
                   <div className="flex flex-col items-start gap-2">
+                    {s.coverImageUrl ? (
+                      <img
+                        src={s.coverImageUrl}
+                        alt=""
+                        className="h-28 w-full rounded-card border border-border object-cover"
+                      />
+                    ) : null}
                     <a
                       href={s.fileUrl}
                       target="_blank"

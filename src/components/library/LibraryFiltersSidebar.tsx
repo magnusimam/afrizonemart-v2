@@ -21,6 +21,7 @@ const DOC_TYPES: { value: DocumentType; label: string }[] = [
   { value: 'POLICY', label: 'Policy' },
   { value: 'REGULATION', label: 'Regulation' },
   { value: 'TREATY', label: 'Treaty' },
+  { value: 'OTHER', label: 'Other' },
 ];
 
 export function LibraryFiltersSidebar({ onClose }: { onClose?: () => void }) {

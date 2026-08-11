@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { Download, FileText } from 'lucide-react';
 import { getCountry } from '@/lib/countries';
 import { Flag } from '@/components/common/Flag';
@@ -19,6 +20,7 @@ const DOC_TYPE_LABELS: Record<DocumentType, string> = {
   POLICY: 'Policy',
   REGULATION: 'Regulation',
   TREATY: 'Treaty',
+  OTHER: 'Other',
 };
 
 function formatFileSize(bytes: number | null): string | null {
@@ -30,15 +32,26 @@ function formatFileSize(bytes: number | null): string | null {
 export function LibraryDocCard({ doc }: { doc: ApiLibraryDocument }) {
   const country = getCountry(doc.country);
   const fileSize = formatFileSize(doc.fileSizeBytes);
+  const typeLabel = doc.docType === 'OTHER' ? (doc.customDocType ?? 'Other') : DOC_TYPE_LABELS[doc.docType];
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-card bg-white shadow-card transition-shadow hover:shadow-card-hover">
       <div className="absolute right-2 top-2 z-20 rounded-input bg-navy px-2 py-1 font-raleway text-[10px] font-bold uppercase tracking-btn text-white">
-        {DOC_TYPE_LABELS[doc.docType]}
+        {typeLabel}
       </div>
 
       <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-page">
-        <FileText size={48} strokeWidth={1.25} className="text-border" aria-hidden />
+        {doc.coverImageUrl ? (
+          <Image
+            src={doc.coverImageUrl}
+            alt={doc.title}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-cover"
+          />
+        ) : (
+          <FileText size={48} strokeWidth={1.25} className="text-border" aria-hidden />
+        )}
 
         {country && (
           <div

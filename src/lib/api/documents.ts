@@ -1,6 +1,13 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
-export type DocumentType = 'CONSTITUTION' | 'ACT' | 'BILL' | 'POLICY' | 'REGULATION' | 'TREATY';
+export type DocumentType =
+  | 'CONSTITUTION'
+  | 'ACT'
+  | 'BILL'
+  | 'POLICY'
+  | 'REGULATION'
+  | 'TREATY'
+  | 'OTHER';
 
 export interface ApiLibraryDocument {
   id: string;
@@ -8,10 +15,12 @@ export interface ApiLibraryDocument {
   title: string;
   country: string;
   docType: DocumentType;
+  customDocType: string | null;
   description: string | null;
   issuingBody: string | null;
   officialSourceUrl: string | null;
   publishedDate: string | null;
+  coverImageUrl: string | null;
   fileUrl: string;
   fileSizeBytes: number | null;
   downloadCount: number;
