@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { Download, FileText } from 'lucide-react';
 import { getCountry } from '@/lib/countries';
 import { Flag } from '@/components/common/Flag';
@@ -40,7 +41,10 @@ export function LibraryDocCard({ doc }: { doc: ApiLibraryDocument }) {
         {typeLabel}
       </div>
 
-      <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-page">
+      <Link
+        href={`/library/${doc.slug}`}
+        className="relative flex aspect-square items-center justify-center overflow-hidden bg-page"
+      >
         {doc.coverImageUrl ? (
           <Image
             src={doc.coverImageUrl}
@@ -62,11 +66,13 @@ export function LibraryDocCard({ doc }: { doc: ApiLibraryDocument }) {
             <span>{country.name}</span>
           </div>
         )}
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col gap-2 p-2.5">
         <h3 className="line-clamp-2 min-h-[2.5em] font-raleway text-xs font-semibold leading-snug text-charcoal md:text-xs">
-          {doc.title}
+          <Link href={`/library/${doc.slug}`} className="transition-colors hover:text-navy">
+            {doc.title}
+          </Link>
         </h3>
 
         {doc.issuingBody ? (
