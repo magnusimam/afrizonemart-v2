@@ -1,4 +1,5 @@
-import { fetchProduct, fetchProducts, ApiError } from '@/lib/api/products';
+import { fetchProduct, ApiError } from '@/lib/api/products';
+import { fetchSimilarProducts } from '@/lib/api/recommendations';
 import type { ApiProduct, ApiReview } from '@/lib/api/types';
 
 export interface ProductBundle {
@@ -251,47 +252,41 @@ export interface RelatedProduct {
 }
 
 /**
- * Fetch products related to the given slug. "Related" = same category,
- * different product. Falls back to newest products if there's no
- * category match. Returns empty when nothing's available — no fake
- * fallback list. Caller (cart, product page) should hide the section
- * when the array is empty.
+ * Fetch products related to the given slug via the Recommendations
+ * Phase 0 "similar products" module (content-based: category/brand/
+ * origin/price-band weighted score — see
+ * `afrizonemart-api/src/modules/recommendations`). Replaces the
+ * previous same-category-sorted-by-newest naive query, same upgrade
+ * `getRelatedProducts`'s Search & Discovery counterpart got.
+ *
+ * `surface` distinguishes the PDP "You May Also Like" placement from
+ * the cart page's cross-sell placement in impression logging — both
+ * reuse the "similar" module for now since true co-purchase-based
+ * "frequently bought together" is Phase 1, not yet built (see
+ * ALGORITHM_SYSTEMS_TRACKER.md).
+ *
+ * Returns empty when nothing's available — no fake fallback list.
+ * Caller (cart, product page) should hide the section when the array
+ * is empty.
  */
 export async function getRelatedProducts(
   currentSlug: string,
   limit = 6,
+  surface: 'pdp' | 'cart' = 'pdp',
 ): Promise<RelatedProduct[]> {
-  // 1. Look up the current product to learn its category.
-  let currentCategorySlug: string | null = null;
-  if (currentSlug) {
-    try {
-      const cur = await fetchProduct(currentSlug);
-      currentCategorySlug = cur.category?.slug ?? null;
-    } catch {
-      // Product not found — fall through to a category-less fetch.
-    }
-  }
-
-  // 2. Pull a small set from the same category if known, else newest.
-  const params = currentCategorySlug
-    ? { category: currentCategorySlug, limit: limit + 1, sort: 'newest' as const }
-    : { limit: limit + 1, sort: 'newest' as const };
-
+  if (!currentSlug) return [];
   try {
-    const r = await fetchProducts(params);
-    return r.items
-      .filter((p) => p.slug !== currentSlug)
-      .slice(0, limit)
-      .map((p) => ({
-        id: p.id,
-        slug: p.slug,
-        name: p.name,
-        price: p.price,
-        comparePrice: p.comparePrice ?? undefined,
-        discountPercent: p.discountPercent ?? undefined,
-        origin: p.origin ?? undefined,
-        imageSrc: p.images?.[0],
-      }));
+    const r = await fetchSimilarProducts({ slug: currentSlug, limit, surface });
+    return r.items.map((p) => ({
+      id: p.id,
+      slug: p.slug,
+      name: p.name,
+      price: p.price,
+      comparePrice: p.comparePrice ?? undefined,
+      discountPercent: p.discountPercent ?? undefined,
+      origin: p.origin ?? undefined,
+      imageSrc: p.images?.[0],
+    }));
   } catch {
     return [];
   }
