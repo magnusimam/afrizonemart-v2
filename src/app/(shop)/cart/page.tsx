@@ -67,7 +67,7 @@ export default function CartPage() {
   // already in the cart; falls back to newest if no items.
   const anchorSlug = cartItems[0]?.slug ?? '';
   useEffect(() => {
-    void getRelatedProducts(anchorSlug, 6).then(setRelated);
+    void getRelatedProducts(anchorSlug, 6, 'cart').then(setRelated);
   }, [anchorSlug]);
 
   /// Compute "total after discounts" the same way OrderSummary does

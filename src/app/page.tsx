@@ -20,6 +20,7 @@ import { SatisfactionStrip } from '@/components/sections/SatisfactionStrip';
 import { ServicesSection } from '@/components/sections/ServicesSection';
 import { ShopByCategorySection } from '@/components/sections/ShopByCategorySection';
 import { ShopByCountrySection } from '@/components/sections/ShopByCountrySection';
+import { TrendingNearYouSection } from '@/components/sections/TrendingNearYouSection';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { fetchSiteContent } from '@/lib/site-content';
@@ -57,6 +58,7 @@ export default async function Home() {
         <S name="products"><ProductsSection /></S>
         <S name="deals"><DealsSection /></S>
         <S name="favourites"><FavouritesSection /></S>
+        <S name="trending-near-you"><TrendingNearYouSection /></S>
         <S name="shop-by-category">
           <ShopByCategorySection
             headline={c.getText('content.home.shopByCategory.headline', undefined as unknown as string) || undefined}
