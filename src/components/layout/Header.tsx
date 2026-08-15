@@ -120,7 +120,7 @@ export function Header() {
 
       {/* CATEGORY NAV STRIP — desktop only. Mobile uses the drawer. */}
       <nav className="hidden w-full bg-navy md:block">
-        <ul className="mx-auto flex max-w-site items-center divide-x divide-white/30 overflow-x-auto py-2.5 pl-20 pr-4">
+        <ul className="mx-auto flex max-w-site items-center divide-x divide-white/30 py-2.5 pl-20 pr-4">
           <li className="shrink-0">
             <SafeBoundary
               name="header:categories-dropdown"
