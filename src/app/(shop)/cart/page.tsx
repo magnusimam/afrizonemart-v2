@@ -14,7 +14,7 @@ import { RelatedProducts } from '@/components/product/RelatedProducts';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { fetchCart, type CartView } from '@/lib/api/cart';
-import { getRelatedProducts, type RelatedProduct } from '@/lib/products';
+import { getFrequentlyBoughtTogether, type RelatedProduct } from '@/lib/products';
 import { useAuthStore } from '@/stores/authStore';
 import {
   selectCartTotalAmount,
@@ -62,13 +62,16 @@ export default function CartPage() {
   const isEmpty = cartItems.length === 0;
   const [related, setRelated] = useState<RelatedProduct[]>([]);
 
-  // Fetch real related products when cart hydrates. Anchor on the
-  // first cart item's slug so suggestions feel related to what's
-  // already in the cart; falls back to newest if no items.
-  const anchorSlug = cartItems[0]?.slug ?? '';
+  // Fetch "frequently bought together" suggestions once the cart
+  // hydrates, seeded by every product already in the cart (not just
+  // the first/last one added) — Recommendations Phase 1 co-purchase
+  // module, falls back to content-based similarity server-side when
+  // co-purchase data is thin.
+  const cartSlugsKey = cartItems.map((i) => i.slug).join(',');
   useEffect(() => {
-    void getRelatedProducts(anchorSlug, 6, 'cart').then(setRelated);
-  }, [anchorSlug]);
+    const slugs = cartSlugsKey ? cartSlugsKey.split(',') : [];
+    void getFrequentlyBoughtTogether(slugs, 6).then(setRelated);
+  }, [cartSlugsKey]);
 
   /// Compute "total after discounts" the same way OrderSummary does
   /// so the sticky mobile bar shows the matching number — pulling
@@ -227,7 +230,11 @@ export default function CartPage() {
 
         {!isEmpty ? (
           <SafeBoundary name="cart:related" fallback={null}>
-            <RelatedProducts products={related.slice(0, 6)} />
+            <RelatedProducts
+              products={related.slice(0, 6)}
+              kicker="Complete Your Order"
+              heading="Frequently Bought Together"
+            />
           </SafeBoundary>
         ) : null}
 
