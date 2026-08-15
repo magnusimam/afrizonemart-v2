@@ -203,7 +203,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     let page = 1;
     while (true) {
-      const r = await fetch(`${API_BASE}/api/documents?page=${page}&limit=100`, {
+      // limit capped at 50 server-side (listDocumentsQuerySchema) —
+      // unlike /api/products' higher cap, so this can't reuse that
+      // section's limit=100. A silently-failing 400 here (limit too
+      // high) is exactly what dropped every document from the sitemap
+      // on first ship — r.ok being false just breaks the loop with no
+      // visible error, so double-check a new paginated section's
+      // limit against its actual Zod schema, not by copying a
+      // sibling's number.
+      const r = await fetch(`${API_BASE}/api/documents?page=${page}&limit=50`, {
         next: { revalidate: 3600 },
       });
       if (!r.ok) break;
@@ -221,7 +229,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
       if (!data.pagination || page >= data.pagination.pages) break;
       page++;
-      if (page > 50) break; // safety cap — 5,000 documents
+      if (page > 50) break; // safety cap — 2,500 documents (limit 50/page)
     }
   } catch {
     /* fail-soft */
