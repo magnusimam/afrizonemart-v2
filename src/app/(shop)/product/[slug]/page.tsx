@@ -13,7 +13,7 @@ import { COUNTRIES, FEATURED_COUNTRY_CODES, findCountry } from '@/lib/countries'
 import { NewsletterSection } from '@/components/sections/NewsletterSection';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { listCustomFields } from '@/lib/api/admin';
-import { getRelatedProducts, loadProductDetail } from '@/lib/products';
+import { getAlsoBoughtProducts, getRelatedProducts, loadProductDetail } from '@/lib/products';
 import { listProductReviews } from '@/lib/api/reviews';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { SITE_NAME, SITE_URL, absUrl, metaDescription, productImageAlt } from '@/lib/seo';
@@ -72,8 +72,9 @@ export default async function ProductPage({ params }: PageProps) {
   /// client component falls back to its own fetch on hydrate if this
   /// errors. We only need the first page; "Show more" loads the rest
   /// client-side.
-  const [related, initialReviews] = await Promise.all([
+  const [related, alsoBought, initialReviews] = await Promise.all([
     getRelatedProducts(params.slug),
+    getAlsoBoughtProducts(params.slug),
     listProductReviews(params.slug, 1, 10).catch(() => null),
   ]);
   const customFieldDefs = customFieldsRes.items;
@@ -249,6 +250,16 @@ export default async function ProductPage({ params }: PageProps) {
         <SafeBoundary name="pdp:related">
           <RelatedProducts products={related} />
         </SafeBoundary>
+
+        {alsoBought.length > 0 ? (
+          <SafeBoundary name="pdp:also-bought">
+            <RelatedProducts
+              products={alsoBought}
+              kicker="Shoppers Who Bought This Also Bought"
+              heading="Customers Also Bought"
+            />
+          </SafeBoundary>
+        ) : null}
 
         {/* Internal-linking — passes equity from this deep leaf back
             up to the category + country + country×category landing
