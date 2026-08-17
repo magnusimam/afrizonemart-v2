@@ -30,6 +30,17 @@ export interface SearchResultItem {
   createdAt: string;
 }
 
+/// Search Phase 0 facet counts — see `afrizonemart-api/src/modules/
+/// search/repository.ts:computeFacets`. Each dimension's count
+/// excludes its own filter, so it answers "if I also picked this,"
+/// not "here's what's currently showing."
+export interface SearchFacets {
+  origin: Record<string, number>;
+  rating: Array<{ min: number; count: number }>;
+  inStock: number;
+  onSale: number;
+}
+
 export interface SearchResponse {
   items: SearchResultItem[];
   pagination: { page: number; limit: number; total: number; pages: number };
@@ -38,6 +49,12 @@ export interface SearchResponse {
   usedFallback: boolean;
   /// Pass back to `trackSearchClick` when the searcher clicks a result.
   queryLogId: string | null;
+  /// Null when the query was empty or facet computation failed
+  /// server-side — treat absence as "don't show counts," not an error.
+  facets: SearchFacets | null;
+  /// Search Phase 1 "did you mean" reformulation suggestion — a
+  /// normalized query string to offer as a link, or null.
+  didYouMean: string | null;
 }
 
 export interface SearchParams {

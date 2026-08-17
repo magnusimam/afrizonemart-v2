@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ChevronRight, Home as HomeIcon, Search } from 'lucide-react';
 import { FiltersSidebar } from '@/components/shop/FiltersSidebar';
 import { ShopToolbar } from '@/components/shop/ShopToolbar';
-import { ApiProductCard } from '@/components/product/ApiProductCard';
+import { SearchResultCard } from '@/components/search/SearchResultCard';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { fetchSearch, toApiProduct, type SearchParams } from '@/lib/api/search';
 
@@ -147,6 +147,12 @@ export default async function SearchPage({ searchParams }: PageProps) {
   const totalResults = searchResponse?.pagination.total ?? 0;
   const totalPages = searchResponse?.pagination.pages ?? 1;
   const usedFallback = searchResponse?.usedFallback ?? false;
+  const queryLogId = searchResponse?.queryLogId ?? null;
+  const facets = searchResponse?.facets ?? null;
+  const didYouMean = searchResponse?.didYouMean ?? null;
+  const didYouMeanHref = didYouMean
+    ? `/search?${buildPageQuery(didYouMean, apiParams, 1)}`
+    : null;
 
   return (
     <>
@@ -212,6 +218,18 @@ export default async function SearchPage({ searchParams }: PageProps) {
                   Africa
                   {usedFallback ? ' · showing close matches' : ''}
                 </p>
+                {didYouMeanHref ? (
+                  <p className="mt-1 font-sans text-sm text-charcoal">
+                    Did you mean{' '}
+                    <Link
+                      href={didYouMeanHref}
+                      className="font-semibold text-navy underline hover:text-amber"
+                    >
+                      &ldquo;{didYouMean}&rdquo;
+                    </Link>
+                    ?
+                  </p>
+                ) : null}
               </div>
             ) : (
               <h1 className="font-raleway text-2xl font-bold text-navy md:text-3xl">
@@ -249,7 +267,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
                   separate follow-up. Desktop keeps the sidebar. */}
               <div className="hidden lg:col-span-3 lg:block">
                 <SafeBoundary name="search:filters" fallback={null}>
-                  <FiltersSidebar />
+                  <FiltersSidebar facets={facets} />
                 </SafeBoundary>
               </div>
 
@@ -285,7 +303,10 @@ export default async function SearchPage({ searchParams }: PageProps) {
                           name="search:card"
                           fallback={null}
                         >
-                          <ApiProductCard product={toApiProduct(p)} />
+                          <SearchResultCard
+                            product={toApiProduct(p)}
+                            queryLogId={queryLogId}
+                          />
                         </SafeBoundary>
                       ))}
                     </div>
