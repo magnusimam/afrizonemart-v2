@@ -1919,7 +1919,16 @@ export function adminBulkAssignInterns(input: {
   internIds: string[];
   scope?: 'all-unimaged' | 'all-unassigned';
   payRate?: number;
-}): Promise<{ assigned: number; perIntern: Record<string, number> }> {
+}): Promise<{
+  assigned: number;
+  perIntern: Record<string, number>;
+  /// Count of the just-assigned products that already had enough
+  /// approved images before this sweep. Only non-zero under
+  /// "all-unassigned" scope, which deliberately allows reassigning
+  /// already-imaged products (reshoots, brand-logo backfills) — a
+  /// large count here is worth a second look, not necessarily wrong.
+  alreadyImagedCount: number;
+}> {
   return apiFetchAuthed('/api/admin/intern/bulk-assign', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -1931,7 +1940,16 @@ export function adminReassignProducts(input: {
   fromInternId?: string;
   toInternIds: string[] | null;
   mode?: 'unstarted' | 'all';
-}): Promise<{ moved: number; perIntern: Record<string, number>; returnedToPool: number }> {
+}): Promise<{
+  moved: number;
+  perIntern: Record<string, number>;
+  returnedToPool: number;
+  /// See `adminBulkAssignInterns`'s `alreadyImagedCount` doc — same
+  /// signal here. Always 0 under the default `mode: 'unstarted'`
+  /// (which already excludes anything with a submission); only
+  /// meaningful when a caller explicitly passes `mode: 'all'`.
+  alreadyImagedCount: number;
+}> {
   return apiFetchAuthed('/api/admin/intern/reassign', {
     method: 'POST',
     body: JSON.stringify(input),
