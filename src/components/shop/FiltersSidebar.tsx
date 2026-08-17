@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Star, X } from 'lucide-react';
 import { COUNTRIES, COUNTRY_CODES, type CountryCode } from '@/lib/countries';
 import type { ApiCategory } from '@/lib/api/categories';
+import type { SearchFacets } from '@/lib/api/search';
 import { useCheckoutStore } from '@/stores/checkoutStore';
 
 /**
@@ -40,6 +41,15 @@ interface FiltersSidebarProps {
    * category and a second selector would just be confusing.
    */
   showCategoryFilter?: boolean;
+  /**
+   * Search Phase 0 facet counts (origin/rating/inStock/onSale) —
+   * `/search` passes these from the live `GET /api/search` response
+   * so a searcher sees "Nigeria (12)" instead of a blind checkbox.
+   * `/shop` doesn't pass this (browsing has no query to facet
+   * against), so counts are simply omitted there — same UI, no
+   * regression.
+   */
+  facets?: SearchFacets | null;
 }
 
 /// Every filter param the sidebar can write. Used by Clear All to
@@ -66,6 +76,7 @@ export function FiltersSidebar({
   onClose,
   showCountryFilter = true,
   showCategoryFilter = true,
+  facets = null,
 }: FiltersSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -244,6 +255,11 @@ export function FiltersSidebar({
           <ul className="flex max-h-64 flex-col gap-2 overflow-y-auto">
             {COUNTRY_CODES.map((c) => {
               const isOn = selectedCountries.has(c);
+              const count = facets?.origin[c];
+              // Hide options a search's facets prove are dead ends —
+              // only when facets are actually present (undefined
+              // means "no facet data," not "zero matches").
+              if (facets && !isOn && !count) return null;
               return (
                 <li key={c}>
                   <label className="flex cursor-pointer items-center gap-2 font-sans text-sm text-charcoal">
@@ -254,7 +270,12 @@ export function FiltersSidebar({
                       onChange={() => toggleCountry(c)}
                     />
                     <span aria-hidden>{COUNTRIES[c].flag}</span>
-                    {COUNTRIES[c].name}
+                    <span className="flex-1">{COUNTRIES[c].name}</span>
+                    {facets ? (
+                      <span className="font-raleway text-[10px] font-semibold text-muted">
+                        {count ?? 0}
+                      </span>
+                    ) : null}
                   </label>
                 </li>
               );
@@ -349,6 +370,8 @@ export function FiltersSidebar({
         <ul className="flex flex-col gap-2">
           {RATING_BUCKETS.map((n) => {
             const isOn = minRating === n;
+            const count = facets?.rating.find((r) => r.min === n)?.count;
+            if (facets && !isOn && !count) return null;
             return (
               <li key={n}>
                 <label className="flex cursor-pointer items-center gap-2 font-sans text-sm text-charcoal">
@@ -368,7 +391,12 @@ export function FiltersSidebar({
                       />
                     ))}
                   </span>
-                  <span className="text-muted">& up</span>
+                  <span className="flex-1 text-muted">& up</span>
+                  {facets ? (
+                    <span className="font-raleway text-[10px] font-semibold text-muted">
+                      {count ?? 0}
+                    </span>
+                  ) : null}
                 </label>
               </li>
             );
@@ -386,7 +414,12 @@ export function FiltersSidebar({
                 checked={inStockOnly}
                 onChange={(e) => setOrUnset('inStock', e.target.checked ? 'true' : null)}
               />
-              In Stock Only
+              <span className="flex-1">In Stock Only</span>
+              {facets ? (
+                <span className="font-raleway text-[10px] font-semibold text-muted">
+                  {facets.inStock}
+                </span>
+              ) : null}
             </label>
           </li>
           <li>
@@ -397,7 +430,12 @@ export function FiltersSidebar({
                 checked={onSaleOnly}
                 onChange={(e) => setOrUnset('onSale', e.target.checked ? 'true' : null)}
               />
-              On Sale
+              <span className="flex-1">On Sale</span>
+              {facets ? (
+                <span className="font-raleway text-[10px] font-semibold text-muted">
+                  {facets.onSale}
+                </span>
+              ) : null}
             </label>
           </li>
           <li>
