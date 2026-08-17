@@ -96,10 +96,12 @@ export default function AdminInternsPage() {
         internIds: Array.from(assignSelection),
         scope: 'all-unimaged',
       });
+      const warning = r.alreadyImagedCount > 0 ? ` (${r.alreadyImagedCount} already had images)` : '';
       toast(
         r.assigned === 0
           ? 'No unimaged products to assign'
-          : `Assigned ${r.assigned} products across ${Object.keys(r.perIntern).length} intern${Object.keys(r.perIntern).length === 1 ? '' : 's'}`,
+          : `Assigned ${r.assigned} products across ${Object.keys(r.perIntern).length} intern${Object.keys(r.perIntern).length === 1 ? '' : 's'}${warning}`,
+        r.alreadyImagedCount > 0 ? 'info' : undefined,
       );
       setConfirmAssign(false);
       setAssignSelection(new Set());
