@@ -44,7 +44,11 @@ export function Stage10Continuous() {
     <div className="flex flex-col gap-6">
       <section className="rounded-card border border-border bg-gradient-to-br from-navy to-[#0a1942] p-6 text-white shadow-card">
         <p className="font-raleway text-[11px] font-bold uppercase tracking-btn text-amber">Active supplier · since {memberSince}</p>
-        <h2 className="mt-1 font-raleway text-2xl font-extrabold">You’re in continuous engagement</h2>
+        {/* Explicit text-white: the globals.css base layer sets `h1..h6 {
+            text-navy }` directly on the element, which beats the `text-white`
+            inherited from this navy section — so the heading would otherwise
+            render navy-on-navy and be invisible. */}
+        <h2 className="mt-1 font-raleway text-2xl font-extrabold text-white">You’re in continuous engagement</h2>
         <p className="mt-1 max-w-lg font-sans text-sm text-white/80">
           You’ve completed onboarding and you’re trading with Afrizonemart. Here’s
           your performance so far — keep it strong to unlock growth programmes.

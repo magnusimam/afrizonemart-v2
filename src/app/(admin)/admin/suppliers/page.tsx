@@ -31,7 +31,7 @@ for (const s of PIQ_GENERAL_CONFIG.sections) {
 export default function AdminSuppliersPage() {
   const [tab, setTab] = useState<'queue' | 'all'>('queue');
   return (
-    <div>
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <AdminPageHeader
         title="Suppliers"
         subtitle="Review product questionnaires and manage supplier onboarding."

@@ -11,6 +11,58 @@ import { friendlyAuthError, resetPassword } from '@/lib/api/auth';
  * the one-time token (issued by the bulk-import invite) via the existing
  * reset-password endpoint, then sends them to the supplier sign-in.
  */
+/**
+ * Where the invite token lives between the click and the submit.
+ *
+ * The token must leave the address bar: it is a credential, and in the URL it
+ * lands in browser history, in any screenshot of this page, and in the Referer
+ * header of the next thing the supplier clicks. But stripping it is exactly
+ * what made the page unusable — the URL was the only copy, so the moment it
+ * was cleared the token was gone:
+ *
+ *   • React StrictMode (on by default in Next 14 dev) mounts effects twice.
+ *     The first pass read the token and wiped the URL; the second re-read an
+ *     empty URL and declared the link broken. It failed every time in dev.
+ *   • In production the first load worked, but a refresh, a Back, or a mobile
+ *     tab restored from memory re-ran the same read against the stripped URL —
+ *     locking the supplier out of an invite that was perfectly valid.
+ *
+ * So the token is copied to sessionStorage *before* the URL is cleared, and
+ * read back from there on any later pass. sessionStorage is same-origin, never
+ * travels in a Referer, and dies with the tab; `clearInviteToken` drops it as
+ * soon as the password is set, so it does not outlive its one use.
+ */
+const TOKEN_KEY = 'azm.supplier.invite.token';
+
+function readInviteToken(): string | null {
+  const fromUrl = new URLSearchParams(window.location.search).get('token');
+  if (fromUrl) {
+    try {
+      sessionStorage.setItem(TOKEN_KEY, fromUrl);
+    } catch {
+      // Private mode / storage disabled. The in-memory state below still
+      // carries this pass, so the common case keeps working; only a refresh
+      // would then need a fresh link.
+    }
+    // Replace rather than push, so Back cannot resurrect the token.
+    window.history.replaceState(null, '', window.location.pathname);
+    return fromUrl;
+  }
+  try {
+    return sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function clearInviteToken() {
+  try {
+    sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Nothing to clean up if storage was never available.
+  }
+}
+
 export default function SupplierSetPasswordPage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
@@ -24,17 +76,9 @@ export default function SupplierSetPasswordPage() {
   const [missingToken, setMissingToken] = useState(false);
 
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get('token');
+    const t = readInviteToken();
     setToken(t);
     setMissingToken(!t);
-    // Take the token out of the address bar once we hold it. It's a
-    // credential: leaving it there puts it in browser history, in any
-    // screenshot of this page, and in the Referer header of anything the
-    // supplier clicks next. Replace rather than push so Back doesn't
-    // resurrect it.
-    if (t) {
-      window.history.replaceState(null, '', window.location.pathname);
-    }
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -61,6 +105,8 @@ export default function SupplierSetPasswordPage() {
     setSubmitting(true);
     try {
       await resetPassword(token, password);
+      // Spent — don't leave a dead credential in the tab.
+      clearInviteToken();
       setDone(true);
       setTimeout(() => router.push('/supplier/login'), 1800);
     } catch (err) {

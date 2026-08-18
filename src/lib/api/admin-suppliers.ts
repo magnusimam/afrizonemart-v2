@@ -154,6 +154,50 @@ export interface AdminAudit {
   recommendations: string | null;
   auditorName: string | null;
   conductedAt: string | null;
+  /**
+   * Lead-auditor sign-off. `approvedAt === null` on a COMPLETED audit means it
+   * is finished but not yet released — the supplier has not been emailed.
+   */
+  signedBy: string | null;
+  approvedAt: string | null;
+  /** The protocol this audit was carried out against, e.g. AFZ-QA-FPS-001. */
+  protocolCode: string | null;
+  protocolVersion: string | null;
+  /**
+   * The checklist frozen at issue — which checkpoints applied to this product
+   * and why. Render from this, never from a re-fetched category template:
+   * `responses` is keyed by checkpoint ref (`B.4`), while legacy templates key
+   * by generated id (`A_s0_1`), so a template render shows every checkpoint as
+   * unrated. Null on audits predating checklist resolution.
+   */
+  checklistSnapshot: ResolvedChecklist | null;
+}
+
+/** The resolved checklist as stored on the audit. */
+export interface ResolvedChecklist {
+  protocolCode: string;
+  protocolName: string;
+  protocolVersion: string;
+  sections: { letter: string; title: string }[];
+  items: ChecklistItem[];
+  excluded: { ref: string; excludedBecause: string }[];
+  resolvedAt: string;
+}
+
+export interface ChecklistItem {
+  ref: string;
+  section: string;
+  order: number;
+  text: string;
+  guidance?: string;
+  allowedRatings: AuditRating[];
+  defaultIfAbsent: AuditRating;
+  severityClass: 'FIXED_CRITICAL' | 'CONDITIONAL' | 'BY_DEGREE';
+  /** Plain-English reason this checkpoint is on the checklist. */
+  includedBecause: string;
+  defaultOwnerDept: string;
+  defaultClosureText: string;
+  standards?: string[];
 }
 
 export interface AdminAuditDetail {
@@ -200,6 +244,18 @@ export function completeAdminAudit(supplierId: string, body: AuditFormPayload): 
   return apiFetchAuthed(`/api/admin/supplier-audits/${encodeURIComponent(supplierId)}/complete`, {
     method: 'POST',
     body: JSON.stringify(body),
+  });
+}
+
+/**
+ * The human review gate. Completing an audit computes the score; authorising it
+ * is what releases the report to the supplier and sends their email. `signedBy`
+ * is the lead auditor's typed full name, which the report carries as signature.
+ */
+export function authoriseAdminAudit(supplierId: string, signedBy: string): Promise<AdminAudit> {
+  return apiFetchAuthed(`/api/admin/supplier-audits/${encodeURIComponent(supplierId)}/authorise`, {
+    method: 'POST',
+    body: JSON.stringify({ signedBy }),
   });
 }
 
@@ -336,6 +392,99 @@ export function requestAdminChanges(
 ): Promise<{ id: string; status: string }> {
   return apiFetchAuthed(`/api/admin/suppliers/piqs/${encodeURIComponent(id)}/request-changes`, {
     method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+// ── Take50 production shoots ────────────────────────────────────────
+
+export interface ProductionRow {
+  supplierId: string;
+  company: string;
+  contact: string;
+  email: string;
+  currentStage: number;
+  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | null;
+  scheduledAt: string | null;
+  location: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  productList: string | null;
+  notes: string | null;
+  completedAt: string | null;
+}
+
+export interface BookProductionBody {
+  scheduledAt: string;
+  location?: string;
+  contactName?: string;
+  contactPhone?: string;
+  productList?: string;
+  notes?: string;
+}
+
+export function getProductionQueue(): Promise<ProductionRow[]> {
+  return apiFetchAuthed<{ items: ProductionRow[] }>('/api/admin/supplier-production').then((r) => r.items);
+}
+
+/** Booking (or rebooking) emails the supplier their call sheet. */
+export function bookProduction(supplierId: string, body: BookProductionBody): Promise<ProductionRow> {
+  return apiFetchAuthed(`/api/admin/supplier-production/${encodeURIComponent(supplierId)}/book`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function completeProduction(supplierId: string): Promise<ProductionRow> {
+  return apiFetchAuthed(`/api/admin/supplier-production/${encodeURIComponent(supplierId)}/complete`, {
+    method: 'POST',
+  });
+}
+
+export function cancelProduction(supplierId: string): Promise<ProductionRow> {
+  return apiFetchAuthed(`/api/admin/supplier-production/${encodeURIComponent(supplierId)}/cancel`, {
+    method: 'POST',
+  });
+}
+
+// ── On-site facility visit form (suppliers.visits) ──────────────────
+
+export interface VisitFormCheckGroup { title: string; items: string[] }
+
+export interface VisitForm {
+  id: string;
+  company: string;
+  email: string;
+  supplierId: string;
+  status: string;
+  confirmedDate: string | null;
+  /** 'A'..'F' — the supplier's product category, which selects the questions. */
+  category: string | null;
+  categoryName: string | null;
+  preVisitDocs: string[];
+  categoryChecks: VisitFormCheckGroup[];
+  docsSighted: Record<string, boolean>;
+  observations: Record<string, { seen?: boolean; note?: string }>;
+  visitSummary: string;
+  formSubmittedAt: string | null;
+}
+
+export interface VisitFormPayload {
+  formCategory?: string;
+  docsSighted?: Record<string, boolean>;
+  observations?: Record<string, { seen?: boolean; note?: string }>;
+  visitSummary?: string;
+  /** Submitting seeds the product audit with the category + sighted docs. */
+  submit?: boolean;
+}
+
+export function getVisitForm(id: string): Promise<VisitForm> {
+  return apiFetchAuthed<VisitForm>(`/api/admin/facility-visits/${encodeURIComponent(id)}/form`);
+}
+
+export function saveVisitForm(id: string, body: VisitFormPayload): Promise<VisitForm> {
+  return apiFetchAuthed(`/api/admin/facility-visits/${encodeURIComponent(id)}/form`, {
+    method: 'PUT',
     body: JSON.stringify(body),
   });
 }

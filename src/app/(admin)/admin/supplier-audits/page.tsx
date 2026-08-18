@@ -7,6 +7,7 @@ import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { toast } from '@/components/admin/Toast';
 import { HttpApiError } from '@/lib/api/client';
 import {
+  authoriseAdminAudit,
   completeAdminAudit,
   getAdminAudit,
   getAuditQueue,
@@ -85,7 +86,7 @@ export default function AdminSupplierAuditsPage() {
   }, [reload]);
 
   return (
-    <div>
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <AdminPageHeader
         title="Product audits"
         subtitle="Quality & Compliance — conduct the category Product-Commodity Audit and issue the diagnostic report."
@@ -151,6 +152,22 @@ export default function AdminSupplierAuditsPage() {
   );
 }
 
+/** One rateable checkpoint, from either the frozen checklist or a legacy template. */
+interface CheckpointRow {
+  key: string;
+  ref: string;
+  text: string;
+  hint?: string;
+  allowed: AuditRating[];
+  /** A.2 / B.4 / J.2 — the auditor may only mark these Compliant or Critical. */
+  fixedCritical?: boolean;
+}
+
+interface CheckpointGroup {
+  title: string;
+  rows: CheckpointRow[];
+}
+
 function AuditEditor({ supplierId, onClose, onDone }: { supplierId: string; onClose: () => void; onDone: () => void }) {
   const [detail, setDetail] = useState<AdminAuditDetail | null>(null);
   const [category, setCategory] = useState('');
@@ -163,9 +180,16 @@ function AuditEditor({ supplierId, onClose, onDone }: { supplierId: string; onCl
   const [summary, setSummary] = useState('');
   const [recommendations, setRecommendations] = useState('');
   const [auditorName, setAuditorName] = useState('');
-  const [busy, setBusy] = useState<'save' | 'complete' | null>(null);
+  const [busy, setBusy] = useState<'save' | 'complete' | 'authorise' | null>(null);
+  const [signature, setSignature] = useState('');
 
   const readOnly = detail?.audit.status === 'COMPLETED';
+  /**
+   * Completed but not signed off — the audit is scored and locked for editing,
+   * and the only thing left is a lead auditor releasing it. The supplier has
+   * NOT been emailed yet at this point.
+   */
+  const awaitingAuthorisation = readOnly && !detail?.audit.approvedAt;
 
   useEffect(() => {
     let cancelled = false;
@@ -195,10 +219,58 @@ function AuditEditor({ supplierId, onClose, onDone }: { supplierId: string; onCl
   }, [category]);
 
   const live = useMemo(() => computeScore(responses), [responses]);
-  const totalCheckpoints = template?.sections.reduce((n, s) => n + s.checkpoints.length, 0) ?? 0;
-  const ratedCount = template
-    ? template.sections.flatMap((s) => s.checkpoints).filter((c) => responses[c.id]?.rating).length
-    : 0;
+
+  /**
+   * What the auditor actually rates.
+   *
+   * Prefer the checklist frozen onto the audit. Responses are keyed by
+   * checkpoint ref ("B.4") whereas the legacy templates key by generated id
+   * ("A_s0_1"), so rendering a template against these responses shows every
+   * checkpoint as unrated — and against a catalogue whose refs mean different
+   * things. The legacy template remains the fallback for audits created before
+   * checklists were resolved.
+   */
+  const snapshot = detail?.audit.checklistSnapshot ?? null;
+
+  const groups = useMemo<CheckpointGroup[]>(() => {
+    if (snapshot?.items?.length) {
+      const titles = new Map(snapshot.sections.map((sec) => [sec.letter, sec.title]));
+      const bySection = new Map<string, CheckpointRow[]>();
+      const ordered = [...snapshot.items].sort((a, b) =>
+        a.section === b.section ? a.order - b.order : a.section.localeCompare(b.section));
+      for (const item of ordered) {
+        const list = bySection.get(item.section) ?? [];
+        list.push({
+          key: item.ref,
+          ref: item.ref,
+          text: item.text,
+          hint: item.guidance,
+          allowed: item.allowedRatings,
+          fixedCritical: item.severityClass === 'FIXED_CRITICAL',
+        });
+        bySection.set(item.section, list);
+      }
+      return Array.from(bySection, ([letter, rows]) => ({
+        title: [letter, titles.get(letter)].filter(Boolean).join('. '),
+        rows,
+      }));
+    }
+    if (!template) return [];
+    return template.sections.map((sec) => ({
+      title: sec.title,
+      rows: sec.checkpoints.map((c) => ({
+        key: c.id,
+        ref: c.label,
+        text: c.requirement,
+        hint: c.evidence || undefined,
+        allowed: RATINGS.map((r) => r.value),
+      })),
+    }));
+  }, [snapshot, template]);
+
+  const allRows = useMemo(() => groups.flatMap((g) => g.rows), [groups]);
+  const totalCheckpoints = allRows.length;
+  const ratedCount = allRows.filter((r) => responses[r.key]?.rating).length;
 
   const setRating = (id: string, rating: AuditRating) =>
     setResponses((r) => ({ ...r, [id]: { ...r[id], rating } }));
@@ -220,7 +292,21 @@ function AuditEditor({ supplierId, onClose, onDone }: { supplierId: string; onCl
     if (!summary.trim()) return toast('Write an executive summary.', 'error');
     if (!auditorName.trim()) return toast('Enter the auditor name.', 'error');
     setBusy('complete');
-    try { await completeAdminAudit(supplierId, payload()); toast(`Audit completed — ${detail?.company ?? 'supplier'} notified`); onDone(); }
+    // Deliberately does NOT say "notified" — completing scores the audit but
+    // releases nothing. The supplier is emailed by `authorise` below.
+    try { await completeAdminAudit(supplierId, payload()); toast('Audit completed — awaiting lead auditor sign-off'); onDone(); }
+    catch (e) { toast(e instanceof HttpApiError ? e.message : 'Failed', 'error'); }
+    finally { setBusy(null); }
+  };
+
+  const authorise = async () => {
+    if (signature.trim().length < 3) return toast('Type your full name to sign.', 'error');
+    setBusy('authorise');
+    try {
+      await authoriseAdminAudit(supplierId, signature.trim());
+      toast(`Report authorised and sent to ${detail?.company ?? 'the supplier'}`);
+      onDone();
+    }
     catch (e) { toast(e instanceof HttpApiError ? e.message : 'Failed', 'error'); }
     finally { setBusy(null); }
   };
@@ -234,7 +320,13 @@ function AuditEditor({ supplierId, onClose, onDone }: { supplierId: string; onCl
             <div>
               <h2 className="font-raleway text-lg font-bold text-navy">{detail ? `Audit — ${detail.company}` : 'Audit'}</h2>
               <p className="font-sans text-sm text-muted">
-                {readOnly ? 'Completed audit (read-only)' : template ? `${ratedCount}/${totalCheckpoints} checkpoints rated` : 'Pick a category template to begin'}
+                {readOnly
+                  ? awaitingAuthorisation
+                    ? `Scored and locked · ${totalCheckpoints} checkpoints · awaiting lead-auditor sign-off`
+                    : `Released to the supplier on ${detail?.audit.approvedAt ? new Date(detail.audit.approvedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}`
+                  : totalCheckpoints
+                    ? `${ratedCount}/${totalCheckpoints} checkpoints rated`
+                    : 'Pick a category template to begin'}
               </p>
             </div>
           </div>
@@ -278,9 +370,11 @@ function AuditEditor({ supplierId, onClose, onDone }: { supplierId: string; onCl
               </select>
             </div>
 
-            {tplLoading && <p className="font-sans text-sm text-muted">Loading template…</p>}
+            {tplLoading && !groups.length && <p className="font-sans text-sm text-muted">Loading template…</p>}
 
-            {template && (
+            {/* Gate on having checkpoints, not on the legacy template: a
+                snapshot-backed audit renders without one. */}
+            {groups.length > 0 && (
               <>
                 {/* Scope metadata */}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -292,11 +386,11 @@ function AuditEditor({ supplierId, onClose, onDone }: { supplierId: string; onCl
                 </div>
 
                 {/* Pre-visit document checklist */}
-                {template.preVisitDocs.length > 0 && (
+                {(template?.preVisitDocs.length ?? 0) > 0 && (
                   <div className="rounded-card border border-border p-4">
                     <p className="font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">Pre-visit documents received</p>
                     <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                      {template.preVisitDocs.map((doc, i) => (
+                      {template?.preVisitDocs.map((doc, i) => (
                         <label key={i} className="flex items-start gap-2 font-sans text-sm text-charcoal">
                           <input type="checkbox" disabled={readOnly} checked={!!preVisit[doc]} onChange={(e) => setPreVisit((p) => ({ ...p, [doc]: e.target.checked }))} className="mt-0.5 h-4 w-4 accent-navy" />
                           {doc}
@@ -307,35 +401,65 @@ function AuditEditor({ supplierId, onClose, onDone }: { supplierId: string; onCl
                 )}
 
                 {/* Conformity matrix */}
-                {template.sections.map((s) => (
-                  <div key={s.title} className="rounded-card border border-border">
-                    <p className="border-b border-border bg-page px-4 py-2.5 font-raleway text-sm font-bold text-navy">{s.title}</p>
+                {groups.map((g) => (
+                  <div key={g.title} className="rounded-card border border-border">
+                    <p className="border-b border-border bg-page px-4 py-2.5 font-raleway text-sm font-bold text-navy">{g.title}</p>
                     <div className="divide-y divide-border">
-                      {s.checkpoints.map((c) => (
-                        <div key={c.id} className="px-4 py-3">
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="min-w-[200px] flex-1">
-                              <p className="font-sans text-sm text-charcoal"><span className="font-bold text-navy">{c.label}</span> {c.requirement}</p>
-                              {c.evidence && <p className="mt-0.5 font-sans text-xs text-muted">Evidence: {c.evidence}</p>}
+                      {g.rows.map((c) => {
+                        const chosen = responses[c.key]?.rating;
+                        return (
+                          <div key={c.key} className="px-4 py-3">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-[220px] flex-1">
+                                <p className="font-sans text-sm leading-6 text-charcoal">
+                                  <span className="font-raleway font-bold text-navy">{c.ref}</span>{' '}{c.text}
+                                </p>
+                                {c.hint && (
+                                  <p className="mt-1 font-sans text-xs leading-5 text-muted">Evidence: {c.hint}</p>
+                                )}
+                                {c.fixedCritical && (
+                                  <p className="mt-1 font-sans text-xs font-semibold text-danger">
+                                    Non-negotiable — absence fails the assessment outright.
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex shrink-0 flex-wrap gap-1">
+                                {RATINGS.filter((rt) => c.allowed.includes(rt.value)).map((rt) => {
+                                  const on = chosen === rt.value;
+                                  return (
+                                    <button key={rt.value} type="button" disabled={readOnly} onClick={() => setRating(c.key, rt.value)}
+                                      className={`rounded-btn border px-2 py-1 font-raleway text-[11px] font-bold tracking-btn transition-colors disabled:cursor-default ${on ? rt.active : 'border-border text-muted hover:border-navy hover:text-navy'}`}>
+                                      {rt.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
-                            <div className="flex flex-wrap gap-1">
-                              {RATINGS.map((rt) => {
-                                const on = responses[c.id]?.rating === rt.value;
-                                return (
-                                  <button key={rt.value} type="button" disabled={readOnly} onClick={() => setRating(c.id, rt.value)}
-                                    className={`rounded-btn border px-2 py-1 font-raleway text-[11px] font-bold tracking-btn transition-colors disabled:cursor-default ${on ? rt.active : 'border-border text-muted hover:border-navy hover:text-navy'}`}>
-                                    {rt.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                            <input type="text" disabled={readOnly} value={responses[c.key]?.findings ?? ''} onChange={(e) => setFindings(c.key, e.target.value)} placeholder="Findings / notes" className={inputCls + ' mt-2 disabled:bg-page'} />
                           </div>
-                          <input type="text" disabled={readOnly} value={responses[c.id]?.findings ?? ''} onChange={(e) => setFindings(c.id, e.target.value)} placeholder="Findings / notes" className={inputCls + ' mt-2 disabled:bg-page'} />
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
+
+                {/* What was left off, and why. Stating this makes a narrow
+                    product scope read as deliberate rather than skipped. */}
+                {snapshot && snapshot.excluded.length > 0 && (
+                  <div className="rounded-card border border-border bg-page p-4">
+                    <p className="font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                      Not applicable to this product ({snapshot.excluded.length})
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {snapshot.excluded.map((ex) => (
+                        <li key={ex.ref} className="font-sans text-xs leading-5 text-muted">
+                          <span className="font-raleway font-bold text-charcoal">{ex.ref}</span>
+                          {' '}— excluded because {ex.excludedBecause}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* CAPA tracker */}
                 <div className="rounded-card border border-border p-4">
@@ -384,9 +508,57 @@ function AuditEditor({ supplierId, onClose, onDone }: { supplierId: string; onCl
           <div className="sticky bottom-0 flex justify-end gap-3 rounded-b-card border-t border-border bg-white px-6 py-4">
             <button type="button" onClick={onClose} className="rounded-btn border border-border px-4 py-2 font-raleway text-sm font-bold text-muted hover:border-navy hover:text-navy">Cancel</button>
             <button type="button" onClick={save} disabled={busy !== null || !category} className="rounded-btn border border-navy px-4 py-2 font-raleway text-sm font-bold text-navy hover:bg-navy-light disabled:opacity-60">{busy === 'save' ? 'Saving…' : 'Save draft'}</button>
+            {/* Label says only what this does: it scores and locks the audit.
+                Issuing the report is the separate authorisation step below. */}
             <button type="button" onClick={complete} disabled={busy !== null || !category} className="inline-flex items-center gap-2 rounded-btn bg-navy px-5 py-2 font-raleway text-sm font-bold tracking-btn text-white hover:bg-navy-dark disabled:opacity-60">
-              {busy === 'complete' ? <Loader2 size={15} aria-hidden className="animate-spin" /> : <CheckCircle2 size={15} aria-hidden />} Complete & issue report
+              {busy === 'complete' ? <Loader2 size={15} aria-hidden className="animate-spin" /> : <CheckCircle2 size={15} aria-hidden />} Complete audit
             </button>
+          </div>
+        )}
+
+        {/* Human review gate — a completed audit is not released until a lead
+            auditor signs it. Until then the supplier has received nothing. */}
+        {awaitingAuthorisation && detail && (
+          <div className="sticky bottom-0 z-10 rounded-b-card border-t-2 border-amber bg-amber-light px-6 py-5 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+            <p className="font-raleway text-[11px] font-bold uppercase tracking-btn text-amber-dark">
+              Lead auditor sign-off required
+            </p>
+            <p className="mt-1.5 font-sans text-sm text-charcoal">
+              This audit is complete and scored, but <strong>{detail.company} has not been notified</strong>.
+              Type your full name to sign the report and release it to them.
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <label className="flex min-w-[240px] flex-1 flex-col gap-1.5">
+                <span className="font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                  Your full name (signature)
+                </span>
+                <input
+                  type="text"
+                  value={signature}
+                  onChange={(e) => setSignature(e.target.value)}
+                  autoComplete="name"
+                  placeholder="e.g. Chidi Okafor"
+                  className={inputCls}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={authorise}
+                disabled={busy !== null || signature.trim().length < 3}
+                className="inline-flex items-center gap-2 rounded-btn bg-navy px-5 py-2.5 font-raleway text-sm font-bold tracking-btn text-white hover:bg-navy-dark disabled:opacity-60"
+              >
+                {busy === 'authorise' ? <Loader2 size={15} aria-hidden className="animate-spin" /> : <CheckCircle2 size={15} aria-hidden />}
+                Authorise &amp; send report
+              </button>
+            </div>
+          </div>
+        )}
+
+        {readOnly && detail?.audit.approvedAt && (
+          <div className="rounded-b-card border-t border-border bg-page px-6 py-4 font-sans text-sm text-muted">
+            Authorised by <strong className="text-navy">{detail.audit.signedBy}</strong> on{' '}
+            {new Date(detail.audit.approvedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {' '}· report sent to {detail.company}.
           </div>
         )}
       </div>

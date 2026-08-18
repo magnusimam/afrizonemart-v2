@@ -28,7 +28,7 @@ export default function AdminOrientationPage() {
   const [tab, setTab] = useState<Tab>('calls');
 
   return (
-    <div>
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <AdminPageHeader
         title="Orientation & calls"
         subtitle="Schedule PIQ review calls and follow up on questions from the live orientation."

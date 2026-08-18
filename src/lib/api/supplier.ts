@@ -234,6 +234,24 @@ export function completeStage(stage: number, answers: Record<string, unknown>): 
   });
 }
 
+export interface SupplierProductionBooking {
+  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+  scheduledAt: string;
+  location: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  productList: string | null;
+  notes: string | null;
+  completedAt: string | null;
+}
+
+/** GET /api/suppliers/me/production — the Take50 shoot, or null if unbooked. */
+export function getSupplierProductionBooking(): Promise<SupplierProductionBooking | null> {
+  return apiFetchAuthed<{ booking: SupplierProductionBooking | null }>(
+    '/api/suppliers/me/production',
+  ).then((r) => r.booking);
+}
+
 export interface SupplierVisit {
   status: 'REQUESTED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
   preferredDate: string | null;
@@ -276,6 +294,12 @@ export interface SupplierAuditReport {
   summary: string | null;
   recommendations: string | null;
   conductedAt: string | null;
+  /**
+   * Lead auditor's signature and release date. The endpoint only returns an
+   * audit at all once it is authorised, so `approvedAt` is always present here.
+   */
+  signedBy: string | null;
+  approvedAt: string;
   responses: Record<string, { rating?: string; findings?: string }>;
   capa: { ref?: string; nonConformity?: string; rootCause?: string; action?: string; owner?: string; deadline?: string; status?: string }[];
   template: { name: string; code: string; sections: AuditTemplateSection[] } | null;
