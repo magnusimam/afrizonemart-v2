@@ -11,7 +11,12 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { getStageAnswers, saveStageAnswers, uploadListingPhoto } from '@/lib/api/supplier';
+import {
+  getStageAnswers,
+  getSupplierProductionBooking,
+  saveStageAnswers,
+  uploadListingPhoto,
+} from '@/lib/api/supplier';
 
 /**
  * Stage 8 — Activation & Listing. After "It's Made in Africa" production the
@@ -38,6 +43,15 @@ export function Stage8Activation() {
   const { data, isLoading } = useQuery({
     queryKey: ['supplier', 'stage', 8],
     queryFn: () => getStageAnswers(8) as Promise<Stage8Answers>,
+    retry: false,
+  });
+
+  // The Take50 shoot. Booked by the crew from the admin side, so this is
+  // read-only here — but it has to be shown: the booking email used to be the
+  // only record of the date, which left a supplier who lost it with nothing.
+  const { data: booking } = useQuery({
+    queryKey: ['supplier', 'production'],
+    queryFn: getSupplierProductionBooking,
     retry: false,
   });
 
@@ -135,12 +149,87 @@ export function Stage8Activation() {
           </span>
           <div>
             <h3 className="font-raleway text-base font-bold text-navy">
-              It’s Made in Africa — production booked
+              It’s Made in Africa
+              {booking?.status === 'COMPLETED'
+                ? ' — shoot complete'
+                : booking
+                  ? ' — production booked'
+                  : ' — production shoot'}
             </h3>
             <p className="mt-1 max-w-lg font-sans text-sm leading-relaxed text-charcoal">
               Our crew will film your “How it’s made” story and a Meet the Producer
               interview. These assets help your product sell once it’s live.
             </p>
+
+            {/* The heading above used to read “production booked” for everyone,
+                including suppliers with no booking at all. It now follows the
+                record, and the details are shown here rather than living only
+                in the booking email. */}
+            {booking ? (
+              <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                <div>
+                  <dt className="font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                    {booking.status === 'COMPLETED' ? 'Filmed on' : 'Date & time'}
+                  </dt>
+                  <dd className="font-sans text-sm font-semibold text-navy">
+                    {new Date(booking.scheduledAt).toLocaleString('en-GB', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      timeZone: 'Africa/Lagos',
+                    })}{' '}
+                    WAT
+                  </dd>
+                </div>
+                {booking.location && (
+                  <div>
+                    <dt className="font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                      Location
+                    </dt>
+                    <dd className="font-sans text-sm font-semibold text-navy">
+                      {booking.location}
+                    </dd>
+                  </div>
+                )}
+                {booking.contactName && (
+                  <div>
+                    <dt className="font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                      Crew contact
+                    </dt>
+                    <dd className="font-sans text-sm font-semibold text-navy">
+                      {booking.contactName}
+                      {booking.contactPhone ? ` · ${booking.contactPhone}` : ''}
+                    </dd>
+                  </div>
+                )}
+                {booking.productList && (
+                  <div>
+                    <dt className="font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                      Products being shot
+                    </dt>
+                    <dd className="font-sans text-sm font-semibold text-navy">
+                      {booking.productList}
+                    </dd>
+                  </div>
+                )}
+                {booking.notes && (
+                  <div className="sm:col-span-2">
+                    <dt className="font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                      Notes from the crew
+                    </dt>
+                    <dd className="font-sans text-sm text-charcoal">{booking.notes}</dd>
+                  </div>
+                )}
+              </dl>
+            ) : (
+              <p className="mt-3 font-sans text-sm text-muted">
+                No shoot is booked yet — our production team will be in touch to
+                agree a date, and it will appear here once it’s set.
+              </p>
+            )}
           </div>
         </div>
         <div className="mt-4">
