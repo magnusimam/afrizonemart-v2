@@ -9,7 +9,10 @@ import {
   completeFacilityVisit,
   confirmFacilityVisit,
   getFacilityVisits,
+  getVisitForm,
+  saveVisitForm,
   type AdminVisit,
+  type VisitForm,
 } from '@/lib/api/admin-suppliers';
 
 const STATUS_TONE: Record<string, string> = {
@@ -24,6 +27,7 @@ export default function AdminFacilityVisitsPage() {
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
   const [confirming, setConfirming] = useState<AdminVisit | null>(null);
+  const [formFor, setFormFor] = useState<AdminVisit | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,7 +52,7 @@ export default function AdminFacilityVisitsPage() {
   };
 
   return (
-    <div>
+    <div className="px-4 py-6 md:px-8 md:py-10">
       <AdminPageHeader
         title="Facility visits"
         subtitle="Confirm dates for supplier site visits and mark them complete."
@@ -113,6 +117,17 @@ export default function AdminFacilityVisitsPage() {
                         Mark done
                       </button>
                     )}
+                    {/* The on-site form stays reachable after the visit is
+                        marked done — teams routinely write it up afterwards. */}
+                    {(v.status === 'CONFIRMED' || v.status === 'COMPLETED') && (
+                      <button
+                        type="button"
+                        onClick={() => setFormFor(v)}
+                        className="ml-2 rounded-btn border border-navy px-4 py-1.5 font-raleway text-xs font-bold text-navy transition-colors hover:bg-navy-light"
+                      >
+                        Visit form
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -127,6 +142,18 @@ export default function AdminFacilityVisitsPage() {
           onClose={() => setConfirming(null)}
           onDone={() => {
             setConfirming(null);
+            setReload((r) => r + 1);
+          }}
+        />
+      )}
+
+      {formFor && (
+        <VisitFormModal
+          visit={formFor}
+          onClose={() => setFormFor(null)}
+          onDone={(msg) => {
+            setFormFor(null);
+            toast(msg);
             setReload((r) => r + 1);
           }}
         />
@@ -208,3 +235,208 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const inputCls = 'w-full rounded-input border border-border bg-white px-3 py-2 font-sans text-sm focus:border-amber focus:outline-none';
+
+/**
+ * The on-site visit form.
+ *
+ * Questions are chosen by the supplier's PRODUCT CATEGORY — a cassava mill and
+ * a cosmetics line get different checks, drawn from the same category templates
+ * the auditor will later score against. Submitting seeds the product audit, so
+ * the auditor starts from what the visiting team actually saw rather than a
+ * blank record.
+ */
+function VisitFormModal({
+  visit, onClose, onDone,
+}: { visit: AdminVisit; onClose: () => void; onDone: (msg: string) => void }) {
+  const [form, setForm] = useState<VisitForm | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'save' | 'submit' | null>(null);
+
+  useEffect(() => {
+    getVisitForm(visit.id)
+      .then(setForm)
+      .catch((e) => setErr(e instanceof Error ? e.message : 'Failed to load the form'));
+  }, [visit.id]);
+
+  const save = async (submit: boolean) => {
+    if (!form) return;
+    setBusy(submit ? 'submit' : 'save');
+    setErr(null);
+    try {
+      await saveVisitForm(visit.id, {
+        formCategory: form.category ?? undefined,
+        docsSighted: form.docsSighted,
+        observations: form.observations,
+        visitSummary: form.visitSummary,
+        submit,
+      });
+      onDone(submit
+        ? `Visit form submitted — the audit for ${form.company} is seeded and ready`
+        : `Draft saved for ${form.company}`);
+    } catch (e) {
+      setErr(e instanceof HttpApiError ? e.message : 'Failed to save');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-charcoal/60 p-4 py-8">
+      <div className="w-full max-w-2xl rounded-card bg-white shadow-card-hover">
+        <header className="sticky top-0 z-10 flex items-start justify-between gap-3 rounded-t-card border-b border-border bg-white px-6 py-4">
+          <div>
+            <h2 className="font-raleway text-lg font-bold text-navy">On-site visit form</h2>
+            <p className="font-sans text-xs text-muted">
+              {visit.company}
+              {form?.categoryName ? ` · ${form.category} — ${form.categoryName}` : ''}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-muted hover:text-navy">
+            <X size={18} aria-hidden />
+          </button>
+        </header>
+
+        <div className="flex flex-col gap-5 px-6 py-5">
+          {err && (
+            <p role="alert" className="rounded-input border border-danger/30 bg-danger/5 px-3 py-2 font-sans text-sm text-danger">{err}</p>
+          )}
+          {!form ? (
+            <p className="font-sans text-sm text-muted">Loading the form…</p>
+          ) : (
+            <>
+              {form.formSubmittedAt && (
+                <p className="rounded-input border border-success/30 bg-success/5 px-3 py-2 font-sans text-sm text-success">
+                  Submitted {new Date(form.formSubmittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.
+                  Resubmitting will not overwrite audit scoring already in progress.
+                </p>
+              )}
+
+              {!form.category && (
+                <p className="rounded-input border border-amber/50 bg-amber-light/40 px-3 py-2 font-sans text-sm text-amber-dark">
+                  No product category is recorded for this supplier, so there are
+                  no category-specific checks to show. Pick one below.
+                </p>
+              )}
+
+              <label className="flex flex-col gap-1.5">
+                <span className="font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                  Product category (selects the checks)
+                </span>
+                <select
+                  value={form.category ?? ''}
+                  onChange={(e) => setForm({ ...form, category: e.target.value || null })}
+                  className={inputCls}
+                >
+                  <option value="">— none —</option>
+                  {['A', 'B', 'C', 'D', 'E', 'F'].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </label>
+
+              <section>
+                <h3 className="font-raleway text-sm font-bold text-navy">Documents sighted</h3>
+                {form.preVisitDocs.length === 0 ? (
+                  <p className="mt-1 font-sans text-xs text-muted">
+                    No document checklist is defined for this category yet.
+                  </p>
+                ) : (
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    {form.preVisitDocs.map((doc) => (
+                      <label key={doc} className="flex items-start gap-2 font-sans text-sm">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(form.docsSighted[doc])}
+                          onChange={(e) => setForm({
+                            ...form,
+                            docsSighted: { ...form.docsSighted, [doc]: e.target.checked },
+                          })}
+                          className="mt-1"
+                        />
+                        <span>{doc}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {form.categoryChecks.map((group, gi) => (
+                <section key={`${group.title}-${gi}`}>
+                  {group.title ? (
+                    <h3 className="font-raleway text-sm font-bold text-navy">{group.title}</h3>
+                  ) : null}
+                  <div className="mt-2 flex flex-col gap-3">
+                    {group.items.map((item, ii) => {
+                      const key = `g${gi}_i${ii}`;
+                      const obs = form.observations[key] ?? {};
+                      return (
+                        <div key={key} className="rounded-input border border-border p-3">
+                          <label className="flex items-start gap-2 font-sans text-sm">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(obs.seen)}
+                              onChange={(e) => setForm({
+                                ...form,
+                                observations: { ...form.observations, [key]: { ...obs, seen: e.target.checked } },
+                              })}
+                              className="mt-1"
+                            />
+                            <span>{item}</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={obs.note ?? ''}
+                            onChange={(e) => setForm({
+                              ...form,
+                              observations: { ...form.observations, [key]: { ...obs, note: e.target.value } },
+                            })}
+                            placeholder="What did you observe?"
+                            className={`${inputCls} mt-2`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+
+              <label className="flex flex-col gap-1.5">
+                <span className="font-raleway text-[11px] font-bold uppercase tracking-btn text-muted">
+                  Visit summary (the auditor reads this first)
+                </span>
+                <textarea
+                  rows={4}
+                  value={form.visitSummary}
+                  onChange={(e) => setForm({ ...form, visitSummary: e.target.value })}
+                  className={inputCls}
+                />
+              </label>
+            </>
+          )}
+        </div>
+
+        <div className="sticky bottom-0 flex justify-end gap-3 rounded-b-card border-t border-border bg-white px-6 py-4">
+          <button type="button" onClick={onClose} className="rounded-btn border border-border px-4 py-2 font-raleway text-sm font-bold text-muted hover:border-navy hover:text-navy">
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={() => save(false)}
+            disabled={!form || busy !== null}
+            className="rounded-btn border border-navy px-4 py-2 font-raleway text-sm font-bold text-navy hover:bg-navy-light disabled:opacity-60"
+          >
+            {busy === 'save' ? 'Saving…' : 'Save draft'}
+          </button>
+          <button
+            type="button"
+            onClick={() => save(true)}
+            disabled={!form || busy !== null}
+            className="rounded-btn bg-navy px-5 py-2 font-raleway text-sm font-bold tracking-btn text-white hover:bg-navy-dark disabled:opacity-60"
+          >
+            {busy === 'submit' ? 'Submitting…' : 'Submit & seed audit'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
