@@ -303,6 +303,16 @@ export interface SupplierAuditReport {
   responses: Record<string, { rating?: string; findings?: string }>;
   capa: { ref?: string; nonConformity?: string; rootCause?: string; action?: string; owner?: string; deadline?: string; status?: string }[];
   template: { name: string; code: string; sections: AuditTemplateSection[] } | null;
+  /**
+   * The report document as issued, when one exists on file.
+   *
+   * The first cohort of diagnostics was written up before the portal could
+   * generate reports. Those suppliers download the document that was actually
+   * signed; for engine-generated audits this is null and the page renders the
+   * report itself.
+   */
+  reportFileUrl: string | null;
+  reportFileName: string | null;
 }
 
 /** GET /api/suppliers/me/audit — the audit report, or null until completed. */

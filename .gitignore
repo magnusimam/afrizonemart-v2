@@ -47,3 +47,6 @@ next-env.d.ts
 
 # Internal AZM audit source docs (PII / confidential)
 /checklist samples etc/
+
+# Confidential supplier audit source documents (never commit)
+/OneDrive_2026-08-18/
