@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, ClipboardCheck, Printer } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, Download, Printer } from 'lucide-react';
 import { getSupplierAudit } from '@/lib/api/supplier';
 
 /**
@@ -54,12 +54,29 @@ export function AuditReportCard() {
             {audit.categoryName ?? 'Product-Commodity Audit'}{conducted ? ` · ${conducted}` : ''}
           </p>
         </div>
-        <Link
-          href="/supplier/audit-report"
-          className="inline-flex shrink-0 items-center gap-2 rounded-btn border border-navy px-4 py-2 font-raleway text-xs font-bold tracking-btn text-navy hover:bg-navy-light"
-        >
-          <Printer size={14} aria-hidden /> Download PDF
-        </Link>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* This opens the print view rather than a file, so it says so. It
+              used to read "Download PDF", which promised a download the link
+              did not perform. */}
+          <Link
+            href="/supplier/audit-report"
+            className="inline-flex items-center gap-2 rounded-btn border border-navy px-4 py-2 font-raleway text-xs font-bold tracking-btn text-navy hover:bg-navy-light"
+          >
+            <Printer size={14} aria-hidden /> View report
+          </Link>
+
+          {audit.reportFileUrl && (
+            <a
+              href={audit.reportFileUrl}
+              download={audit.reportFileName ?? undefined}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-btn bg-navy px-4 py-2 font-raleway text-xs font-bold tracking-btn text-white hover:bg-navy-dark"
+            >
+              <Download size={14} aria-hidden /> Signed report
+            </a>
+          )}
+        </div>
       </header>
 
       {/* Outcome + score */}
