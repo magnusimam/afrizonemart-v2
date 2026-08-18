@@ -10,9 +10,14 @@ import { HttpApiError } from '@/lib/api/client';
  * Client-side gate for the supplier portal (the supplier mirror of
  * RequireAdmin). A supplier = any AZM account that has a SupplierProfile.
  *   1. wait for authStore hydration + any in-flight refresh,
- *   2. unauthenticated → /supplier/login?returnUrl=…,
+ *   2. unauthenticated → /login?returnUrl=…,
  *   3. `useSupplierMe()` (shared react-query) → success renders; a 404
  *      (authed but not a supplier) sends them to /suppliers to Apply.
+ *
+ * Sends people to the storefront `/login` rather than `/supplier/login`:
+ * there is one account and one credential, so there is one sign-in page.
+ * `/supplier/login` still exists and redirects here, so older links and the
+ * invite email keep working — this just skips the extra hop.
  */
 export function RequireSupplier({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -36,14 +41,14 @@ export function RequireSupplier({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hydrated || refreshing) return;
     if (!isAuthed) {
-      router.replace(`/supplier/login?returnUrl=${encodeURIComponent(pathname)}`);
+      router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
     }
   }, [hydrated, refreshing, isAuthed, pathname, router]);
 
   useEffect(() => {
     if (!error) return;
     if (error instanceof HttpApiError && error.status === 401) {
-      router.replace(`/supplier/login?returnUrl=${encodeURIComponent(pathname)}`);
+      router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
     } else {
       // 404 (not a supplier) or other → the public landing's Apply flow.
       router.replace('/suppliers');

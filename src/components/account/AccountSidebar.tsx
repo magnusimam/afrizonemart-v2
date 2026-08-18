@@ -7,6 +7,7 @@ import {
   MapPin,
   Package,
   Share2,
+  Store,
   User,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -25,6 +26,13 @@ const navItems: NavItem[] = [
   { href: '/account/wishlist', label: 'Wishlist', Icon: Heart },
   { href: '/account/addresses', label: 'Addresses', Icon: MapPin },
   { href: '/account/profile', label: 'Profile', Icon: User },
+  // The supplier portal runs on the same account, so it belongs in the same
+  // menu. Deliberately shown to everyone and deliberately not labelled
+  // "Supplier portal": RequireSupplier sends an account without a
+  // SupplierProfile to /suppliers, which is the Apply flow — so this reads as
+  // an invitation to sellers and as a way back in for existing suppliers,
+  // without the header having to ask the API who is a supplier on every page.
+  { href: '/supplier/dashboard', label: 'Sell on Afrizonemart', Icon: Store },
 ];
 
 interface AccountSidebarProps {
