@@ -44,3 +44,6 @@ next-env.d.ts
 /*.png
 /*Google Forms.html
 /*Google Forms_files/
+
+# Internal AZM audit source docs (PII / confidential)
+/checklist samples etc/
