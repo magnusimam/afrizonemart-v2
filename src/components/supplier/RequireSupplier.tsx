@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useSupplierMe } from '@/lib/api/supplier-hooks';
 import { HttpApiError } from '@/lib/api/client';
+import { SupplierPortalLoader } from '@/components/supplier/SupplierPortalLoader';
 
 /**
  * Client-side gate for the supplier portal (the supplier mirror of
@@ -56,11 +57,7 @@ export function RequireSupplier({ children }: { children: React.ReactNode }) {
   }, [error, pathname, router]);
 
   if (!hydrated || refreshing || !isAuthed || isLoading || !isSuccess) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-page font-sans text-sm text-muted">
-        Loading your portal…
-      </div>
-    );
+    return <SupplierPortalLoader />;
   }
 
   return <>{children}</>;
