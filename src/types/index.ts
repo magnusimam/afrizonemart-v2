@@ -50,6 +50,10 @@ export interface CartItem {
   discountPercent?: number;
   image: string;
   origin?: string;
+  /// Countries this item's product can be sold/shipped to. Empty/absent
+  /// = sellable everywhere. `origin` is always implicitly sellable there
+  /// even if not listed here.
+  sellableCountries?: string[];
   variant?: string;
   quantity: number;
 }

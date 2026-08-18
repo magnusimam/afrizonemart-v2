@@ -2,12 +2,17 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ChevronRight, Home as HomeIcon, Package } from 'lucide-react';
+import { ChevronRight, Home as HomeIcon, Package, Star } from 'lucide-react';
 import { AccountSidebar } from '@/components/account/AccountSidebar';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
+import { OrderTimeline } from '@/components/account/OrderTimeline';
 import { formatPriceNGN } from '@/lib/format';
 import { getCountry } from '@/lib/countries';
-import { getOrder, type Order } from '@/lib/api/orders';
+import {
+  confirmDeliveryAsCustomer,
+  getOrder,
+  type Order,
+} from '@/lib/api/orders';
 import { HttpApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/authStore';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
@@ -26,6 +31,7 @@ function statusToUi(s: Order['status']): UiOrderStatus {
     case 'FULFILLING':
       return 'processing';
     case 'SHIPPED':
+    case 'OUT_FOR_DELIVERY':
       return 'shipped';
     case 'DELIVERED':
       return 'delivered';
@@ -168,6 +174,58 @@ export default function OrderDetailPage({ params }: PageProps) {
                   </header>
 
                   <section className="rounded-card border border-border bg-white p-5 md:p-6">
+                    <h2 className="mb-4 font-raleway text-lg font-bold text-navy">
+                      Status
+                    </h2>
+                    <OrderTimeline order={order} />
+                  </section>
+
+                  {/* Show & Scan / customer-confirm block. Renders when
+                      the order is SHIPPED or OUT_FOR_DELIVERY so the
+                      customer either (a) sees their delivery code to
+                      hand to the rider, or (b) can self-confirm. */}
+                  {(order.status === 'SHIPPED' ||
+                    order.status === 'OUT_FOR_DELIVERY') && (
+                    <DeliveryConfirmBlock
+                      order={order}
+                      onConfirmed={(updated) => setOrder(updated)}
+                    />
+                  )}
+
+                  {/* Rate-this-order CTA — same surface the mobile
+                      app shows. Visible whenever the order is
+                      DELIVERED so the customer always has a clear
+                      entry into the review flow. */}
+                  {order.status === 'DELIVERED' && (
+                    <Link
+                      href={`/account/orders/${order.id}/rate`}
+                      className="flex items-center gap-4 rounded-card border border-amber/40 bg-amber/5 p-5 transition-colors hover:bg-amber/10 md:p-6"
+                    >
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber/15">
+                        <Star
+                          size={22}
+                          className="fill-amber text-amber"
+                          aria-hidden
+                        />
+                      </span>
+                      <span className="flex-1">
+                        <span className="block font-raleway text-base font-bold text-navy">
+                          Rate this order
+                        </span>
+                        <span className="block font-sans text-sm text-muted">
+                          Help other shoppers and post verified reviews
+                          for what you bought.
+                        </span>
+                      </span>
+                      <ChevronRight
+                        size={18}
+                        className="shrink-0 text-amber"
+                        aria-hidden
+                      />
+                    </Link>
+                  )}
+
+                  <section className="rounded-card border border-border bg-white p-5 md:p-6">
                     <h2 className="mb-4 flex items-center gap-2 font-raleway text-lg font-bold text-navy">
                       <Package size={18} aria-hidden /> Items
                     </h2>
@@ -234,5 +292,90 @@ export default function OrderDetailPage({ params }: PageProps) {
         </div>
       </main>
     </>
+  );
+}
+
+/**
+ * Customer's delivery-confirmation block.
+ *
+ * When the order is OUT_FOR_DELIVERY we render the 6-digit code
+ * customers show their rider. (The full QR experience lives on
+ * the mobile app — see DeliveryConfirmation screen there. Web is
+ * mainly used at home / on desktop, not at the door, so the code
+ * is the most useful element to render here.)
+ *
+ * When the order is SHIPPED or OUT_FOR_DELIVERY we always render
+ * the "I received my order" button as a customer-side override —
+ * it's the catch-all for missed scans / forgotten flips.
+ */
+function DeliveryConfirmBlock({
+  order,
+  onConfirmed,
+}: {
+  order: Order;
+  onConfirmed: (updated: Order) => void;
+}) {
+  const isOutForDelivery = order.status === 'OUT_FOR_DELIVERY';
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConfirm = async () => {
+    if (!confirm('Confirm that you received this order? This earns your Continental Coins.')) {
+      return;
+    }
+    setConfirming(true);
+    setError(null);
+    try {
+      await confirmDeliveryAsCustomer(order.id);
+      /// Optimistic patch — the polling effect refetches in ~12s
+      /// anyway, but flipping to DELIVERED right away makes the
+      /// page feel responsive.
+      onConfirmed({
+        ...order,
+        status: 'DELIVERED',
+        deliveredAt: new Date().toISOString(),
+        deliveredSource: 'customer',
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not confirm.');
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <section className="rounded-card border border-amber/30 bg-amber/5 p-5 md:p-6">
+      {isOutForDelivery && order.deliveryOtp ? (
+        <div className="mb-5">
+          <p className="font-raleway text-xs font-bold uppercase tracking-btn text-amber">
+            Your delivery code
+          </p>
+          <p className="mt-1 font-mono text-3xl tracking-[0.3em] text-navy">
+            {order.deliveryOtp}
+          </p>
+          <p className="mt-1 font-sans text-xs text-muted">
+            Show this code to your rider when they arrive. For the QR
+            code, open the Afrizonemart mobile app.
+          </p>
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-3 border-t border-amber/20 pt-4">
+        <p className="font-sans text-sm text-charcoal">
+          Already got your order? Tap to confirm and earn your
+          Continental Coins.
+        </p>
+        <button
+          type="button"
+          onClick={() => void handleConfirm()}
+          disabled={confirming}
+          className="self-start rounded-btn bg-navy px-5 py-2.5 font-raleway text-sm font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {confirming ? 'Confirming…' : "I received my order"}
+        </button>
+        {error ? (
+          <p className="font-sans text-sm text-danger">{error}</p>
+        ) : null}
+      </div>
+    </section>
   );
 }

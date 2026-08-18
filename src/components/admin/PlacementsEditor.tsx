@@ -7,6 +7,7 @@ import {
   type PlacementDef,
   type PlacementInput,
 } from '@/lib/api/admin';
+import { CountryMultiSelect } from './CountryMultiSelect';
 
 /**
  * Phase 10.7 — admin product form sub-panel.
@@ -19,11 +20,6 @@ import {
  * "category") are shown read-only at the top — they're computed from
  * other product fields, not toggled here.
  */
-
-const COUNTRY_OPTIONS = [
-  'NG', 'KE', 'ZA', 'GH', 'EG', 'MA', 'ET', 'TZ', 'UG', 'RW',
-  'ZW', 'CI', 'SN', 'CM', 'ML', 'DZ', 'TN', 'AO', 'BW', 'NA', 'MZ',
-];
 
 interface AutoChip {
   label: string;
@@ -213,33 +209,11 @@ export function PlacementsEditor({ value, onChange, autoChips }: Props) {
             </div>
 
             <div className="mt-3">
-              <span className="block font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
-                Countries (optional · empty = global)
-              </span>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {COUNTRY_OPTIONS.map((c) => {
-                  const enabled = (p.countries ?? []).includes(c);
-                  return (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => {
-                        const next = enabled
-                          ? (p.countries ?? []).filter((x) => x !== c)
-                          : [...(p.countries ?? []), c];
-                        updatePlacement(idx, { countries: next });
-                      }}
-                      className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] ${
-                        enabled
-                          ? 'border-navy bg-navy text-white'
-                          : 'border-border bg-white text-charcoal hover:border-navy'
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  );
-                })}
-              </div>
+              <CountryMultiSelect
+                label="Countries (optional · empty = global)"
+                value={p.countries ?? []}
+                onChange={(next) => updatePlacement(idx, { countries: next })}
+              />
             </div>
           </div>
         ))}

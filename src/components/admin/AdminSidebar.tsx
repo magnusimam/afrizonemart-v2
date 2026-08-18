@@ -21,6 +21,7 @@ import {
   Flag,
   GitBranch,
   Globe2,
+  Gift,
   ImagePlus,
   Pencil,
   LayoutPanelTop,
@@ -52,8 +53,11 @@ interface NavItem {
   disabled?: boolean;
   /// Capability that gates this item. Undefined = always visible to
   /// any role admitted to the admin router (Dashboard fits this — it's
-  /// the landing page for everyone with admin access).
-  cap?: Capability;
+  /// the landing page for everyone with admin access). An array means
+  /// OR — visible if the user has ANY of the listed capabilities (used
+  /// by the combined "Submit content" entry, which fans out to
+  /// products.submit and/or documents.submit).
+  cap?: Capability | Capability[];
 }
 
 const NAV: NavItem[] = [
@@ -72,9 +76,10 @@ const NAV: NavItem[] = [
   { href: '/admin/staff', label: 'Staff & Roles', icon: ShieldCheck, cap: 'staff.manage' },
   { href: '/admin/interns', label: 'Intern queue', icon: ImagePlus, cap: 'intern.review' },
   { href: '/admin/product-submissions-review', label: 'Product submissions', icon: ClipboardList, cap: 'intern.review' },
+  { href: '/admin/document-submissions-review', label: 'Document submissions', icon: ClipboardList, cap: 'intern.review' },
   { href: '/admin/intern-payouts', label: 'Intern payouts', icon: Banknote, cap: 'payouts.write' },
   { href: '/admin/intern-queue', label: 'My image queue', icon: ImagePlus, cap: 'products.image-only' },
-  { href: '/admin/product-submissions', label: 'Submit a product', icon: FileText, cap: 'products.submit' },
+  { href: '/admin/submissions', label: 'Submit content', icon: FileText, cap: ['products.submit', 'documents.submit'] },
   { href: '/admin/brand-logos', label: 'Brand logos', icon: ImagePlus, cap: 'products.write' },
   { href: '/admin/coupons', label: 'Coupons', icon: PercentCircle, cap: 'coupons.write' },
   { href: '/admin/discounts', label: 'Discounts', icon: Tag, cap: 'products.write' },
@@ -88,6 +93,7 @@ const NAV: NavItem[] = [
   { href: '/admin/custom-fields', label: 'Custom Fields', icon: LayoutGrid, cap: 'custom-fields.write' },
   { href: '/admin/feature-flags', label: 'Feature Flags', icon: Flag, cap: 'feature-flags.write' },
   { href: '/admin/loyalty', label: 'Continental Rewards', icon: Coins, cap: 'loyalty.read' },
+  { href: '/admin/wrap', label: 'Afrizonemart Wrap', icon: Gift, cap: 'content.write' },
   { href: '/admin/business-rules', label: 'Business Rules', icon: GitBranch, cap: 'business-rules.write' },
   { href: '/admin/shelves', label: 'Shelves', icon: LayoutPanelTop, cap: 'products.write' },
   { href: '/admin/pages', label: 'Pages', icon: FileText, cap: 'cms-pages.write' },
@@ -97,6 +103,7 @@ const NAV: NavItem[] = [
   { href: '/admin/category-subtabs', label: 'Category Sub-tabs', icon: Tags, cap: 'content.write' },
   { href: '/admin/landing-pages', label: 'Landing Pages', icon: Globe2, cap: 'content.write' },
   { href: '/admin/blog', label: 'Blog', icon: Newspaper, cap: 'blog.write' },
+  { href: '/admin/documents', label: 'Civic Library', icon: FileText, cap: 'documents.write' },
   { href: '/admin/audit', label: 'Audit Log', icon: FileClock, cap: 'audit.read' },
   { href: '/admin/views', label: 'View Analytics', icon: Eye, cap: 'analytics.read' },
   { href: '/admin/settings', label: 'Settings', icon: Settings, cap: 'settings.write' },
@@ -134,7 +141,11 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
     (user?.role ?? 'CUSTOMER') as StaffRole,
     user?.permissions,
   );
-  const visibleNav = NAV.filter((item) => !item.cap || caps.has(item.cap));
+  const visibleNav = NAV.filter(
+    (item) =>
+      !item.cap ||
+      (Array.isArray(item.cap) ? item.cap.some((c) => caps.has(c)) : caps.has(item.cap)),
+  );
 
   // Friendly first-name greeting; falls back to "Admin" when name is null.
   const greeting = user?.name?.split(' ')[0] ?? 'there';

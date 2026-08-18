@@ -25,6 +25,9 @@ export interface AuthUser {
   /// banner to opted-in users") have the signal locally.
   marketingOptIn: boolean;
   smsOptIn: boolean;
+  /// Afrizonemart Wrap opt-out. Optional so older API builds (before
+  /// PR 8) don't break the type. true = excluded from the wrap.
+  wrapOptOut?: boolean;
   /// 2026-05-16 Phase 2 — captured for the birthday-bonus cron.
   /// Stored as ISO yyyy-mm-dd (UTC midnight) when set; null
   /// otherwise. Optional in the type so older API builds don't
@@ -223,6 +226,8 @@ export interface UpdateMeInput {
   /// update; omit to leave unchanged.
   marketingOptIn?: boolean;
   smsOptIn?: boolean;
+  /// Afrizonemart Wrap opt-out toggle. true = exclude from the wrap.
+  wrapOptOut?: boolean;
   /// 2026-05-16 Phase 2 — ISO yyyy-mm-dd; pass null to clear.
   birthDate?: string | null;
   /// 2026-05-21 — self-service profile picture. Upload the image
@@ -243,6 +248,21 @@ export function updateMe(
 ): Promise<AuthUser> {
   return authFetch<AuthUser>('/api/auth/me', {
     method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(input),
+  });
+}
+
+/// 2026-06-05 — Play Store compliance: in-app account deletion.
+/// Server requires `confirmation = "DELETE MY ACCOUNT"` exactly.
+/// Returns 204 on success. The refresh cookie is cleared on the
+/// server side; client should also clear local auth state.
+export function deleteAccount(
+  accessToken: string,
+  input: { confirmation: string; reason?: string | null },
+): Promise<void> {
+  return authFetch<void>('/api/auth/me', {
+    method: 'DELETE',
     headers: { Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify(input),
   });

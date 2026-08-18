@@ -10,6 +10,11 @@ import { COUNTRIES, COUNTRY_CODES, getCountry } from '@/lib/countries';
 import { friendlyAuthError, registerUser, type AuthResult } from '@/lib/api/auth';
 import { PASSWORD_RULE_HINT, validatePasswordStrength } from '@/lib/auth/password';
 import { useAuthStore } from '@/stores/authStore';
+import {
+  TRACK,
+  identifyUser,
+  trackEvent,
+} from '@/components/providers/AnalyticsProvider';
 
 const REFERRAL_STORAGE_KEY = 'azm-referral-code';
 
@@ -99,6 +104,12 @@ export default function RegisterPage() {
         /* SSR / private mode */
       }
       setSession(result);
+      trackEvent(TRACK.SIGNUP_COMPLETED, {
+        method: 'email',
+        marketing_opt_in: !!marketingOptIn,
+        from_referral: !!referralCode,
+      });
+      identifyUser(result.user.id);
       router.push('/account');
     } catch (err) {
       setError(friendlyAuthError(err, 'Could not create your account. Please try again.'));

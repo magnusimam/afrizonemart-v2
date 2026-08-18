@@ -10,10 +10,12 @@ import {
   GoogleTagManagerHead,
   GoogleTagManagerNoScript,
 } from '@/components/providers/GoogleTagManager';
+import { GoogleAnalytics } from '@/components/providers/GoogleAnalytics';
 import { GeoBanner } from '@/components/common/GeoBanner';
 import { ConfigWatchdog } from '@/components/common/ConfigWatchdog';
 import { ApiStatusBanner } from '@/components/common/ApiStatusBanner';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { WrapLoginPopup } from '@/components/wrap/WrapLoginPopup';
 import { SiteJsonLd } from '@/components/seo/SiteJsonLd';
 import {
   SITE_DEFAULT_DESCRIPTION,
@@ -126,6 +128,7 @@ export default function RootLayout({
     <html lang="en" className={raleway.variable}>
       <head>
         <GoogleTagManagerHead />
+        <GoogleAnalytics />
         <SiteJsonLd />
       </head>
       <body className="bg-page font-sans text-charcoal antialiased">
@@ -153,6 +156,9 @@ export default function RootLayout({
                   <ApiStatusBanner />
                 </SafeBoundary>
                 {children}
+                <SafeBoundary name="layout:wrap-popup" fallback={null}>
+                  <WrapLoginPopup />
+                </SafeBoundary>
                 <GoogleTranslate />
               </CartSyncProvider>
             </GeoProvider>

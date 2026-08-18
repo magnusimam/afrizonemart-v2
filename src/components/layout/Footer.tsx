@@ -78,8 +78,8 @@ const columns: LinkColumn[] = [
   {
     heading: 'Legal',
     links: [
-      { label: 'Privacy & Security', href: '/legal/privacy' },
-      { label: 'Terms of Use', href: '/legal/terms' },
+      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'Terms of Service', href: '/terms' },
       {
         label: 'Do Not Sell Your Personal Information',
         href: '/legal/do-not-sell',
@@ -118,11 +118,11 @@ export function Footer() {
             <div className="flex flex-col gap-2">
               <p className="font-raleway text-sm font-bold text-navy">Contact Info</p>
               <a
-                href="tel:+2347036141990"
+                href="tel:+2347036149590"
                 className="flex items-center gap-2 font-sans text-xs text-charcoal hover:text-navy md:text-sm"
               >
                 <Phone size={14} aria-hidden />
-                +234 7036141990
+                +234 7036149590
               </a>
               <a
                 href="mailto:corporate@afrizonemart.com"

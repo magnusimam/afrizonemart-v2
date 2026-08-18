@@ -76,6 +76,18 @@ export default function AdminStaffPage() {
       ),
     },
     {
+      key: 'department',
+      header: 'Department',
+      render: (s) =>
+        s.department ? (
+          <span className="inline-flex items-center rounded-full bg-page px-2 py-0.5 font-sans text-[11px] text-charcoal">
+            {s.department}
+          </span>
+        ) : (
+          <span className="font-sans text-xs text-muted">—</span>
+        ),
+    },
+    {
       key: 'joined',
       header: 'Added',
       render: (s) => (

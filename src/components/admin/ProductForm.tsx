@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Save } from 'lucide-react';
+import { Plus, Save, Trash2 } from 'lucide-react';
 import type {
   AdminCategory,
   AdminProductInput,
@@ -16,6 +16,7 @@ import {
 import { DynamicFieldInput } from '@/components/admin/DynamicFieldInput';
 import { ImageUploader } from '@/components/admin/ImageUploader';
 import { PlacementsEditor } from '@/components/admin/PlacementsEditor';
+import { CountryMultiSelect } from '@/components/admin/CountryMultiSelect';
 import { COUNTRIES } from '@/lib/countries';
 
 interface Props {
@@ -68,6 +69,9 @@ export function ProductForm({
     initial.comparePrice != null ? String(initial.comparePrice) : '',
   );
   const [origin, setOrigin] = useState(initial.origin ?? '');
+  const [sellableCountries, setSellableCountries] = useState<string[]>(
+    initial.sellableCountries ?? [],
+  );
   const [weightKg, setWeightKg] = useState(
     initial.weightKg != null ? String(initial.weightKg) : '',
   );
@@ -114,6 +118,29 @@ export function ProductForm({
     setCustomValues((prev) => ({ ...prev, [key]: value }));
   };
 
+  // ----- Bundle tier helpers (write to attributes.bundles) -----
+  const updateBundle = (i: number, patch: Partial<(typeof attributes.bundles)[0]>) => {
+    const next = [...attributes.bundles];
+    next[i] = { ...next[i], ...patch };
+    setAttributes({ ...attributes, bundles: next });
+  };
+  const addBundle = () => {
+    const seedPrice = Number(price) || 0;
+    setAttributes({
+      ...attributes,
+      bundles: [
+        ...attributes.bundles,
+        { units: 1, label: '1 Pack', price: seedPrice, comparePrice: 0 },
+      ],
+    });
+  };
+  const removeBundle = (i: number) => {
+    setAttributes({
+      ...attributes,
+      bundles: attributes.bundles.filter((_, idx) => idx !== i),
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -127,6 +154,7 @@ export function ProductForm({
       price: Number(price) || 0,
       comparePrice: comparePrice.trim() ? Number(comparePrice) : null,
       origin: origin.trim() ? origin.trim().toUpperCase() : null,
+      sellableCountries,
       weightKg: weightKg.trim() ? Number(weightKg) : null,
       inStock,
       rating: initial.rating ?? 0,
@@ -205,6 +233,12 @@ export function ProductForm({
               />
             </Field>
           </div>
+          <CountryMultiSelect
+            label="Sellable countries (leave empty = sellable everywhere)"
+            hint="Origin country is always included automatically, even if not selected here."
+            value={sellableCountries}
+            onChange={setSellableCountries}
+          />
         </Section>
 
         <Section title="Copy">
@@ -235,10 +269,10 @@ export function ProductForm({
         </Section>
 
         <Section
-          title="Bundles, features, specs, variants, about"
-          subtitle="The rich content shown on the product detail page."
+          title="Features, specs & about"
+          subtitle="Rich content shown on the product detail page — selling points, specifications, and the about section."
         >
-          <AttributesEditor value={attributes} onChange={setAttributes} />
+          <AttributesEditor value={attributes} onChange={setAttributes} hideBundles />
         </Section>
 
         {customFieldDefs.length > 0 && (
@@ -315,28 +349,117 @@ export function ProductForm({
       </div>
 
       <div className="flex flex-col gap-5 lg:col-span-4">
-        <Section title="Pricing">
-          <Field label="Price (NGN, whole units)" required>
-            <input
-              required
-              type="number"
-              min={0}
-              step={1}
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Compare-at price (NGN)" hint="Was-price; leave blank for no discount badge">
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={comparePrice}
-              onChange={(e) => setComparePrice(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
+        <Section
+          title="Pricing"
+          subtitle={attributes.bundles.length > 0 ? 'Base price is the fallback — the cart charges the bundle tier price.' : 'Single price. Add bundle tiers below to offer pack options.'}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Price (NGN)" required>
+              <input
+                required
+                type="number"
+                min={0}
+                step={1}
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Compare-at (NGN)" hint="Was-price / strike-through">
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={comparePrice}
+                onChange={(e) => setComparePrice(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+          </div>
+
+          {/* Bundle tiers */}
+          <div className="mt-1 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="font-raleway text-[11px] font-bold uppercase tracking-btn text-navy">
+                Bundle tiers
+                {attributes.bundles.length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-amber/20 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-amber-700">
+                    {attributes.bundles.length}
+                  </span>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={addBundle}
+                className="flex items-center gap-1 rounded px-2 py-1 font-raleway text-[10px] font-bold uppercase tracking-btn text-navy hover:bg-navy/5"
+              >
+                <Plus size={11} aria-hidden /> Add tier
+              </button>
+            </div>
+
+            {attributes.bundles.length === 0 ? (
+              <p className="rounded-input border border-dashed border-border px-3 py-3 text-center font-sans text-xs text-muted">
+                No bundle tiers — customers see one price.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {/* Header row */}
+                <div className="grid grid-cols-[1fr_56px_72px_72px_28px] gap-1.5 px-1">
+                  {['Label', 'Units', 'Price', 'Compare', ''].map((h) => (
+                    <span key={h} className="font-raleway text-[10px] font-bold uppercase tracking-btn text-muted">
+                      {h}
+                    </span>
+                  ))}
+                </div>
+                {attributes.bundles.map((b, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-[1fr_56px_72px_72px_28px] items-center gap-1.5 rounded-input border border-border bg-page px-1.5 py-1.5"
+                  >
+                    <input
+                      type="text"
+                      value={b.label}
+                      onChange={(e) => updateBundle(i, { label: e.target.value })}
+                      placeholder="e.g. 3 Pack"
+                      className={inputClass}
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={b.units}
+                      onChange={(e) => updateBundle(i, { units: Number(e.target.value) || 1 })}
+                      className={inputClass}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={b.price}
+                      onChange={(e) => updateBundle(i, { price: Number(e.target.value) || 0 })}
+                      className={inputClass}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={b.comparePrice ?? 0}
+                      onChange={(e) => updateBundle(i, { comparePrice: Number(e.target.value) || 0 })}
+                      className={inputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeBundle(i)}
+                      className="flex items-center justify-center rounded p-1 text-muted hover:bg-danger/10 hover:text-danger"
+                      aria-label="Remove tier"
+                    >
+                      <Trash2 size={13} aria-hidden />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </Section>
 
         {!hideInventory && (

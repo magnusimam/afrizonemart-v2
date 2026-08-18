@@ -55,6 +55,8 @@ export default function AdminStaffEditPage() {
   /// the Discard action can reset cleanly.
   const [name, setName] = useState('');
   const [jobTitle, setJobTitle] = useState('');
+  const [department, setDepartment] = useState('');
+  const [customDepartment, setCustomDepartment] = useState('');
   const [role, setRole] = useState<'STAFF' | 'ADMIN' | 'SELLER'>('STAFF');
   const [permissions, setPermissions] = useState<Set<Capability>>(new Set());
 
@@ -76,6 +78,14 @@ export default function AdminStaffEditPage() {
         setMatrix(m);
         setName(s.name ?? '');
         setJobTitle(s.jobTitle ?? '');
+        /// Known department name → selects it in the dropdown; any
+        /// other stored value → treated as a custom label so it isn't
+        /// silently dropped from the field.
+        const isKnownDept = s.department
+          ? (m.departments ?? []).some((d) => d.name === s.department)
+          : false;
+        setDepartment(isKnownDept ? (s.department as string) : s.department ? '__custom__' : '');
+        setCustomDepartment(isKnownDept ? '' : s.department ?? '');
         /// API may return CUSTOMER for a user who's no longer a
         /// staff member but was once. The page edits staff, so we
         /// coerce CUSTOMER to STAFF for the dropdown (admin can
@@ -112,12 +122,18 @@ export default function AdminStaffEditPage() {
     return groups;
   }, [matrix]);
 
+  /// Resolved department label — either the picked known name, or
+  /// the free-text custom value when "Custom…" is selected.
+  const resolvedDepartment =
+    department === '__custom__' ? customDepartment.trim() : department;
+
   /// Has anything changed vs the loaded record? Lets the Save button
   /// disable cleanly until there's actual work to do.
   const isDirty = useMemo(() => {
     if (!staff) return false;
     if ((name.trim() || null) !== (staff.name ?? null)) return true;
     if ((jobTitle.trim() || null) !== (staff.jobTitle ?? null)) return true;
+    if ((resolvedDepartment || null) !== (staff.department ?? null)) return true;
     if (role !== staff.role) return true;
     if (role === 'STAFF') {
       const orig = new Set(staff.permissions);
@@ -125,7 +141,19 @@ export default function AdminStaffEditPage() {
       if (Array.from(permissions).some((p) => !orig.has(p))) return true;
     }
     return false;
-  }, [staff, name, jobTitle, role, permissions]);
+  }, [staff, name, jobTitle, resolvedDepartment, role, permissions]);
+
+  /// Merges the selected department's starter bundle into whatever's
+  /// already ticked (additive, never removes) — an explicit button
+  /// rather than firing on dropdown change, so switching an existing
+  /// staff member's department label never silently rewrites a
+  /// hand-tuned permission set.
+  const handleApplyPreset = () => {
+    const preset = matrix?.departments?.find((d) => d.name === department);
+    if (!preset) return;
+    setPermissions((prev) => new Set([...Array.from(prev), ...preset.capabilities]));
+    toast(`Applied ${department}'s starter permissions.`);
+  };
 
   const handleTogglePermission = (cap: Capability) => {
     setPermissions((prev) => {
@@ -169,6 +197,9 @@ export default function AdminStaffEditPage() {
       if ((jobTitle.trim() || null) !== (staff.jobTitle ?? null)) {
         body.jobTitle = jobTitle.trim() || null;
       }
+      if ((resolvedDepartment || null) !== (staff.department ?? null)) {
+        body.department = resolvedDepartment || null;
+      }
       if (role !== staff.role) body.role = role;
       if (role === 'STAFF') {
         const orig = new Set(staff.permissions);
@@ -181,6 +212,11 @@ export default function AdminStaffEditPage() {
       setStaff(updated);
       setName(updated.name ?? '');
       setJobTitle(updated.jobTitle ?? '');
+      const isKnownDept = updated.department
+        ? (matrix?.departments ?? []).some((d) => d.name === updated.department)
+        : false;
+      setDepartment(isKnownDept ? (updated.department as string) : updated.department ? '__custom__' : '');
+      setCustomDepartment(isKnownDept ? '' : updated.department ?? '');
       setRole(
         updated.role === 'ADMIN' || updated.role === 'STAFF' || updated.role === 'SELLER'
           ? updated.role
@@ -279,6 +315,55 @@ export default function AdminStaffEditPage() {
               placeholder="Customer support · Finance · Intern…"
             />
           </Field>
+        </div>
+      </section>
+
+      {/* Department */}
+      <section className="mb-6 rounded-card border border-border bg-white p-5 shadow-card md:p-6">
+        <h2 className="mb-4 font-raleway text-base font-bold text-navy">
+          Department
+        </h2>
+        <div className="flex flex-col gap-3 md:max-w-md">
+          <Field label="Department">
+            <select
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="">No department</option>
+              {(matrix?.departments ?? []).map((d) => (
+                <option key={d.name} value={d.name}>
+                  {d.name}
+                </option>
+              ))}
+              <option value="__custom__">Custom…</option>
+            </select>
+          </Field>
+          {department === '__custom__' && (
+            <input
+              type="text"
+              value={customDepartment}
+              onChange={(e) => setCustomDepartment(e.target.value)}
+              placeholder="Department name"
+              maxLength={60}
+              className={inputClass}
+            />
+          )}
+          {role === 'STAFF' && department && department !== '__custom__' && (
+            <div>
+              <button
+                type="button"
+                onClick={handleApplyPreset}
+                className="rounded-btn border border-navy px-3 py-1.5 font-raleway text-[11px] font-bold uppercase tracking-btn text-navy hover:bg-navy hover:text-white"
+              >
+                Apply {department}&apos;s starter permissions
+              </button>
+              <p className="mt-1.5 font-sans text-[11px] leading-snug text-muted">
+                Adds this department&apos;s starter sections to whatever&apos;s
+                already ticked below — doesn&apos;t remove anything.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 

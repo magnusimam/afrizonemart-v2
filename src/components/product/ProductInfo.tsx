@@ -15,6 +15,11 @@ import {
   Truck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import {
+  TRACK,
+  cartValueBucket,
+  trackEvent,
+} from '@/components/providers/AnalyticsProvider';
 import { useCartStore } from '@/stores/cartStore';
 import { useCheckoutStore, type ShippingAddress } from '@/stores/checkoutStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -25,6 +30,7 @@ import { BundleSelector } from './BundleSelector';
 import { ShareProductButton } from './ShareProductButton';
 import { ShareAsImageButton } from './ShareAsImageButton';
 import { ProductAccordion } from './ProductAccordion';
+import { SellableCountriesBadge } from './SellableCountriesBadge';
 import { QuantitySelector } from './QuantitySelector';
 import { DisplayPrice } from './DisplayPrice';
 import { AnimatedAddToCartButton } from './AnimatedAddToCartButton';
@@ -166,10 +172,20 @@ export function ProductInfo({ product }: ProductInfoProps) {
         discountPercent: selectedBundle.savings ?? product.discountPercent,
         image: product.images[0]?.src ?? '',
         origin: product.origin,
+        sellableCountries: product.sellableCountries,
         variant: displayVariant,
       },
       quantity,
     );
+    /// Analytics — coarse properties only, no PII. Mirrors the
+    /// mobile add_to_cart event so the cross-platform funnel reads
+    /// the same on the dashboard.
+    trackEvent(TRACK.ADD_TO_CART, {
+      product_slug: product.slug,
+      category_slug: product.category?.slug,
+      quantity,
+      price_bucket: cartValueBucket(selectedBundle.price * quantity),
+    });
   };
 
   /// "Buy Now" fast-buy prep. Tries to land the customer straight on
@@ -357,6 +373,13 @@ export function ProductInfo({ product }: ProductInfoProps) {
       />
 
       <div className="flex flex-col gap-3">
+        <SellableCountriesBadge
+          sellableCountries={product.sellableCountries}
+          origin={product.origin}
+          variant="pdp"
+          className="self-start"
+        />
+
         <div className="flex flex-wrap items-center gap-4">
           <span className="font-raleway text-sm font-bold text-navy">Quantity:</span>
           <QuantitySelector value={quantity} onChange={setQuantity} />

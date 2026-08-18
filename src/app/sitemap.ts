@@ -12,6 +12,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
  *   • every product (paginates /api/products)
  *   • every published CMS page (from /api/pages)
  *   • country-specific shop pages
+ *   • every Civic Library document (paginates /api/documents)
  *
  * Image-sitemap entries live at /sitemap-images.xml — see image-sitemap.ts.
  */
@@ -185,6 +186,50 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (!data.pagination || page >= data.pagination.pages) break;
       page++;
       if (page > 50) break; // safety cap — 2,500 posts
+    }
+  } catch {
+    /* fail-soft */
+  }
+
+  // 7. Civic Library — index + every published document, paginated
+  // through /api/documents. No auth, no gating — every URL here is
+  // publicly downloadable, so all of them are safe to submit.
+  out.push({
+    url: `${SITE_URL}/library`,
+    lastModified: now,
+    changeFrequency: 'weekly',
+    priority: 0.7,
+  });
+  try {
+    let page = 1;
+    while (true) {
+      // limit capped at 50 server-side (listDocumentsQuerySchema) —
+      // unlike /api/products' higher cap, so this can't reuse that
+      // section's limit=100. A silently-failing 400 here (limit too
+      // high) is exactly what dropped every document from the sitemap
+      // on first ship — r.ok being false just breaks the loop with no
+      // visible error, so double-check a new paginated section's
+      // limit against its actual Zod schema, not by copying a
+      // sibling's number.
+      const r = await fetch(`${API_BASE}/api/documents?page=${page}&limit=50`, {
+        next: { revalidate: 3600 },
+      });
+      if (!r.ok) break;
+      const data = (await r.json()) as {
+        items: Array<{ slug: string; createdAt?: string }>;
+        pagination?: { pages: number };
+      };
+      for (const d of data.items) {
+        out.push({
+          url: `${SITE_URL}/library/${d.slug}`,
+          lastModified: d.createdAt ? new Date(d.createdAt) : now,
+          changeFrequency: 'monthly',
+          priority: 0.6,
+        });
+      }
+      if (!data.pagination || page >= data.pagination.pages) break;
+      page++;
+      if (page > 50) break; // safety cap — 2,500 documents (limit 50/page)
     }
   } catch {
     /* fail-soft */

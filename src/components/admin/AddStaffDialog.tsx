@@ -35,12 +35,17 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [jobTitle, setJobTitle] = useState('');
+  const [department, setDepartment] = useState('');
+  const [customDepartment, setCustomDepartment] = useState('');
   const [role, setRole] = useState<StaffCreatableRole>('STAFF');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [permissions, setPermissions] = useState<Set<Capability>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /// When the email already belongs to a customer, the API returns
+  /// CUSTOMER_EXISTS and we show this confirm instead of an error.
+  const [promotePrompt, setPromotePrompt] = useState<string | null>(null);
 
   /// Group the API-provided capabilities by their `domain` for the
   /// checkbox UI. When matrix is null this is an empty object — the
@@ -60,11 +65,14 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
     setEmail('');
     setName('');
     setJobTitle('');
+    setDepartment('');
+    setCustomDepartment('');
     setRole('STAFF');
     setPassword('');
     setShowPwd(false);
     setPermissions(new Set());
     setError(null);
+    setPromotePrompt(null);
   };
 
   const close = () => {
@@ -82,6 +90,17 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
     });
   };
 
+  /// Selecting a known department merges its starter capability bundle
+  /// into whatever's already ticked (additive, never removes) so
+  /// picking a department is a fast starting point, not a hard reset.
+  const applyDepartmentPreset = (dept: string) => {
+    setDepartment(dept);
+    if (dept === '__custom__') return;
+    const preset = matrix?.departments?.find((d) => d.name === dept);
+    if (!preset) return;
+    setPermissions((prev) => new Set([...Array.from(prev), ...preset.capabilities]));
+  };
+
   const toggleDomain = (domain: string) => {
     const caps = capsByDomain[domain];
     if (!caps) return;
@@ -97,8 +116,7 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (promoteExisting: boolean) => {
     setError(null);
     if (role === 'STAFF' && permissions.size === 0) {
       setError('Pick at least one section this staff member can access.');
@@ -106,19 +124,34 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
     }
     setBusy(true);
     try {
+      const resolvedDepartment =
+        department === '__custom__' ? customDepartment.trim() : department;
       const created = await adminCreateStaff({
         email: email.trim(),
         name: name.trim() || undefined,
         jobTitle: jobTitle.trim() || undefined,
+        department: resolvedDepartment || undefined,
         role,
-        password,
+        // Promote keeps the customer's existing login — no password.
+        password: promoteExisting ? undefined : password,
         permissions: role === 'STAFF' ? Array.from(permissions) : undefined,
+        ...(promoteExisting ? { promoteExisting: true } : {}),
       });
-      toast(`Added ${created.email} as ${created.role}`);
+      toast(
+        promoteExisting
+          ? `Promoted ${created.email} to ${created.role}`
+          : `Added ${created.email} as ${created.role}`,
+      );
       onCreated(created);
       reset();
       onClose();
     } catch (err) {
+      // Existing customer → offer to promote in place instead of erroring.
+      if (err instanceof HttpApiError && err.code === 'CUSTOMER_EXISTS') {
+        setPromotePrompt(err.message);
+        setBusy(false);
+        return;
+      }
       setError(
         err instanceof HttpApiError
           ? err.message
@@ -140,7 +173,10 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
     >
       <form
         onClick={(e) => e.stopPropagation()}
-        onSubmit={handleSubmit}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit(false);
+        }}
         className="flex max-h-full w-full max-w-2xl flex-col rounded-card bg-white shadow-card-hover"
       >
         <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
@@ -231,6 +267,37 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
                 Cosmetic. Shown in the staff list and on their dashboard. Doesn&apos;t change permissions.
               </p>
             </Field>
+            {role === 'STAFF' && (
+              <Field label="Department">
+                <select
+                  value={department}
+                  onChange={(e) => applyDepartmentPreset(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">No department</option>
+                  {(matrix?.departments ?? []).map((d) => (
+                    <option key={d.name} value={d.name}>
+                      {d.name}
+                    </option>
+                  ))}
+                  <option value="__custom__">Custom…</option>
+                </select>
+                {department === '__custom__' && (
+                  <input
+                    type="text"
+                    value={customDepartment}
+                    onChange={(e) => setCustomDepartment(e.target.value)}
+                    placeholder="Department name"
+                    maxLength={60}
+                    className={`${inputClass} mt-1.5`}
+                  />
+                )}
+                <p className="mt-1 font-sans text-[11px] leading-snug text-muted">
+                  Picking one ticks its starter sections below — still
+                  yours to adjust.
+                </p>
+              </Field>
+            )}
             <Field label="Initial password" required>
               <div className="relative">
                 <input
@@ -330,6 +397,34 @@ export function AddStaffDialog({ open, onClose, onCreated, matrix }: Props) {
             <p className="rounded-input border border-danger/30 bg-danger/5 px-3 py-2 font-sans text-sm text-danger">
               {error}
             </p>
+          )}
+
+          {promotePrompt && (
+            <div className="rounded-input border border-amber/50 bg-amber/10 px-3 py-3">
+              <p className="font-sans text-sm text-charcoal">{promotePrompt}</p>
+              <p className="mt-1 font-sans text-xs text-muted">
+                Their existing account, orders and login stay — they just
+                gain {role} access with the permissions you ticked.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void submit(true)}
+                  disabled={busy}
+                  className="rounded-btn bg-navy px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-white hover:bg-amber hover:text-navy disabled:opacity-50"
+                >
+                  {busy ? 'Promoting…' : `Promote to ${role}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPromotePrompt(null)}
+                  disabled={busy}
+                  className="rounded-btn border border-border bg-white px-4 py-2 font-raleway text-xs font-bold uppercase tracking-btn text-charcoal hover:bg-page disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

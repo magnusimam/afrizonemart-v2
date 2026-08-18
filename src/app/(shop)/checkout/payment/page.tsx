@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BadgeCheck,
   ChevronRight,
@@ -11,6 +11,11 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { CheckoutOrderSummary } from '@/components/checkout/CheckoutOrderSummary';
+import {
+  TRACK,
+  cartValueBucket,
+  trackEvent,
+} from '@/components/providers/AnalyticsProvider';
 import { PaymentMethodForm } from '@/components/checkout/PaymentMethodForm';
 import {
   PaymentGatewaySelector,
@@ -73,6 +78,21 @@ export default function PaymentPage() {
   const storedPayment = useCheckoutStore((s) => s.paymentMethod);
   const setPaymentMethod = useCheckoutStore((s) => s.setPaymentMethod);
   const setOrderId = useCheckoutStore((s) => s.setOrderId);
+
+  /// New sellable-countries restriction — UX-only guard. The
+  /// authoritative check lives server-side in orders/service.ts
+  /// (placeOrder); this just disables the button and explains why
+  /// before the customer even submits, since a client disable alone
+  /// isn't real enforcement.
+  const hasRegionBlockedItem = useMemo(() => {
+    const country = shipping?.country?.toUpperCase();
+    if (!country) return false;
+    return items.some((i) => {
+      const allowed = i.sellableCountries ?? [];
+      if (allowed.length === 0) return false;
+      return !allowed.includes(country) && i.origin?.toUpperCase() !== country;
+    });
+  }, [items, shipping?.country]);
 
   const [selected, setSelected] = useState<PaymentMethodId | undefined>(storedPayment);
   const [billingSame, setBillingSame] = useState(true);
@@ -240,6 +260,14 @@ export default function PaymentPage() {
         coinRedeemCoins: coinRedeemRequest > 0 ? coinRedeemRequest : undefined,
       });
       setOrderId(order.orderNumber);
+      trackEvent(TRACK.ORDER_PLACED, {
+        order_id: order.id,
+        order_number: order.orderNumber,
+        payment_method: PAYMENT_METHOD_MAP[selected],
+        item_count: order.items.length,
+        total_bucket: cartValueBucket(order.total),
+        currency: order.currency,
+      });
 
       // Online methods (card / mobile money / USSD / crypto) all flow
       // through the gateway. Bank transfer + pay-on-delivery skip the
@@ -478,6 +506,15 @@ export default function PaymentPage() {
                   </div>
                 )}
 
+                {hasRegionBlockedItem && (
+                  <div
+                    role="alert"
+                    className="rounded-card border border-danger/30 bg-danger/5 px-4 py-3 font-sans text-sm text-danger"
+                  >
+                    You have an item in your cart that isn&rsquo;t available in your region yet — please remove it to continue.
+                  </div>
+                )}
+
                 <div id="checkout-payment-actions" className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <Link
                     href="/checkout/shipping"
@@ -498,7 +535,7 @@ export default function PaymentPage() {
                       fallback={
                         <StaticPlaceOrderButton
                           label={`Pay ${formatPriceNGN(total)}`}
-                          disabled={!selected || !agreed || submitting}
+                          disabled={!selected || !agreed || submitting || hasRegionBlockedItem}
                           onSubmit={submitOrder}
                           onSuccess={handleOrderPlaced}
                         />
@@ -506,7 +543,7 @@ export default function PaymentPage() {
                     >
                       <PlaceOrderButton
                         label={`Pay ${formatPriceNGN(total)}`}
-                        disabled={!selected || !agreed || submitting}
+                        disabled={!selected || !agreed || submitting || hasRegionBlockedItem}
                         onSubmit={submitOrder}
                         onSuccess={handleOrderPlaced}
                       />
@@ -516,7 +553,7 @@ export default function PaymentPage() {
                      * page used before the animated upgrade. */
                     <StaticPlaceOrderButton
                       label={`Pay ${formatPriceNGN(total)}`}
-                      disabled={!selected || !agreed || submitting}
+                      disabled={!selected || !agreed || submitting || hasRegionBlockedItem}
                       onSubmit={submitOrder}
                       onSuccess={handleOrderPlaced}
                     />

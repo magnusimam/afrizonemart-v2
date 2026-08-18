@@ -1,4 +1,9 @@
-import { fetchProduct, fetchProducts, ApiError } from '@/lib/api/products';
+import { fetchProduct, ApiError } from '@/lib/api/products';
+import {
+  fetchAlsoBought,
+  fetchFrequentlyBoughtTogether,
+  fetchSimilarProducts,
+} from '@/lib/api/recommendations';
 import type { ApiProduct, ApiReview } from '@/lib/api/types';
 
 export interface ProductBundle {
@@ -53,6 +58,7 @@ export interface ProductDetail {
   brand: string;
   category: { name: string; slug: string };
   origin: string;
+  sellableCountries: string[];
   rating: number;
   reviewCount: number;
   inStock: boolean;
@@ -201,6 +207,7 @@ export async function loadProductDetail(
         slug: api.category?.slug ?? '',
       },
       origin: api.origin ?? 'NG',
+      sellableCountries: api.sellableCountries ?? [],
       rating: api.rating,
       reviewCount: api.reviewCount,
       inStock: api.inStock,
@@ -248,48 +255,85 @@ export interface RelatedProduct {
   imageSrc?: string;
 }
 
+function toRelatedProducts(
+  items: Awaited<ReturnType<typeof fetchSimilarProducts>>['items'],
+): RelatedProduct[] {
+  return items.map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    name: p.name,
+    price: p.price,
+    comparePrice: p.comparePrice ?? undefined,
+    discountPercent: p.discountPercent ?? undefined,
+    origin: p.origin ?? undefined,
+    imageSrc: p.images?.[0],
+  }));
+}
+
 /**
- * Fetch products related to the given slug. "Related" = same category,
- * different product. Falls back to newest products if there's no
- * category match. Returns empty when nothing's available — no fake
- * fallback list. Caller (cart, product page) should hide the section
- * when the array is empty.
+ * Fetch products related to the given slug via the Recommendations
+ * Phase 0 "similar products" module (content-based: category/brand/
+ * origin/price-band weighted score — see
+ * `afrizonemart-api/src/modules/recommendations`). Powers the PDP's
+ * "You May Also Like" section. Replaces the previous
+ * same-category-sorted-by-newest naive query, same upgrade
+ * `getRelatedProducts`'s Search & Discovery counterpart got.
+ *
+ * Returns empty when nothing's available — no fake fallback list.
+ * Caller should hide the section when the array is empty.
  */
 export async function getRelatedProducts(
   currentSlug: string,
   limit = 6,
+  surface: 'pdp' | 'cart' = 'pdp',
 ): Promise<RelatedProduct[]> {
-  // 1. Look up the current product to learn its category.
-  let currentCategorySlug: string | null = null;
-  if (currentSlug) {
-    try {
-      const cur = await fetchProduct(currentSlug);
-      currentCategorySlug = cur.category?.slug ?? null;
-    } catch {
-      // Product not found — fall through to a category-less fetch.
-    }
-  }
-
-  // 2. Pull a small set from the same category if known, else newest.
-  const params = currentCategorySlug
-    ? { category: currentCategorySlug, limit: limit + 1, sort: 'newest' as const }
-    : { limit: limit + 1, sort: 'newest' as const };
-
+  if (!currentSlug) return [];
   try {
-    const r = await fetchProducts(params);
-    return r.items
-      .filter((p) => p.slug !== currentSlug)
-      .slice(0, limit)
-      .map((p) => ({
-        id: p.id,
-        slug: p.slug,
-        name: p.name,
-        price: p.price,
-        comparePrice: p.comparePrice ?? undefined,
-        discountPercent: p.discountPercent ?? undefined,
-        origin: p.origin ?? undefined,
-        imageSrc: p.images?.[0],
-      }));
+    const r = await fetchSimilarProducts({ slug: currentSlug, limit, surface });
+    return toRelatedProducts(r.items);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * "Customers Also Bought" — Recommendations Phase 1 co-purchase
+ * module (`GET /api/recommendations/also-bought`). Distinct signal
+ * from `getRelatedProducts`'s content-based similarity: this is what
+ * people actually bought alongside the seed product, not just what
+ * looks similar to it. Falls back to content similarity server-side
+ * when co-purchase data is thin — see the API's own fallback, this
+ * client just surfaces whatever it returns.
+ */
+export async function getAlsoBoughtProducts(
+  currentSlug: string,
+  limit = 6,
+): Promise<RelatedProduct[]> {
+  if (!currentSlug) return [];
+  try {
+    const r = await fetchAlsoBought({ slug: currentSlug, limit, surface: 'pdp' });
+    return toRelatedProducts(r.items);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * "Frequently Bought Together" — Recommendations Phase 1 co-purchase
+ * module, multi-seed (`GET /api/recommendations/frequently-bought-
+ * together`). Seeded by every product already in the cart so
+ * suggestions complement the whole basket, not just one item. Powers
+ * the cart page's cross-sell section — replaces the Phase 0 "similar"
+ * placeholder that section used before this module existed.
+ */
+export async function getFrequentlyBoughtTogether(
+  cartSlugs: string[],
+  limit = 6,
+): Promise<RelatedProduct[]> {
+  if (cartSlugs.length === 0) return [];
+  try {
+    const r = await fetchFrequentlyBoughtTogether({ slugs: cartSlugs, limit, surface: 'cart' });
+    return toRelatedProducts(r.items);
   } catch {
     return [];
   }

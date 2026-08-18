@@ -3,9 +3,11 @@ import { FloatingMobileCart } from '@/components/cart/FloatingMobileCart';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { Hero } from '@/components/layout/Hero';
+import { WrapHomeBanner } from '@/components/wrap/WrapHomeBanner';
 import { BooksSection } from '@/components/sections/BooksSection';
 import { BrandBanner } from '@/components/sections/BrandBanner';
 import { CategoriesSection } from '@/components/sections/CategoriesSection';
+import { CivicLibrarySection } from '@/components/sections/CivicLibrarySection';
 import { DealsSection } from '@/components/sections/DealsSection';
 import { FavouritesSection } from '@/components/sections/FavouritesSection';
 import { FemaleProductsSection } from '@/components/sections/FemaleProductsSection';
@@ -18,6 +20,7 @@ import { SatisfactionStrip } from '@/components/sections/SatisfactionStrip';
 import { ServicesSection } from '@/components/sections/ServicesSection';
 import { ShopByCategorySection } from '@/components/sections/ShopByCategorySection';
 import { ShopByCountrySection } from '@/components/sections/ShopByCountrySection';
+import { TrendingNearYouSection } from '@/components/sections/TrendingNearYouSection';
 import { TrustBarSection } from '@/components/sections/TrustBarSection';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
 import { fetchSiteContent } from '@/lib/site-content';
@@ -41,6 +44,7 @@ export default async function Home() {
   return (
     <>
       <SafeBoundary name="header"><Header /></SafeBoundary>
+      <SafeBoundary name="wrap-banner" fallback={null}><WrapHomeBanner /></SafeBoundary>
       <main>
         <S name="hero">
           <Hero slides={heroSlides.length > 0 ? heroSlides.map((s) => ({ src: s.url, alt: s.alt })) : undefined} />
@@ -54,6 +58,7 @@ export default async function Home() {
         <S name="products"><ProductsSection /></S>
         <S name="deals"><DealsSection /></S>
         <S name="favourites"><FavouritesSection /></S>
+        <S name="trending-near-you"><TrendingNearYouSection /></S>
         <S name="shop-by-category">
           <ShopByCategorySection
             headline={c.getText('content.home.shopByCategory.headline', undefined as unknown as string) || undefined}
@@ -69,6 +74,7 @@ export default async function Home() {
           />
         </S>
         <S name="books"><BooksSection /></S>
+        <S name="civic-library"><CivicLibrarySection /></S>
         <S name="services"><ServicesSection /></S>
         <S name="mixed-categories"><MixedCategoriesSection /></S>
         <S name="satisfaction-strip">

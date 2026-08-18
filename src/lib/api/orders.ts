@@ -5,6 +5,7 @@ export type OrderStatus =
   | 'PAID'
   | 'FULFILLING'
   | 'SHIPPED'
+  | 'OUT_FOR_DELIVERY'
   | 'DELIVERED'
   | 'CANCELLED'
   | 'REFUNDED';
@@ -20,6 +21,24 @@ export interface OrderItem {
   unitPrice: number;
   quantity: number;
   lineTotal: number;
+}
+
+export type OrderEventType =
+  | 'STATUS_CHANGED'
+  | 'NOTE'
+  | 'PAYMENT_RECEIVED'
+  | 'SHIPMENT_UPDATED'
+  | 'REFUND_RECORDED'
+  | 'CANCELLED';
+
+/// Customer-visible event on the order timeline. Payload varies per
+/// type. The timeline derivation only reads STATUS_CHANGED
+/// (`{ from, to }`) and PAYMENT_RECEIVED.
+export interface OrderEvent {
+  id: string;
+  type: OrderEventType;
+  payload: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface Order {
@@ -43,8 +62,47 @@ export interface Order {
   paymentMethod: PaymentMethodId;
   paymentRef: string | null;
   items: OrderItem[];
+  /// Customer-visible timeline events, oldest first. Only present
+  /// on `GET /api/orders/:id` — the list endpoint omits it.
+  events?: OrderEvent[];
+  cancelledAt?: string | null;
+  refundedTotal?: number;
+  /// Show & Scan delivery confirmation. Populated when status is
+  /// OUT_FOR_DELIVERY; cleared on DELIVERED. Customer's web /
+  /// mobile screen reads these to render the QR + OTP.
+  deliveryToken?: string | null;
+  deliveryOtp?: string | null;
+  /// Who confirmed delivery — only present once status is DELIVERED.
+  deliveredSource?: 'rider' | 'customer' | 'admin' | 'auto' | null;
+  deliveredAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/// `GET /api/orders/:id/delivery-token` — customer's app polls this
+/// while the order is OUT_FOR_DELIVERY. Returns `null` once the
+/// order leaves that status (delivered, cancelled, etc).
+export interface DeliveryTokenPayload {
+  token: string;
+  otp: string;
+  expiresAt: string;
+}
+
+export function getDeliveryToken(
+  orderId: string,
+): Promise<DeliveryTokenPayload | null> {
+  return apiFetchAuthed<DeliveryTokenPayload | null>(
+    `/api/orders/${encodeURIComponent(orderId)}/delivery-token`,
+  );
+}
+
+export function confirmDeliveryAsCustomer(
+  orderId: string,
+): Promise<{ orderNumber: string }> {
+  return apiFetchAuthed<{ orderNumber: string }>(
+    `/api/orders/${encodeURIComponent(orderId)}/confirm-delivery`,
+    { method: 'POST' },
+  );
 }
 
 export interface PlaceOrderInput {

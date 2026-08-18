@@ -44,7 +44,231 @@ The four workstreams below are committed for the current push, in order.
 Each one updates its proper Principle / Rule / Phase home as it lands and
 gets ticked off here.
 
+## 🧠 [ ] Algorithm Systems — recommendations, pricing, delivery, trust, growth, platform intel (2026-08-11)
+
+**Goal**: build out the ~30 algorithmic/ML systems catalogued in
+`Afrizonemart_Algorithm_Systems.docx` (Magnus) — discovery/recommendations,
+delivery routing, dynamic pricing, inventory forecasting, fraud/credit
+trust systems, marketing growth systems, and cross-cutting platform
+intelligence. Sequenced across 3 phases (Launch → Scale → Data-rich) by
+revenue impact and data availability.
+
+**Tracker**: full catalog, phase assignments, and per-system status lives
+in `afrizonemart-api/ALGORITHM_SYSTEMS_TRACKER.md` — that file is the
+source of truth for this workstream, not this entry. Magnus is sending a
+detailed spec per algorithm as we build; don't design ahead of a spec.
+
+**Status**: stubbed only, nothing designed or built yet.
+
+## 📄 [~] Civic Library — free government document downloads (2026-07-30)
+
+**Goal**: new public `/library` section — free downloads of official
+government documents (constitutions, acts, bills, policies) per African
+country. Product-card visuals, Download button instead of Add-to-Cart, no
+price/cart/login. Decided with Magnus: new top-level nav section (not under
+`/shop`), sourced via the existing intern review→publish pipeline (mirrors
+`ProductSubmission`), no login gate, small pilot launch (Nigeria/Kenya/
+Ghana/South Africa, constitutions only) behind `civic_library_enabled`
+feature flag.
+
+**Plan**: new `GovDocument` + `DocumentSubmission` Prisma models
+(`afrizonemart-api`), `modules/documents/` module (public list/detail +
+`track-download`, admin CRUD, intern submissions + review reusing
+`ImageSubmissionStatus` + `intern.review` capability), PDF upload support
+added to `modules/uploads/` (currently image/audio only — needs a PDF
+sniffer, `documents` R2 folder, and `ContentDisposition: attachment` set
+at upload time so cross-origin downloads force-save reliably). Frontend:
+`LibraryDocCard` mirroring `ProductCardPlaceholder` minus commerce, filters
+mirroring `FiltersSidebar`, admin CRUD mirroring the Blog admin's plain
+fetch/form convention, intern submission + review UI mirroring
+`admin/product-submissions*`. Payout batch extended to include approved
+`DocumentSubmission` rows. Full plan: session-local, see PR chain below for
+what actually shipped.
+
+**Status**: API side shipped — `afrizonemart-api` PR #73 (branch
+`feat/civic-library-documents`, open, not yet merged). Covers:
+`GovDocument` + `DocumentSubmission` models/migration
+(`20260730120000_civic_library_documents`), `modules/documents/`
+(public list/detail/track-download + admin CRUD), new
+`modules/document-submissions/` (intern draft + review→publish,
+mirrors `product-submissions`), PDF upload support in
+`modules/uploads/` (magic-byte sniff, `documents` R2 folder,
+`Content-Disposition: attachment` set at upload time), payout
+batching extended to cover document submissions, capabilities
+`documents.write`/`documents.submit`, flag `civic_library_enabled`
+(default OFF). `tsc --noEmit` clean, `vitest run` 22/22 passing.
+**Not yet run**: `prisma migrate deploy` on Railway (must happen
+after merge — Railway doesn't auto-migrate).
+
+**⚠️ Unrelated finding surfaced during this work**: the local
+`afrizonemart-api/.env` `DATABASE_URL` points to a Postgres instance
+that is missing dozens of tables/columns already live in production
+(`ProductSubmission`, `InternPayout`, `LoyaltyAccount`, `Referral`,
+`WishlistItem`, `UserAddress`, and more — confirmed via `prisma
+migrate diff` against that URL). This is the same drift flagged
+2026-07-22 (`project_railway_db_drift` memory), still unresolved.
+Did NOT run any migration against that DB — hand-wrote the migration
+SQL file instead (matching the existing project convention of
+hand-authored migrations, likely for this exact reason) so nothing
+touched the suspect database. **Needs Magnus to confirm which
+DATABASE_URL is correct before anyone runs `prisma migrate dev`
+against local `.env` again.**
+
+**Frontend shipped** (all against `afrizonemart-v2`, all open/not
+merged):
+- `afrizonemart-v2` PR #130 (`feat/civic-library-frontend`, base
+  `main`) — public `/library` page, `LibraryDocCard` +
+  `LibraryFiltersSidebar`, nav entries in `Header`/`MobileMenu`
+  gated behind `civic_library_enabled`. Also fixed a pagination bug
+  found during review: page number is URL-bound, not local
+  `useState`, so a filter change (which strips `page`) actually
+  resets to page 1.
+- `afrizonemart-v2` PR #131 (`feat/civic-library-admin-ui`, base
+  `main`) — `/admin/documents` list/new/[id], `FileUploader` (PDF
+  sibling of `ImageUploader`), sidebar entry. Includes a follow-up
+  commit refactoring `DocumentForm` to a caller-owned-submit contract
+  (mirrors `ProductForm`) so it's reusable by the submission form
+  below without a second drifting implementation.
+- `afrizonemart-v2` PR #132 (`feat/civic-library-submissions`, base
+  `feat/civic-library-admin-ui` — stacked) — `/admin/document-submissions`
+  (intern draft, reuses `DocumentForm` in `hideStatus` mode) and
+  `/admin/document-submissions-review` (reviewer approve/reject),
+  mirroring `/admin/product-submissions*`. Sidebar entries added.
+
+Merge order: `afrizonemart-api` #73 first (run `prisma migrate deploy`
+on Railway right after), then `afrizonemart-v2` #130 → #131 → #132 in
+that order (#132 is stacked on #131's branch). All `tsc --noEmit` and
+`next lint` clean on every PR. Full data-flow verification (grid
+loads real documents, upload → review → publish → download works
+end-to-end) was blocked locally by the DB drift above — confirmed via
+error logs that the code path is correct (`GovDocument` table simply
+doesn't exist in the local drifted DB); verify for real once #73
+merges and migrates on Railway. Feature flag stays OFF until the
+pilot batch (Nigeria/Kenya/Ghana/South Africa constitutions) is
+sourced and published — flip `civic_library_enabled` on then.
+
+## 🖼️ [~] Civic Library — cover image + manual "Other" document type (2026-08-11)
+
+**Problem:** the document submission form (admin editor + intern
+submission panel) had no cover-image field — cards fell back to a
+generic file icon — and the Document type dropdown was a fixed list
+(`CONSTITUTION`/`ACT`/`BILL`/`POLICY`/`REGULATION`/`TREATY`) with no
+way to add a type that wasn't on it.
+
+**Fix:** `GovDocument`/`DocumentSubmission` get `coverImageUrl` (R2
+upload via `ImageUploader`, `documents` folder) and an `OTHER` enum
+value paired with a required `customDocType` free-text label, revealed
+in `DocumentForm` when "Other (type your own)" is picked. Threaded
+through admin CRUD, intern submission → review → approve/publish, and
+the public `/library` card + `LibraryFiltersSidebar`.
+
+- `afrizonemart-api` PR #76 (`feat/document-cover-image-custom-type`)
+  — migration `20260811000000_document_cover_image_custom_type`
+  (enum value added in its own statement, matching the
+  `OUT_FOR_DELIVERY` precedent), schema/service updates in
+  `modules/documents/` + `modules/document-submissions/`.
+- `afrizonemart-v2` PR #139 (same branch name) — `DocumentForm` cover
+  uploader + custom-type input, `DocumentSubmissionPanel`,
+  `LibraryDocCard` (renders the cover, falls back to the file icon),
+  `LibraryFiltersSidebar`, admin documents list/review pages.
+
+**Status:** both PRs open, not yet merged. `tsc --noEmit` clean on
+both repos; v2 pre-push build passed. Needs `prisma migrate deploy` on
+Railway after the API PR merges (manual step — no auto-migrate).
+
 ### 🔴 TOP PRIORITY — CTO operator tasks
+
+## 🖼️ [x] Intern image queue — per-category image threshold (2026-07-29)
+
+**Problem:** an intern uploaded a Rwanda products CSV, then went to
+`/admin/intern-queue` → "add items" to claim image work for them, but
+kept getting real book products instead ("front and back" confusion),
+and later a claim returned **zero** results even though 75 Rwanda
+products genuinely needed photos.
+
+**Root cause #1:** `claimFromUnassignedPool` / `bulkAssign`
+(`afrizonemart-api/src/modules/intern/service.ts`) used one hardcoded
+rule for the whole catalog — fewer than 3 images = "needs work". Books
+are complete with just a cover (1 image), so ~190 already-finished
+book products sat permanently flagged incomplete in the shared
+unassigned pool, crowding out products that actually needed photos.
+
+**Root cause #2:** the first fix (PR #71) added a `Category.minImages`
+column (default 3, seeded to 1 for the whole `books` category tree via
+a recursive CTE) and made both claim paths read it per-product. But it
+also capped the candidate scan at `max(count*5, 100)` before
+filtering — and 441 already-satisfied books sit oldest-first ahead of
+the Rwanda batch, so that window was 100% satisfied products, filtered
+to zero, and "add items" claimed nothing. PR #72 removed the cap
+(unassigned pool is only ~550 rows, cheap to scan in full).
+
+**Cleanup done same session:**
+- Released 223 already-satisfied products that were stuck assigned to
+  interns from before the fix (Ifeyinwa favour 87, Antigha Ephraim 92,
+  Blessing Etura 16, Lesoda Ikara 8, Angel 20 — Angel's whole queue was
+  stale) — `assignedInternId` reset to null so they stop showing as
+  "to do".
+- Directly assigned all 75 Rwanda products to Ifeyinwa favour so her
+  queue isn't waiting on the shared oldest-first claim pool.
+
+**Where the code lives** (`afrizonemart-api`, PR #71 branch
+`fix/book-image-threshold`, PR #72 branch `fix/claim-pool-window`,
+both merged + deployed via `railway up` + `prisma migrate deploy`):
+- `prisma/schema.prisma` — `Category.minImages Int @default(3)`.
+- `prisma/migrations/20260729120000_category_min_images/` — adds the
+  column, backfills 1 for the `books` tree via recursive CTE.
+- `src/modules/intern/service.ts` — `claimFromUnassignedPool` and
+  `bulkAssign` both filter on `p.category?.minImages ?? 3` instead of
+  a hardcoded 3; no take-cap before filtering.
+
+**Known follow-up (not done):** the 3 oldest book products (imported
+2026-06-08: *Le Chant du lac*, *L'Arbre fétiche*, *Les Tresseurs de
+cord*) genuinely have zero images and need real cover art. Also found
+5 uncategorized products (`categoryId: null` — "EVOP Palm Oil" ×4,
+"Nylah's Granola 150g", imported 2026-06-15/18) stuck at 1/3 images;
+worth assigning them a category. Neither blocks the fix above.
+
+`npx tsc --noEmit` ✅ clean on both PRs.
+
+## 📨 [x] Telegram admin order alerts — every order event (2026-07-13)
+
+**Problem:** we had **no signal when an order comes in**. WhatsApp admin
+alerts (`whatsapp-dispatcher.ts`) are wired but dormant — blocked on Meta
+Business verification + template approval — so nothing actually reaches
+Magnus. Live orders were landing silently.
+
+**Fix:** a Telegram admin-alert channel that needs neither verification nor
+template approval. Create a bot with @BotFather, set two Railway env vars,
+alerts flow. Zero cost, no approval queue. Mirrors the WhatsApp provider +
+dispatcher pattern exactly.
+
+Scope (Magnus: "any type and form"): subscribes to the **whole** order
+lifecycle, not just `order.paid` — `order.placed` (pending), `order.paid`,
+`payment.failed`, `order.shipped`, `order.out_for_delivery`,
+`order.delivered`, `order.cancelled`, `order.refunded`. Each alert carries
+order #, total, customer, ship-to, status, and a deep link to
+`/admin/orders/<id>`.
+
+**Where the code lives** (`afrizonemart-api`, PR #65,
+branch `feat/telegram-order-alerts`):
+- `src/modules/notifications/telegram-provider.ts` — `BotApiTelegramProvider`
+  (Bot API `sendMessage`) + `ConsoleTelegramProvider` dev fallback, factory,
+  chat-id parser, HTML escaper. Treats `ok:false` 200s as hard failures.
+- `src/modules/notifications/telegram-dispatcher.ts` — one subscription per
+  event → shared `sendAlert()` fetches the order + fans a rich HTML summary
+  out to every configured chat. All errors swallowed/logged; never blocks the
+  sale path (outer guard + per-chat isolation).
+- `src/config/env.ts` — `TELEGRAM_BOT_TOKEN` + `ORDER_NOTIFY_TELEGRAM_CHAT_ID`
+  (both optional; dispatcher no-ops cleanly + logs a boot hint when unset).
+- `src/server.ts` — `startTelegramDispatcher()` next to the WhatsApp one.
+- `ORDER_LIFECYCLE.md` — Telegram column + subscriber note.
+
+**To go live (Magnus, ops):** @BotFather `/newbot` → copy token; message the
+bot once + tap Start; get chat id (@userinfobot or `getUpdates`); set
+`TELEGRAM_BOT_TOKEN` + `ORDER_NOTIFY_TELEGRAM_CHAT_ID` in Railway; redeploy.
+Until then the provider is in console mode and prod stays silent — safe merge.
+
+`npm run typecheck` ✅ clean.
 
 ## 🚨 Payment reconciliation cron — paid-but-stuck orders (2026-05-16)
 
@@ -245,6 +469,48 @@ watchdog keeps catching the next env drift without code changes.
   - `NEXT_PUBLIC_GTM_ID` (optional)
 - Redeploy after any change — `NEXT_PUBLIC_*` are baked at build
   time, not picked up at runtime.
+
+---
+
+## 🎁 [x] Afrizonemart Wrap — admin console + live demo (2026-06-10)
+
+Wrap aggregation infra shipped earlier (WrappedSnapshot schema +
+daily aggregation + admin recompute/preview endpoints). What was
+missing: an admin surface to **see** what the wrap captures + a
+**live demo** with mock data so designers / stakeholders / ops can
+preview the deck without seeding a real user with 3+ qualifying
+orders.
+
+**Files (api):**
+- `src/modules/wrap/mock.ts` — pure persona → `WrappedStatsV1`
+  synth. Four archetypes (Connector / Patriot / Explorer / Curator).
+- `src/modules/wrap/admin.controller.ts` — added
+  `adminMockPreviewWrapHandler` + `adminWrapStatsHandler`.
+- `src/modules/wrap/admin.routes.ts` — mounted
+  `POST /api/admin/wrap/mock-preview` and `GET /api/admin/wrap/stats`.
+
+**Files (v2):**
+- `src/lib/api/wrap.ts` — client mirror of `WrappedStatsV1` +
+  three fetchers (stats, preview, mock-preview).
+- `src/components/admin/wrap/WrapDeck.tsx` — shared 9-card 9:16
+  deck visualisation. Used by both index preview and demo page.
+- `src/app/(admin)/admin/wrap/page.tsx` — index: snapshot counts
+  by year, 9-card data dictionary, user lookup → live preview.
+- `src/app/(admin)/admin/wrap/demo/page.tsx` — interactive demo
+  with persona buttons + tweak knobs (home country, total orders,
+  name) + auto-recompute on change.
+- `src/components/admin/AdminSidebar.tsx` — added "Afrizonemart
+  Wrap" link gated on `content.write` capability.
+
+**Not in scope this PR** (still WRAP_TRACKER §10 PR 4-6):
+- Customer-facing `/wrapped/[year]` route
+- Mobile WrapScreen
+- Satori share-image pipeline
+- Dec 1 drop campaign
+
+The deck visual here is the **data-shape preview**, not the
+production pixel-polish design. Card backgrounds + typography +
+animation get the proper pass when PR 4 lands.
 
 ---
 

@@ -10,7 +10,10 @@ import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 import { CurrencySwitcher } from '@/components/common/CurrencySwitcher';
 import { CategoriesDropdown } from '@/components/layout/CategoriesDropdown';
 import { MobileMenu } from '@/components/layout/MobileMenu';
+import { SearchBar } from '@/components/layout/SearchBar';
 import { SafeBoundary } from '@/components/common/SafeBoundary';
+import { WrapHeaderPill } from '@/components/wrap/WrapHeaderPill';
+import { useFlag } from '@/lib/useFlag';
 
 // Static nav items rendered AFTER the All Categories dropdown
 // (desktop only — mobile shows everything in the drawer instead).
@@ -23,8 +26,17 @@ const navItems = [
   { label: 'Become A Supplier', href: '/suppliers' },
 ];
 
+const CIVIC_LIBRARY_ITEM = { label: 'Civic Library', href: '/library' };
+
 export function Header() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Civic Library launches dark — only shows once the pilot document
+  // batch is sourced and reviewed. Registry entry:
+  // afrizonemart-api/src/modules/feature-flags/registry.ts.
+  const civicLibraryOn = useFlag('civic_library_enabled', false);
+  const desktopNavItems = civicLibraryOn
+    ? [...navItems, CIVIC_LIBRARY_ITEM]
+    : navItems;
 
   return (
     <header className="w-full bg-white">
@@ -68,33 +80,12 @@ export function Header() {
 
         {/* MOBILE SEARCH ROW. Input is text-base (16px) — anything
             smaller triggers iOS Safari's zoom-on-focus behaviour. */}
-        <form
-          role="search"
-          action="/search"
-          method="GET"
-          className="flex items-stretch gap-0 px-3 pb-2.5 md:hidden"
+        <SafeBoundary
+          name="header:search-mobile"
+          fallback={<PlainSearchForm variant="mobile" />}
         >
-          <input
-            type="search"
-            name="q"
-            placeholder="Search products, brands & categories"
-            aria-label="Search products"
-            enterKeyHint="search"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            className="min-w-0 flex-1 rounded-l-input border border-r-0 border-border bg-white px-3 py-2.5 font-sans text-base text-charcoal placeholder:text-muted focus:outline-none"
-          />
-          <button
-            type="submit"
-            aria-label="Search"
-            className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-r-input bg-navy px-5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-navy/90 active:bg-navy/80"
-          >
-            <Search size={14} aria-hidden />
-            Search
-          </button>
-        </form>
+          <SearchBar variant="mobile" />
+        </SafeBoundary>
       </div>
 
       {/* DESKTOP TOP STRIP — logo + search + currency/lang + cart + user. */}
@@ -110,27 +101,12 @@ export function Header() {
           />
         </Link>
 
-        <form
-          role="search"
-          action="/search"
-          method="GET"
-          className="flex max-w-[720px] flex-1 items-stretch overflow-hidden rounded-input border border-border bg-white"
+        <SafeBoundary
+          name="header:search-desktop"
+          fallback={<PlainSearchForm variant="desktop" />}
         >
-          <input
-            type="search"
-            name="q"
-            placeholder="Search for products, brands & categories..."
-            aria-label="Search products"
-            className="min-w-0 flex-1 px-4 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="flex items-center gap-2 bg-navy px-5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-navy-dark md:px-7 md:text-sm"
-          >
-            <Search size={16} aria-hidden />
-            Search
-          </button>
-        </form>
+          <SearchBar variant="desktop" />
+        </SafeBoundary>
 
         <div className="flex items-center gap-2">
           <CurrencySwitcher />
@@ -144,7 +120,7 @@ export function Header() {
 
       {/* CATEGORY NAV STRIP — desktop only. Mobile uses the drawer. */}
       <nav className="hidden w-full bg-navy md:block">
-        <ul className="mx-auto flex max-w-site items-center divide-x divide-white/30 overflow-x-auto py-2.5 pl-20 pr-4">
+        <ul className="mx-auto flex max-w-site items-center divide-x divide-white/30 py-2.5 pl-20 pr-4">
           <li className="shrink-0">
             <SafeBoundary
               name="header:categories-dropdown"
@@ -160,7 +136,7 @@ export function Header() {
               <CategoriesDropdown />
             </SafeBoundary>
           </li>
-          {navItems.map((item) => (
+          {desktopNavItems.map((item) => (
             <li key={item.label} className="shrink-0">
               <Link
                 href={item.href}
@@ -170,6 +146,12 @@ export function Header() {
               </Link>
             </li>
           ))}
+          {/* Reveal entry — only renders once the wrap is live. */}
+          <li className="shrink-0 pl-4 md:pl-6">
+            <SafeBoundary name="header:wrap-pill" fallback={null}>
+              <WrapHeaderPill />
+            </SafeBoundary>
+          </li>
         </ul>
       </nav>
 
@@ -178,5 +160,66 @@ export function Header() {
         <MobileMenu open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       </SafeBoundary>
     </header>
+  );
+}
+
+/// SafeBoundary fallback for `SearchBar` — the plain, no-autocomplete
+/// `<form>` this replaced. Search is core navigation, not decorative,
+/// so an errored autocomplete component must still leave a working
+/// (GET-submit) search box rather than disappearing entirely.
+function PlainSearchForm({ variant }: { variant: 'mobile' | 'desktop' }) {
+  if (variant === 'mobile') {
+    return (
+      <form
+        role="search"
+        action="/search"
+        method="GET"
+        className="flex items-stretch gap-0 px-3 pb-2.5 md:hidden"
+      >
+        <input
+          type="search"
+          name="q"
+          placeholder="Search products, brands & categories"
+          aria-label="Search products"
+          enterKeyHint="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          className="min-w-0 flex-1 rounded-l-input border border-r-0 border-border bg-white px-3 py-2.5 font-sans text-base text-charcoal placeholder:text-muted focus:outline-none"
+        />
+        <button
+          type="submit"
+          aria-label="Search"
+          className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-r-input bg-navy px-5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-navy/90 active:bg-navy/80"
+        >
+          <Search size={14} aria-hidden />
+          Search
+        </button>
+      </form>
+    );
+  }
+  return (
+    <form
+      role="search"
+      action="/search"
+      method="GET"
+      className="flex max-w-[720px] flex-1 items-stretch overflow-hidden rounded-input border border-border bg-white"
+    >
+      <input
+        type="search"
+        name="q"
+        placeholder="Search for products, brands & categories..."
+        aria-label="Search products"
+        className="min-w-0 flex-1 px-4 py-2.5 font-sans text-sm text-charcoal placeholder:text-muted focus:outline-none"
+      />
+      <button
+        type="submit"
+        className="flex items-center gap-2 bg-navy px-5 font-raleway text-xs font-bold uppercase tracking-btn text-white transition-colors hover:bg-navy-dark md:px-7 md:text-sm"
+      >
+        <Search size={16} aria-hidden />
+        Search
+      </button>
+    </form>
   );
 }

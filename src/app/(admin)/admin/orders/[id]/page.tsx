@@ -35,6 +35,7 @@ const ALL_STATUSES: OrderStatus[] = [
   'PAID',
   'FULFILLING',
   'SHIPPED',
+  'OUT_FOR_DELIVERY',
   'DELIVERED',
   'CANCELLED',
   'REFUNDED',

@@ -40,6 +40,9 @@ export default function ProfilePage() {
   /// trigger on changes to either flag.
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [smsOptIn, setSmsOptIn] = useState(false);
+  /// Afrizonemart Wrap opt-out. Stored as the opt-OUT flag (matching
+  /// the API) but rendered as a positive "include me" toggle.
+  const [wrapOptOut, setWrapOptOut] = useState(false);
   /// 2026-05-16 Phase 2 — birth date drives the loyalty birthday
   /// bonus cron. Empty string = not set / clear.
   const [birthDate, setBirthDate] = useState('');
@@ -61,6 +64,7 @@ export default function ProfilePage() {
       setPhone(user.phone ?? '');
       setMarketingOptIn(user.marketingOptIn ?? false);
       setSmsOptIn(user.smsOptIn ?? false);
+      setWrapOptOut(user.wrapOptOut ?? false);
       setBirthDate(user.birthDate ?? '');
     }
   }, [user]);
@@ -78,6 +82,7 @@ export default function ProfilePage() {
     (user?.phone ?? '') !== phone ||
     (user?.marketingOptIn ?? false) !== marketingOptIn ||
     (user?.smsOptIn ?? false) !== smsOptIn ||
+    (user?.wrapOptOut ?? false) !== wrapOptOut ||
     (user?.birthDate ?? '') !== birthDate;
 
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,6 +142,7 @@ export default function ProfilePage() {
           ? { marketingOptIn }
           : {}),
         ...((user?.smsOptIn ?? false) !== smsOptIn ? { smsOptIn } : {}),
+        ...((user?.wrapOptOut ?? false) !== wrapOptOut ? { wrapOptOut } : {}),
         ...((user?.birthDate ?? '') !== birthDate
           ? { birthDate: birthDate ? birthDate : null }
           : {}),
@@ -363,6 +369,29 @@ export default function ProfilePage() {
             </Section>
 
             <Section
+              title="Afrizonemart Wrap"
+              caption="Your personalised year in review, released each December. It celebrates the makers and countries you supported — never your spend."
+            >
+              <label className="flex items-start gap-3 rounded-input border border-border bg-page p-3">
+                <input
+                  type="checkbox"
+                  checked={!wrapOptOut}
+                  onChange={(e) => setWrapOptOut(!e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-navy"
+                />
+                <span className="flex flex-col leading-snug">
+                  <span className="font-raleway text-sm font-bold text-navy">
+                    Include me in my yearly Wrap
+                  </span>
+                  <span className="font-sans text-xs text-muted">
+                    Turn this off to opt out — we won&apos;t generate or show
+                    your Afrizonemart Wrap.
+                  </span>
+                </span>
+              </label>
+            </Section>
+
+            <Section
               title="Region & Currency"
               caption="Personalises prices and delivery options across the site."
               comingSoon
@@ -409,6 +438,31 @@ export default function ProfilePage() {
               )}
             </div>
           </form>
+
+          {/* Danger zone — Play Store-mandatory in-app account
+              deletion. Sits at the bottom of the page so it can't
+              be tapped by accident while editing profile fields. */}
+          <section className="mt-8 flex flex-col gap-4 rounded-card border border-danger/30 bg-white p-5 shadow-card md:p-6">
+            <header>
+              <h2 className="font-raleway text-xs font-bold uppercase tracking-btn text-danger">
+                Danger zone
+              </h2>
+              <p className="mt-2 font-raleway text-lg font-bold text-navy md:text-xl">
+                Delete your account
+              </p>
+              <p className="mt-1 font-sans text-sm text-muted">
+                Permanently remove your name, contact details, addresses,
+                wishlist, cart, and loyalty balance. Past orders are
+                anonymised but kept for accounting.
+              </p>
+            </header>
+            <a
+              href="/account/delete"
+              className="self-start rounded-btn border border-danger px-5 py-2.5 font-raleway text-xs font-bold uppercase tracking-btn text-danger hover:bg-danger hover:text-white"
+            >
+              Delete my account
+            </a>
+          </section>
         </div>
       </div>
     </main>

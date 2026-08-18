@@ -1068,3 +1068,113 @@ Probably bundled with the "Real-time order tracking with map"
 courier integration above.
 
 Added: 2026-05-12
+
+---
+
+## WhatsApp admin order alerts — finalization (blocked on Meta)
+
+**Status:** Code complete and partially configured. **Blocked** on
+Meta Business Verification + WhatsApp display name approval. Started
+2026-06-04, paused 2026-06-05 because Meta returned
+*"This WABA is not allowed to create or update templates"* when
+Magnus tried to submit the `new_order_alert` template.
+
+**What's already wired (do NOT rebuild):**
+- `afrizonemart-api` PR #47 — `WhatsAppProvider` interface,
+  `MetaCloudWhatsAppProvider` (production), `ConsoleWhatsAppProvider`
+  (dev fallback). Dispatcher subscribed to `order.paid`. Sends a
+  template message with 4 positional params: `{{1}}=orderNumber,
+  {{2}}=total, {{3}}=customerName, {{4}}=adminUrl`. Per-recipient
+  isolated error handling. See [[whatsapp-admin-alerts-2026-06-04]]
+  memory.
+- Railway env on `api` service:
+  - ✅ `WHATSAPP_PHONE_NUMBER_ID=972030955995487` (set 2026-06-04)
+  - ✅ `ORDER_NOTIFY_WHATSAPP_TO=+2347036149590` (set 2026-06-04;
+    same number as the website's WhatsApp chat bubble — Magnus's
+    choice "use the same number you see on the site").
+  - ❌ `WHATSAPP_ACCESS_TOKEN` — pending. System User long-lived
+    token from Meta Business Manager. Walkthrough in chat 2026-06-04.
+  - ❌ `WHATSAPP_TEMPLATE_NAME=new_order_alert` — pending Meta
+    template approval.
+  - ✅ `WHATSAPP_TEMPLATE_LANG=en` — default in code, no env needed.
+
+**What's blocking (Magnus owns):**
+1. **Meta Business Verification.** `business.facebook.com` → Business
+   Settings → Security Center → Start Verification. Documents needed:
+   legal business name, CAC certificate (Nigeria) or equivalent.
+   Approval: 2-5 business days.
+2. **WhatsApp display name approval.** `business.facebook.com` →
+   WhatsApp Manager → phone number row → Display name column. If
+   not "Approved," click "Edit display name" and submit
+   "Afrizonemart" (or whatever the customer-facing brand is).
+   Approval: 1-3 business days.
+
+Until both clear, the WABA cannot create custom templates; the
+"This WABA is not allowed..." error persists. Once both are
+approved, the template can be submitted (typically auto-approved
+within a few hours since the body is plain transactional).
+
+**Template body to submit (exact, no tweaks):**
+
+```
+🛒 New Afrizonemart order!
+
+Order #{{1}} for {{2}}
+Customer: {{3}}
+
+View: {{4}}
+```
+
+- Category: **Utility** (not Marketing — Marketing is billed per
+  conversation; Utility is free under 1000 conv/month).
+- Name: `new_order_alert` (must match `WHATSAPP_TEMPLATE_NAME`
+  env when we set it).
+- Language: English.
+- Footer: `Afrizonemart Admin Alerts`.
+- Buttons: None.
+- Sample values for Meta's review:
+  - `{{1}}` = `AZ-001234`
+  - `{{2}}` = `₦12,500`
+  - `{{3}}` = `Joy Okafor`
+  - `{{4}}` = `https://afrizonemart.com/admin/orders/cmabc123`
+
+**Resume checklist when unblocked:**
+
+1. Confirm Business Verification = Approved + Display Name = Approved
+   in WhatsApp Manager.
+2. Submit the template body above as `new_order_alert`. Wait for
+   approval.
+3. Generate a permanent System User access token (Meta Business
+   Settings → Users → System users → Add → Admin role → Add Assets:
+   WhatsApp Account with Full Control → Generate New Token →
+   Never expire → tick `whatsapp_business_messaging`,
+   `whatsapp_business_management`, `business_management`). Copy
+   the `EAA…` token.
+4. Give the token to Claude, who runs (one-liner):
+   `railway variables --set "WHATSAPP_ACCESS_TOKEN=EAA…"
+   --set "WHATSAPP_TEMPLATE_NAME=new_order_alert"`
+   (no `--skip-deploys` this time — let it redeploy so all 5 vars
+   take effect).
+5. Test: admin marks any test order as PAID in `/admin/orders` →
+   WhatsApp on `+2347036149590` should buzz within seconds with the
+   templated alert.
+
+**Optional follow-ups once it's live:**
+- Add additional team WhatsApp numbers to
+  `ORDER_NOTIFY_WHATSAPP_TO` (comma-separated, E.164 each). The
+  dispatcher already iterates with isolated per-recipient error
+  handling.
+- Wire a similar template for `order.cancelled` and
+  `payment.failed` if the ops team wants those too. (Code change:
+  add subscribers in `whatsapp-dispatcher.ts`; submit 2 more
+  templates on Meta.)
+- Move from System User token to an app-level access token that
+  rotates automatically (Meta's recommended pattern for high-volume
+  apps). Not load-bearing for our admin-alert volume.
+
+**Trigger to promote:** Promote back into active work when Meta
+emails confirmation of Business Verification + Display Name
+approval. Realistic ETA from submission: 3-7 business days for
+both.
+
+Added: 2026-06-05

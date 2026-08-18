@@ -3,18 +3,27 @@ import type { RelatedProduct } from '@/lib/products';
 
 interface RelatedProductsProps {
   products: RelatedProduct[];
+  /// Small uppercase label above the heading. Defaults to the
+  /// original "You May Also Like" copy so existing callers (PDP,
+  /// cart) don't need changes.
+  kicker?: string;
+  heading?: string;
 }
 
-export function RelatedProducts({ products }: RelatedProductsProps) {
+export function RelatedProducts({
+  products,
+  kicker = 'More from Africa',
+  heading = 'You May Also Like',
+}: RelatedProductsProps) {
   return (
     <section className="bg-amber/15 py-12 md:py-16">
       <div className="mx-auto max-w-site px-4">
         <div className="mb-6 text-center md:mb-8">
           <p className="font-raleway text-xs font-semibold uppercase tracking-btn text-amber">
-            More from Africa
+            {kicker}
           </p>
           <h2 className="mt-1 font-raleway text-2xl font-bold text-navy md:text-3xl">
-            You May Also Like
+            {heading}
           </h2>
         </div>
 

@@ -52,6 +52,10 @@ export interface AdminProductInput {
   price: number;
   comparePrice?: number | null;
   origin?: string | null;
+  /// Countries this product can be sold/shipped to. Empty/omitted =
+  /// sellable everywhere. `origin` is always implicitly sellable there
+  /// even if not listed here.
+  sellableCountries?: string[];
   /// Phase 11 — shipping weight (kg). Drives the shipping quote.
   weightKg?: number | null;
   inStock: boolean;
@@ -365,6 +369,11 @@ export function adminDeleteCategory(id: string): Promise<void> {
 
 export interface AdminReview extends ApiReview {
   product?: { id: string; slug: string; name: string };
+  /// 2026-06-08 — soft-delete flag + audit string. Hidden reviews
+  /// are excluded from the public PDP list AND the product
+  /// rating aggregate.
+  hidden?: boolean;
+  hiddenReason?: string | null;
 }
 
 export interface AdminReviewListParams {
@@ -373,6 +382,7 @@ export interface AdminReviewListParams {
   productId?: string;
   rating?: number;
   verified?: boolean;
+  hidden?: boolean;
 }
 
 export interface AdminReviewList {
@@ -389,13 +399,21 @@ export function adminListReviews(
   if (params.productId) sp.set('productId', params.productId);
   if (params.rating) sp.set('rating', String(params.rating));
   if (params.verified !== undefined) sp.set('verified', String(params.verified));
+  if (params.hidden !== undefined) sp.set('hidden', String(params.hidden));
   const qs = sp.toString();
   return apiFetchAuthed<AdminReviewList>(`/api/admin/reviews${qs ? `?${qs}` : ''}`);
 }
 
 export function adminUpdateReview(
   id: string,
-  input: { verified?: boolean; title?: string | null; body?: string; rating?: number },
+  input: {
+    verified?: boolean;
+    title?: string | null;
+    body?: string;
+    rating?: number;
+    hidden?: boolean;
+    hiddenReason?: string | null;
+  },
 ): Promise<AdminReview> {
   return apiFetchAuthed<AdminReview>(`/api/admin/reviews/${id}`, {
     method: 'PATCH',
@@ -635,6 +653,10 @@ export interface StaffMember {
   name: string | null;
   role: StaffRole;
   jobTitle: string | null;
+  /// Structured department label (e.g. "Marketing"). Cosmetic + a
+  /// one-click capability-preset trigger in the staff editor — does
+  /// NOT itself grant access. Null when unset.
+  department: string | null;
   /// Per-user permissions (only meaningful when role=STAFF).
   permissions: string[];
   /// Effective capabilities the user has right now (role-default ∪ per-user
@@ -652,6 +674,9 @@ export interface PermissionsMatrix {
     description: string;
     capabilities: Capability[];
   }>;
+  /// Named department → starter capability bundle (e.g. "Marketing").
+  /// Drives the one-click preset in the staff editor / add dialog.
+  departments: Array<{ name: string; capabilities: Capability[] }>;
 }
 
 export function adminListStaff(): Promise<{ items: StaffMember[] }> {
@@ -666,9 +691,15 @@ export function adminCreateStaff(input: {
   email: string;
   name?: string;
   jobTitle?: string;
+  department?: string;
   role: StaffCreatableRole;
-  password: string;
+  /// Optional when promoting an existing customer (they already have a
+  /// login); required for a brand-new account.
+  password?: string;
   permissions?: Capability[];
+  /// Set true to promote an existing CUSTOMER in place (after the
+  /// CUSTOMER_EXISTS confirm). Keeps their account, orders + login.
+  promoteExisting?: boolean;
 }): Promise<StaffMember> {
   return apiFetchAuthed<StaffMember>('/api/admin/staff', {
     method: 'POST',
@@ -682,6 +713,7 @@ export function adminUpdateStaff(
     name?: string;
     role?: StaffCreatableRole;
     jobTitle?: string | null;
+    department?: string | null;
     permissions?: Capability[];
     password?: string;
   },
@@ -1701,6 +1733,89 @@ export function adminDeleteBlogPost(id: string): Promise<void> {
   return apiFetchAuthed(`/api/admin/blog/${id}`, { method: 'DELETE' });
 }
 
+// ----- Civic Library documents -----
+
+export type AdminDocumentType =
+  | 'CONSTITUTION'
+  | 'ACT'
+  | 'BILL'
+  | 'POLICY'
+  | 'REGULATION'
+  | 'TREATY'
+  | 'OTHER';
+
+export interface AdminLibraryDocument {
+  id: string;
+  slug: string;
+  title: string;
+  country: string;
+  docType: AdminDocumentType;
+  /// Label typed in when docType is OTHER — the dropdown didn't have a fit.
+  customDocType: string | null;
+  description: string | null;
+  issuingBody: string | null;
+  officialSourceUrl: string | null;
+  publishedDate: string | null;
+  coverImageUrl: string | null;
+  fileUrl: string;
+  fileSizeBytes: number | null;
+  status: 'DRAFT' | 'PUBLISHED';
+  downloadCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminLibraryDocumentList {
+  items: AdminLibraryDocument[];
+  pagination: { page: number; limit: number; total: number; pages: number };
+}
+
+export function adminListDocuments(params: {
+  page?: number;
+  limit?: number;
+  status?: 'DRAFT' | 'PUBLISHED' | 'ALL';
+  country?: string;
+  docType?: AdminDocumentType;
+  q?: string;
+}): Promise<AdminLibraryDocumentList> {
+  const sp = new URLSearchParams();
+  if (params.page) sp.set('page', String(params.page));
+  if (params.limit) sp.set('limit', String(params.limit));
+  if (params.status) sp.set('status', params.status);
+  if (params.country) sp.set('country', params.country);
+  if (params.docType) sp.set('docType', params.docType);
+  if (params.q) sp.set('q', params.q);
+  const qs = sp.toString();
+  return apiFetchAuthed(`/api/admin/documents${qs ? `?${qs}` : ''}`);
+}
+
+export function adminGetDocument(id: string): Promise<AdminLibraryDocument> {
+  return apiFetchAuthed(`/api/admin/documents/${id}`);
+}
+
+export function adminCreateDocument(
+  input: Partial<AdminLibraryDocument>,
+): Promise<AdminLibraryDocument> {
+  return apiFetchAuthed('/api/admin/documents', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminUpdateDocument(
+  id: string,
+  input: Partial<AdminLibraryDocument>,
+): Promise<AdminLibraryDocument> {
+  return apiFetchAuthed(`/api/admin/documents/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminDeleteDocument(id: string): Promise<void> {
+  return apiFetchAuthed(`/api/admin/documents/${id}`, { method: 'DELETE' });
+}
+
 // ----- Site content (text + image overrides) -----
 
 import type { SlotDef } from '@/lib/site-content/registry';
@@ -1745,6 +1860,12 @@ export interface InternProgressItem {
   /// payout right now. The /admin/intern-payouts dropdown wants this.
   unpaidApproved: number;
   rejected: number;
+  /// Full-product submission counts (separate from image submissions
+  /// above) — an intern submitting a whole new product, not just images
+  /// for one already assigned.
+  productPending: number;
+  productApproved: number;
+  productRejected: number;
 }
 
 export function adminGetInternProgress(): Promise<{ items: InternProgressItem[] }> {
@@ -1798,7 +1919,16 @@ export function adminBulkAssignInterns(input: {
   internIds: string[];
   scope?: 'all-unimaged' | 'all-unassigned';
   payRate?: number;
-}): Promise<{ assigned: number; perIntern: Record<string, number> }> {
+}): Promise<{
+  assigned: number;
+  perIntern: Record<string, number>;
+  /// Count of the just-assigned products that already had enough
+  /// approved images before this sweep. Only non-zero under
+  /// "all-unassigned" scope, which deliberately allows reassigning
+  /// already-imaged products (reshoots, brand-logo backfills) — a
+  /// large count here is worth a second look, not necessarily wrong.
+  alreadyImagedCount: number;
+}> {
   return apiFetchAuthed('/api/admin/intern/bulk-assign', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -1810,7 +1940,16 @@ export function adminReassignProducts(input: {
   fromInternId?: string;
   toInternIds: string[] | null;
   mode?: 'unstarted' | 'all';
-}): Promise<{ moved: number; perIntern: Record<string, number>; returnedToPool: number }> {
+}): Promise<{
+  moved: number;
+  perIntern: Record<string, number>;
+  returnedToPool: number;
+  /// See `adminBulkAssignInterns`'s `alreadyImagedCount` doc — same
+  /// signal here. Always 0 under the default `mode: 'unstarted'`
+  /// (which already excludes anything with a submission); only
+  /// meaningful when a caller explicitly passes `mode: 'all'`.
+  alreadyImagedCount: number;
+}> {
   return apiFetchAuthed('/api/admin/intern/reassign', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -2016,6 +2155,103 @@ export function adminReviewProductSubmission(
 
 export function adminGetInternPayRate(): Promise<{ rate: number }> {
   return apiFetchAuthed('/api/admin/intern/pay-rate');
+}
+
+// ----- Civic Library document intern submissions (2026-07-30) -----
+
+export type DocumentSubmissionStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+
+export interface DocumentSubmission {
+  id: string;
+  internId: string;
+  status: DocumentSubmissionStatus;
+  title: string;
+  slug: string;
+  country: string;
+  docType: AdminDocumentType;
+  customDocType: string | null;
+  description: string | null;
+  issuingBody: string | null;
+  officialSourceUrl: string | null;
+  publishedDate: string | null;
+  coverImageUrl: string | null;
+  fileUrl: string;
+  fileSizeBytes: number | null;
+  rejectionReason: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  createdDocumentId: string | null;
+  payRate: number;
+  payoutId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/// Reviewer list rows carry the intern relation.
+export interface DocumentSubmissionForReview extends DocumentSubmission {
+  intern: { id: string; name: string | null; email: string };
+}
+
+/// Input for create/edit. title + country + docType + fileUrl required.
+export interface DocumentSubmissionInput {
+  title: string;
+  slug?: string;
+  country: string;
+  docType: AdminDocumentType;
+  customDocType?: string | null;
+  description?: string | null;
+  issuingBody?: string | null;
+  officialSourceUrl?: string | null;
+  publishedDate?: string | null;
+  coverImageUrl?: string | null;
+  fileUrl: string;
+  fileSizeBytes?: number | null;
+}
+
+// Intern side (capability documents.submit)
+export function internListMyDocumentSubmissions(): Promise<{ items: DocumentSubmission[] }> {
+  return apiFetchAuthed('/api/intern/document-submissions');
+}
+
+export function internCreateDocumentSubmission(
+  body: DocumentSubmissionInput,
+): Promise<DocumentSubmission> {
+  return apiFetchAuthed('/api/intern/document-submissions', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function internUpdateDocumentSubmission(
+  id: string,
+  body: Partial<DocumentSubmissionInput>,
+): Promise<DocumentSubmission> {
+  return apiFetchAuthed(`/api/intern/document-submissions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+// Reviewer side (capability intern.review)
+export function adminListDocumentSubmissions(params: {
+  status?: DocumentSubmissionStatus;
+  internId?: string;
+} = {}): Promise<{ items: DocumentSubmissionForReview[] }> {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set('status', params.status);
+  if (params.internId) qs.set('internId', params.internId);
+  const s = qs.toString();
+  return apiFetchAuthed(`/api/admin/document-submissions${s ? `?${s}` : ''}`);
+}
+
+export function adminReviewDocumentSubmission(
+  id: string,
+  body: { action: 'approve' } | { action: 'reject'; reason: string },
+): Promise<DocumentSubmission> {
+  return apiFetchAuthed(`/api/admin/document-submissions/${id}/review`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 // ----- Intern payouts (Tracker #50, 2026-05-18) -----

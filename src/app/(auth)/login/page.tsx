@@ -10,6 +10,11 @@ import { PhoneSignInForm } from '@/components/auth/PhoneSignInForm';
 import { friendlyAuthError, loginUser, type AuthResult } from '@/lib/api/auth';
 import { useAuthStore } from '@/stores/authStore';
 import { safeReturnUrl } from '@/lib/safe-redirect';
+import {
+  TRACK,
+  identifyUser,
+  trackEvent,
+} from '@/components/providers/AnalyticsProvider';
 
 type Method = 'email' | 'phone';
 
@@ -50,6 +55,8 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const result = await loginUser({ email, password });
+      trackEvent(TRACK.LOGIN, { method: 'email' });
+      identifyUser(result.user.id);
       finishSignIn(result);
     } catch (err) {
       setError(friendlyAuthError(err, 'Sign-in failed. Please try again.'));

@@ -12,6 +12,7 @@ export type UploadFolder =
   | 'banners'
   | 'blog'
   | 'avatars'
+  | 'documents'
   | 'misc';
 
 export interface UploadedAsset {
@@ -81,6 +82,92 @@ export async function uploadImage(
     throw new UploadApiError(
       res.status,
       envelope?.error?.message ?? `Upload failed with status ${res.status}`,
+    );
+  }
+
+  return (await res.json()) as UploadedAsset;
+}
+
+/**
+ * Audio upload — POST /api/uploads/audio. Admin/staff only
+ * (uploads.write). Server sniffs magic bytes (mp3/wav/ogg/m4a/aac)
+ * and forces the `audio/` prefix. Used for the Wrap background-music
+ * track. Mirrors uploadImage's refresh-on-401 retry.
+ */
+export async function uploadAudio(
+  file: File,
+  retryOn401 = true,
+): Promise<UploadedAsset> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const fd = new FormData();
+  fd.append('file', file);
+
+  const res = await fetch(`${API_BASE}/api/uploads/audio`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    body: fd,
+  });
+
+  if (res.status === 401 && retryOn401) {
+    const newToken = await useAuthStore.getState().refresh();
+    if (newToken) return uploadAudio(file, false);
+  }
+
+  if (!res.ok) {
+    let envelope: UploadErrorEnvelope | undefined;
+    try {
+      envelope = (await res.json()) as UploadErrorEnvelope;
+    } catch {
+      /* not JSON */
+    }
+    throw new UploadApiError(
+      res.status,
+      envelope?.error?.message ?? `Audio upload failed with status ${res.status}`,
+    );
+  }
+
+  return (await res.json()) as UploadedAsset;
+}
+
+/**
+ * PDF upload — POST /api/uploads/document. Admin/staff or a
+ * `documents.submit` intern (implicit uploads.write grant). Server
+ * sniffs the `%PDF-` magic header and sets Content-Disposition so the
+ * eventual public download reliably force-saves. Used by the Civic
+ * Library admin form and intern submission form. Mirrors
+ * uploadAudio's refresh-on-401 retry.
+ */
+export async function uploadDocument(
+  file: File,
+  retryOn401 = true,
+): Promise<UploadedAsset> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const fd = new FormData();
+  fd.append('file', file);
+
+  const res = await fetch(`${API_BASE}/api/uploads/document`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    body: fd,
+  });
+
+  if (res.status === 401 && retryOn401) {
+    const newToken = await useAuthStore.getState().refresh();
+    if (newToken) return uploadDocument(file, false);
+  }
+
+  if (!res.ok) {
+    let envelope: UploadErrorEnvelope | undefined;
+    try {
+      envelope = (await res.json()) as UploadErrorEnvelope;
+    } catch {
+      /* not JSON */
+    }
+    throw new UploadApiError(
+      res.status,
+      envelope?.error?.message ?? `Document upload failed with status ${res.status}`,
     );
   }
 

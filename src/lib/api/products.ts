@@ -87,6 +87,7 @@ function toQueryString(params: ListProductsParams): string {
   if (params.minRating !== undefined) sp.set('minRating', String(params.minRating));
   if (params.placement) sp.set('placement', params.placement);
   if (params.country) sp.set('country', params.country);
+  if (params.shipsToMe) sp.set('shipsToMe', 'true');
   if (params.ids && params.ids.length > 0) sp.set('ids', params.ids.join(','));
   if (params.sort) sp.set('sort', params.sort);
   const qs = sp.toString();
