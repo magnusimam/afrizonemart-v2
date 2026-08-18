@@ -57,6 +57,8 @@ export default function AdminAuditReportPage({ params }: { params: { supplierId:
     summary: a.summary,
     recommendations: a.recommendations,
     auditorName: a.auditorName,
+    signedBy: a.signedBy,
+    approvedAt: a.approvedAt,
     metadata: a.metadata,
     sections: template?.sections ?? [],
     responses: a.responses,

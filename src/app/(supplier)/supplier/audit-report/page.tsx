@@ -39,6 +39,8 @@ export default function SupplierAuditReportPage() {
     counts: audit.counts,
     summary: audit.summary,
     recommendations: audit.recommendations,
+    signedBy: audit.signedBy,
+    approvedAt: audit.approvedAt,
     sections: audit.template?.sections ?? [],
     responses: audit.responses,
     capa: audit.capa,
