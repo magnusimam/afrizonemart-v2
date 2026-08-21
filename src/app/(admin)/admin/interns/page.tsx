@@ -123,11 +123,13 @@ export default function AdminInternsPage() {
           reassignTargets.size > 0 ? Array.from(reassignTargets) : null, // null = back to pool
         mode: 'unstarted',
       });
+      const warning =
+        r.alreadyImagedCount > 0 ? ` (skipped ${r.alreadyImagedCount} that already had images)` : '';
       const msg =
         reassignTargets.size === 0
-          ? `Returned ${r.returnedToPool} unstarted products to the pool`
-          : `Moved ${r.moved} products from ${reassignSource.name ?? reassignSource.email}`;
-      toast(msg);
+          ? `Returned ${r.returnedToPool} unstarted products to the pool${warning}`
+          : `Moved ${r.moved} products from ${reassignSource.name ?? reassignSource.email}${warning}`;
+      toast(msg, r.alreadyImagedCount > 0 ? 'info' : undefined);
       setReassignSource(null);
       setReassignTargets(new Set());
       await loadAll();

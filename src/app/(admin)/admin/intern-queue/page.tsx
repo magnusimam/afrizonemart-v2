@@ -355,7 +355,10 @@ function ProductCard({
             </p>
           </div>
         </div>
-        <StatusBadge status={item.status} />
+        <div className="flex items-center gap-2">
+          {item.status === 'todo' && <ExistingImageCount item={item} />}
+          <StatusBadge status={item.status} />
+        </div>
       </header>
 
       {item.status === 'rejected' && sub?.rejectionReason && (
@@ -462,6 +465,25 @@ function ProductCard({
         </div>
       )}
     </article>
+  );
+}
+
+/// Shown on To Do cards so an existing catalog thumbnail doesn't read
+/// as "this is already done" — spells out how many images the product
+/// has against its category's threshold (2026-08-21, Ife's queue
+/// confusion: cards with a thumbnail but no count context).
+function ExistingImageCount({ item }: { item: InternQueueItem }) {
+  const have = item.currentImages.length;
+  const need = item.category?.minImages ?? 3;
+  const met = have >= need;
+  return (
+    <span
+      className={`rounded-full px-3 py-1 font-raleway text-[10px] font-bold uppercase tracking-btn ${
+        met ? 'bg-success/15 text-success' : 'bg-amber/20 text-navy'
+      }`}
+    >
+      {have}/{need} images
+    </span>
   );
 }
 
