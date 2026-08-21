@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -11,6 +12,7 @@ import {
   PartyPopper,
   X,
 } from 'lucide-react';
+import { HttpApiError } from '@/lib/api/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type PIQFormConfig,
@@ -72,7 +74,11 @@ export function PIQFormEngine({
   const inRevision = Object.keys(feedbackMap).length > 0;
   const [answers, setAnswers] = useState<Answers>(initialAnswers);
   const [openGuidance, setOpenGuidance] = useState<Record<string, boolean>>({});
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  // 'error' exists because a failed autosave used to fall back to 'idle',
+  // which looks exactly like 'nothing to save yet'. A supplier kept typing
+  // into a form that had silently stopped persisting -- the failure mode a
+  // long questionnaire can least afford.
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [submitMsg, setSubmitMsg] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -144,7 +150,7 @@ export function PIQFormEngine({
           await onAutosave(latestAnswers.current, completionRef.current);
           setSaveState('saved');
         } catch {
-          setSaveState('idle');
+          setSaveState('error');
         }
       } else {
         setSaveState('saved');
@@ -248,8 +254,16 @@ export function PIQFormEngine({
         await onSubmit(answers, completion.pct);
         setSubmitMsg(message);
         setSaveState('saved');
-      } catch {
-        setSubmitMsg('Something went wrong submitting. Please try again.');
+      } catch (err) {
+        // Show what the API actually said. It discarded the error entirely and
+        // printed a generic failure, so a supplier whose PIQ had already gone
+        // through was told something went wrong and to try again -- alarming,
+        // and the one action that could not work.
+        setSubmitMsg(
+          err instanceof HttpApiError && err.message
+            ? err.message
+            : 'Something went wrong submitting. Please try again.',
+        );
         setSaveState('idle');
       } finally {
         setSubmitting(false);
@@ -295,6 +309,11 @@ export function PIQFormEngine({
                 <>
                   <Check size={13} aria-hidden className="text-success" /> Saved
                 </>
+              )}
+              {saveState === 'error' && (
+                <span className="flex items-center gap-1.5 font-semibold text-danger" role="status">
+                  <AlertTriangle size={13} aria-hidden /> Not saved
+                </span>
               )}
             </span>
           )}
