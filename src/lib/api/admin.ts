@@ -1940,14 +1940,18 @@ export function adminReassignProducts(input: {
   fromInternId?: string;
   toInternIds: string[] | null;
   mode?: 'unstarted' | 'all';
+  /// Products already clearing their category's image threshold are
+  /// dropped from the move by default (reassigning finished work just
+  /// dumps it back into someone's "to do" list). Pass true to move
+  /// them anyway — deliberate reshoots/brand-logo backfills.
+  includeAlreadyImaged?: boolean;
 }): Promise<{
   moved: number;
   perIntern: Record<string, number>;
   returnedToPool: number;
-  /// See `adminBulkAssignInterns`'s `alreadyImagedCount` doc — same
-  /// signal here. Always 0 under the default `mode: 'unstarted'`
-  /// (which already excludes anything with a submission); only
-  /// meaningful when a caller explicitly passes `mode: 'all'`.
+  /// Count of candidate products that already had enough images —
+  /// these are excluded from `moved` unless `includeAlreadyImaged`
+  /// was set. See `adminBulkAssignInterns`'s doc for the same signal.
   alreadyImagedCount: number;
 }> {
   return apiFetchAuthed('/api/admin/intern/reassign', {
@@ -1967,7 +1971,7 @@ export interface InternQueueItem {
   /// (PR Lesoda 2026-05-11). Quick-edit hits the audit log.
   price: number;
   comparePrice: number | null;
-  category: { slug: string; name: string } | null;
+  category: { slug: string; name: string; minImages: number } | null;
   currentImages: string[];
   status: 'todo' | 'pending' | 'approved' | 'rejected';
   latestSubmission: {
