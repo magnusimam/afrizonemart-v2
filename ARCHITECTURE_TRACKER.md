@@ -178,6 +178,43 @@ Railway after the API PR merges (manual step — no auto-migrate).
 
 ### 🔴 TOP PRIORITY — CTO operator tasks
 
+## 🖼️ [x] Intern reassign — already-imaged products no longer moved silently (2026-08-21)
+
+**Problem:** Ifeyinwa favour reported some products in her queue
+"already had images" but were still showing as needing image upload.
+Root cause traced via prod audit log: `reassign()` (used to move
+products between interns) never checked whether a product already
+cleared its category's `minImages` threshold — unlike
+`claimFromUnassignedPool`/`bulkAssign`, which both filter on this. A
+2026-08-17 reassign of "unstarted" work (Magnus, `mode: 'unstarted'`,
+Antigha Ephraim → Ifeyinwa favour) moved 13 products, 2 of which were
+already fully imaged with no submission on file — landing in her "To
+Do" list looking unfinished. Compounding UX issue: the To Do card
+showed an existing-image thumbnail with no count/threshold context, so
+any card with 1-2 pre-existing images looked "done" even when it
+legitimately needed more.
+
+**Fix:**
+- `afrizonemart-api` PR #91 (`fix/intern-reassign-image-filter`) —
+  `reassign()` now drops already-imaged products from the move by
+  default (same rule `claimFromUnassignedPool`/`bulkAssign` already
+  applied). New `includeAlreadyImaged` opt-in on `ReassignBody` for
+  deliberate reshoots/backfills. `getInternQueue` now also selects
+  `category.minImages`.
+- `afrizonemart-v2` PR #152 (`fix/intern-queue-image-count-badge`) —
+  To Do cards show an "N/M images" badge (green once satisfied)
+  instead of a bare thumbnail. Reassign toast in `/admin/interns` now
+  surfaces the skipped-already-imaged count, matching the existing
+  bulk-assign toast pattern.
+
+**Status:** both PRs open, not yet merged. `tsc --noEmit` clean on
+both repos (api full typecheck required an `npm install` — new
+`@anthropic-ai/sdk`/`puppeteer` deps from the supplier-portal work
+weren't installed locally yet). Ife's current queue was manually
+verified clean (0 todo items already past threshold as of 2026-08-21)
+— this was a one-time incident from the 8/17 reassign, but the
+underlying gap in `reassign()` was still live and would recur.
+
 ## 🖼️ [x] Intern image queue — per-category image threshold (2026-07-29)
 
 **Problem:** an intern uploaded a Rwanda products CSV, then went to
