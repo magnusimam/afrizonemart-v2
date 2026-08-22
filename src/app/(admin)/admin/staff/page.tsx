@@ -89,9 +89,9 @@ export default function AdminStaffPage() {
     },
     {
       key: 'joined',
-      header: 'Added',
+      header: 'Staff since',
       render: (s) => (
-        <span className="text-charcoal">{new Date(s.createdAt).toLocaleDateString()}</span>
+        <span className="text-charcoal">{new Date(s.staffSince).toLocaleDateString()}</span>
       ),
     },
     {

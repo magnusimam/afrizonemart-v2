@@ -665,6 +665,11 @@ export interface StaffMember {
   /// step on the client.
   effectivePermissions: string[];
   createdAt: string;
+  /// When this account actually became staff — distinct from
+  /// `createdAt`, which for anyone promoted from an existing customer
+  /// account is their original shopper signup date, not their real
+  /// start date. Use this for "Joined" labels, not createdAt.
+  staffSince: string;
 }
 
 export interface PermissionsMatrix {

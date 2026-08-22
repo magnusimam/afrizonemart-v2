@@ -286,7 +286,7 @@ export default function AdminStaffEditPage() {
 
       <AdminPageHeader
         title={staff.name || staff.email}
-        subtitle={`${staff.email} · Joined ${new Date(staff.createdAt).toLocaleDateString()}`}
+        subtitle={`${staff.email} · Staff since ${new Date(staff.staffSince).toLocaleDateString()}`}
       />
 
       {/* Identity */}
